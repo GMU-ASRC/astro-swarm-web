@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: '["${FRONTEND_ORIGIN}"]'
+      PORT: ${PORT:-5050}
+      CLIENT_DIR: /app/client
+    ports:
+      - "${PORT:-5050}:${PORT:-5050}"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  pgdata:
+  uploads:

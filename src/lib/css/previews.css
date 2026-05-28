@@ -1,0 +1,24 @@
+.lightbox-nav.prev {
+	left: -3.75rem;
+}
+
+.lightbox-nav.next {
+	right: -3.75rem;
+}
+
+@media (max-width: 768px) {
+	.lightbox-nav.prev,
+	.lightbox-nav.next {
+		top: auto;
+		bottom: -3.5rem;
+		transform: none;
+	}
+
+	.lightbox-nav.prev {
+		left: 0;
+	}
+
+	.lightbox-nav.next {
+		right: 0;
+	}
+}

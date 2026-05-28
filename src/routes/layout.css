@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+@import '../lib/css/fonts.css';
+
+@theme {
+	--font-game: 'Silkscreen', monospace;
+	--font-sim: 'Google Sans', 'Segoe UI', sans-serif;
+
+	--color-space-deep: #020409;
+	--color-accent-blue: #2459b8;
+	--color-accent-cyan: #38bdf8;
+	--color-star-white: #ffffff;
+	--color-text-primary: #e8f0fe;
+	--color-text-muted: #8ba3c9;
+	--color-btn-bg: #29263e;
+	--color-btn-border: #6b679e;
+	--color-btn-text: #d9dcf5;
+	--color-btn-hover-bg: #3a3759;
+	--color-btn-hover-border: #739dff;
+	--color-btn-press-bg: #4d73d9;
+	--color-btn-press-border: #2d4c9e;
+	--color-panel-bg: #21203e;
+	--color-page-bg: #211f32;
+}
+
+html,
+body {
+	background-color: var(--color-space-deep);
+	color: var(--color-text-primary);
+	scroll-behavior: smooth;
+}
+
+::selection {
+	background-color: var(--color-accent-blue);
+	color: white;
+}
+
+::-webkit-scrollbar {
+	width: 6px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--color-space-deep);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-accent-blue);
+	border-radius: 3px;
+}
