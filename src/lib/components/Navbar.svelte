@@ -27,8 +27,8 @@
 			{ href: '/', label: 'HOME', active: currentPath === '/' },
 			{ href: '/previews', label: 'PREVIEWS', active: currentPath === '/previews' },
 			{ href: '/downloads', label: 'DOWNLOADS', active: currentPath === '/downloads' },
-			{ href: '/simulator', label: 'SIMULATOR', active: currentPath.startsWith('/simulator') },
-			{ href: 'https://github.com/GMU-ASRC/astro-swarm', label: 'GITHUB', external: true },
+			{ href: '/leaderboard', label: 'LEADERBOARD', active: currentPath.startsWith('/leaderboard') },
+			{ href: '/simulator', label: 'SIMULATOR', active: currentPath.startsWith('/simulator') }
 		] as link}
 			<li>
 				<a
@@ -60,6 +60,6 @@
 	<li><a href="/" class:active={currentPath === '/'} onclick={closeMenu}>HOME</a></li>
 	<li><a href="/previews" class:active={currentPath === '/previews'} onclick={closeMenu}>PREVIEWS</a></li>
 	<li><a href="/downloads" class:active={currentPath === '/downloads'} onclick={closeMenu}>DOWNLOADS</a></li>
+	<li><a href="/leaderboard" class:active={currentPath.startsWith('/leaderboard')} onclick={closeMenu}>LEADERBOARD</a></li>
 	<li><a href="/simulator" class:active={currentPath.startsWith('/simulator')} onclick={closeMenu}>SIMULATOR</a></li>
-	<li><a href="https://github.com/GMU-ASRC/astro-swarm" target="_blank" rel="noreferrer" onclick={closeMenu}>GITHUB</a></li>
 </ul>

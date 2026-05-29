@@ -561,3 +561,77 @@ func _draw_plus(p: Vector2, arm: int, col: Color):
 		draw_rect(Rect2(p.x - d, p.y, PIXEL, PIXEL), col, true)
 		draw_rect(Rect2(p.x + d, p.y, PIXEL, PIXEL), col, true)
 ```
+# API Documentation
+
+## Leaderboard API
+
+### Get Leaderboard
+Retrieves the top 100 fastest times for the Timed Local game mode.
+*   **URL:** `/api/leaderboard`
+*   **Method:** `GET`
+*   **Response:** `200 OK`
+    ```json
+    [
+      {
+        "id": "uuid",
+        "username": "Player1",
+        "time_seconds": 25.5,
+        "algorithm": [],
+        "created_at": "2023-10-27T10:00:00Z"
+      }
+    ]
+    ```
+
+### Get Leaderboard Entry
+Retrieves a specific leaderboard entry by ID.
+*   **URL:** `/api/leaderboard/<id>`
+*   **Method:** `GET`
+*   **Response:** `200 OK`
+    ```json
+    {
+      "id": "uuid",
+      "username": "Player1",
+      "time_seconds": 25.5,
+      "algorithm": [
+        {
+          "condition": "sees_enemy",
+          "params": {},
+          "actions": [
+            {"id": "fire", "params": {}}
+          ]
+        }
+      ],
+      "created_at": "2023-10-27T10:00:00Z"
+    }
+    ```
+
+### Submit Time
+Submits a new time to the leaderboard. If the `player_id` already exists, their time is updated only if the new time is faster.
+*   **URL:** `/api/leaderboard`
+*   **Method:** `POST`
+*   **Headers:**
+    *   `X-API-Key`: `<API_SECRET_KEY>` (Default: `dev_secret_key`)
+*   **Body:**
+    ```json
+    {
+      "player_id": "550e8400-e29b-41d4-a716-446655440000",
+      "username": "Player1",
+      "time_seconds": 25.5,
+      "algorithm": [
+        {
+          "condition": "sees",
+          "params": {},
+          "actions": [
+            {"id": "face", "params": {}},
+            {"id": "fire", "params": {}}
+          ]
+        }
+      ]
+    }
+    ```
+*   **Constraints:**
+    *   `player_id`: string (exactly 36 characters, UUID)
+    *   `username`: string (1-30 characters)
+    *   `time_seconds`: float (between 2.0 and 90.0)
+    *   `algorithm`: list of objects (optional)
+*   **Response:** `201 Created` or `200 OK` (if updating existing player)

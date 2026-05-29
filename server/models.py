@@ -118,3 +118,26 @@ class SimRun(db.Model):
             "download_count": self.download_count,
             "created_at": self.created_at.isoformat(),
         }
+
+
+class LeaderboardEntry(db.Model):
+    __tablename__ = "leaderboard_entries"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.String(36), unique=True, nullable=False)
+    username = db.Column(db.String(30), nullable=False)
+    time_seconds = db.Column(db.Float, nullable=False)
+    algorithm = db.Column(db.JSON, default=list)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "time_seconds": self.time_seconds,
+            "algorithm": self.algorithm or [],
+            "created_at": self.created_at.isoformat(),
+        }

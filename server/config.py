@@ -11,3 +11,4 @@ class Config:
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024
     ALLOWED_EXTENSIONS = {".cfg", ".run"}
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+    API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "dev_secret_key")

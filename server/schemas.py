@@ -52,3 +52,18 @@ class PaginatedConfigs(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class LeaderboardSubmit(BaseModel):
+    player_id: str = Field(min_length=36, max_length=36)
+    username: str = Field(min_length=1, max_length=30)
+    time_seconds: float = Field(ge=2.0, le=90.0)
+    algorithm: list = Field(default_factory=list)
+
+class LeaderboardResponse(BaseModel):
+    id: str
+    username: str
+    time_seconds: float
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

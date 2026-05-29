@@ -7,6 +7,7 @@ from config import Config
 from database import db
 from routers.configs import configs_bp
 from routers.runs import runs_bp
+from routers.leaderboard import leaderboard_bp
 
 
 def create_app():
@@ -19,6 +20,7 @@ def create_app():
 
     app.register_blueprint(configs_bp)
     app.register_blueprint(runs_bp)
+    app.register_blueprint(leaderboard_bp)
 
     with app.app_context():
         db.create_all()
