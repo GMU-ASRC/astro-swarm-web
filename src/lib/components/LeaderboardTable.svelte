@@ -45,7 +45,7 @@
 								{entry.username.toUpperCase()}
 							</a>
 						</td>
-						<td class="leaderboard-td text-right text-accent-cyan">
+						<td class="leaderboard-td text-center text-accent-cyan">
 							{formatTime(entry.time_seconds)}
 						</td>
 					</tr>
