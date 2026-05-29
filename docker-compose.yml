@@ -27,6 +27,7 @@ services:
       CORS_ORIGINS: '["${FRONTEND_ORIGIN}"]'
       PORT: ${PORT:-5050}
       CLIENT_DIR: /app/client
+      API_SECRET_KEY: ${API_SECRET_KEY}
     ports:
       - "${PORT:-5050}:${PORT:-5050}"
     depends_on:
