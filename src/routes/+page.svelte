@@ -18,14 +18,16 @@
 
 	<div class="relative z-[2] flex flex-col sm:flex-row gap-4 items-center justify-center w-full max-w-xs sm:max-w-none">
 		<a
-			href="/simulator"
-			class="font-game text-[1rem] tracking-[0.06em] py-2.75 px-4.5 bg-btn-press-bg text-star-white border-2 border-btn-press-border no-underline inline-block w-full sm:w-auto text-center transition-[background,border-color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border active:bg-btn-press-bg"
+			href="https://github.com/GMU-ASRC/astro-swarm"
+			target="_blank"
+			rel="noreferrer"
+			class="font-game text-[1rem] tracking-[0.06em] py-2.75 px-4.5 bg-btn-bg text-btn-text border-2 border-btn-border no-underline inline-block w-full sm:w-auto text-center transition-[background,border-color,color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border hover:text-star-white active:bg-btn-press-bg active:border-btn-press-border"
 		>
-			SIMULATOR
+			GITHUB
 		</a>
 		<a
 			href="/downloads"
-			class="font-game text-[1rem] tracking-[0.06em] py-2.75 px-4.5 bg-btn-bg text-btn-text border-2 border-btn-border no-underline inline-block w-full sm:w-auto text-center transition-[background,border-color,color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border hover:text-star-white active:bg-btn-press-bg active:border-btn-press-border"
+			class="font-game text-[1rem] tracking-[0.06em] py-2.75 px-4.5 bg-btn-press-bg text-star-white border-2 border-btn-press-border no-underline inline-block w-full sm:w-auto text-center transition-[background,border-color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border active:bg-btn-press-bg"
 		>
 			DOWNLOADS
 		</a>

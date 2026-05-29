@@ -1,13 +1,18 @@
+import logging
 import os
+import time
 
-from flask import Flask, abort, jsonify, send_from_directory
+from flask import Flask, abort, g, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 from config import Config
 from database import db
 from routers.configs import configs_bp
-from routers.runs import runs_bp
 from routers.leaderboard import leaderboard_bp
+from routers.runs import runs_bp
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def create_app():
@@ -25,6 +30,18 @@ def create_app():
     with app.app_context():
         db.create_all()
         db.engine.dispose()
+
+    @app.before_request
+    def before_request():
+        g.start_time = time.time()
+
+    @app.after_request
+    def after_request(response):
+        if hasattr(g, "start_time"):
+            elapsed = time.time() - g.start_time
+            ms = round(elapsed * 1000, 2)
+            logger.info(f"{request.method} {request.path} {response.status_code} - {ms}ms")
+        return response
 
     client_dir = os.environ.get("CLIENT_DIR", "/app/client")
 
