@@ -1,637 +1,125 @@
 # AstroSwarm Web
 
-AstroSwarm is a visual swarm-behaviour simulator built in Godot 4. Design species with unique physical traits, program their behaviour with a block editor, place them in a resizable arena, record and replay full sessions, and export the results to H.264 video for sharing. AstroSwarm is a 2D pixel-art tower-defense game (in development) built in Godot 4. It also includes a full swarm-behaviour simulator sandbox: design species, program their behaviour with a drag-and-drop block editor, then record, replay, and export sessions to video. 
-
-
-# Objective
-This project to make the backend services for the Video game. 
-
-I want to focus on the frontend of website and we will work on the backend in dept after. I want to have a python backend that serves static html for the frontend. Create docker files to build the project. Create an example .env file for variables. The database should be in posgresSQL so add that to the docker compose. 
-
-The ONLY backend feature I want to implement is for the simulator. I to allow players to upload their configs and saves to the website to be easy shareable and viewable. 
-
-### Godot Simulation Manager
-
-```
-extends Node
-
-signal settings_changed
-signal selected_type_changed(type_id: String)
-signal behavior_changed(type_id: String)
-signal type_config_changed(type_id: String)
-signal species_list_changed
-signal tool_changed(tool_id: String)
-signal obstacles_changed
-
-var simulation_time: float = 0.0
-var has_started: bool = false
-var selected_type_id: String = "hunter"
-
-var is_recording: bool = false
-var recorded_frames: Array = []
-var record_timer: float = 0.0
-const RECORD_INTERVAL: float = 0.1
-var is_replaying: bool = false
-var current_replay: Array = []
-var replay_time: float = 0.0
-var is_exporting: bool = false
-
-const PX_PER_METER := 40.0
-
-const ROBOT_NAMES: Array = [
-	"Liam", "Olivia", "Noah", "Emma", "Oliver", "Charlotte", "James", "Amelia", "Elijah", "Ava",
-	"William", "Sophia", "Henry", "Isabella", "Lucas", "Mia", "Benjamin", "Evelyn", "Theodore", "Harper",
-	"Mateo", "Luna", "Levi", "Camila", "Sebastian", "Gianna", "Daniel", "Elizabeth", "Jack", "Eleanor",
-	"Michael", "Ella", "Alexander", "Abigail", "Owen", "Sofia", "Asher", "Avery", "Samuel", "Scarlett",
-	"Ethan", "Emily", "Leo", "Aria", "Jackson", "Penelope", "Mason", "Chloe", "Ezra", "Layla",
-	"John", "Mila", "Hudson", "Nora", "Luca", "Hazel", "Aiden", "Madison", "Joseph", "Ellie",
-	"David", "Lily", "Jacob", "Maya", "Logan", "Isla", "Luke", "Grace", "Julian", "Violet",
-	"Gabriel", "Aurora", "Grayson", "Riley", "Wyatt", "Zoey", "Matthew", "Willow", "Isaac", "Emilia",
-	"Elias", "Stella", "Anthony", "Zoe", "Carter", "Victoria", "Lincoln", "Hannah", "Dylan", "Lucy",
-	"Charles", "Everly", "Thomas", "Anna", "Josiah", "Caroline", "Caleb", "Sadie", "Christopher", "Genesis"
-]
-
-func get_random_name() -> String:
-	return ROBOT_NAMES[randi() % ROBOT_NAMES.size()]
-
-var robot_types: Array = [
-	{"id": "hunter", "name": "Hunter", "color": Color(0.141, 0.255, 0.722, 1.0)},
-	{"id": "scout",  "name": "Scout",  "color": Color(0.780, 0.275, 0.180, 1.0)},
-	{"id": "worker", "name": "Worker", "color": Color(0.180, 0.541, 0.322, 1.0)},
-]
-
-var _next_species_id: int = 1
-
-var behaviors: Dictionary = {}
-
-var type_configs: Dictionary = {}
-
-var compiled_rules: Dictionary = {}
-
-var placements: Array = []
-var obstacles: Array = []
-
-const TOOL_PLACE := "place_robot"
-const TOOL_MEASURE := "measure"
-const TOOL_WALL := "wall"
-const TOOL_OBSTACLE := "obstacle"
-
-var active_tool: String = TOOL_PLACE
-
-var settings: Dictionary = {
-	"speed":          3.75,
-	"turn_speed":     2.0,
-	"view_distance":  3.75,
-	"fov_degrees":    90.0,
-	"time_scale":     1.0,
-	"arena_width":    1280.0,
-	"arena_height":   720.0,
-	"controller_mode": false,
-	"multiplayer":    false,
-}
-
-const BLOCK_DEFS := {
-	"set_speed":     {"category": "config",    "label": "Set speed to",        "input": {"min": 0.5,  "max": 10.0, "default": 3.75, "step": 0.05, "suffix": " m/s"}},
-	"set_turn":      {"category": "config",    "label": "Set turn rate to",    "input": {"min": 0.2,  "max": 8.0,  "default": 2.0,  "step": 0.1,  "suffix": " rad/s"}},
-	"set_view":      {"category": "config",    "label": "Set vision range to", "input": {"min": 0.5,  "max": 12.5, "default": 3.75, "step": 0.1,  "suffix": " m"}},
-	"set_fov":       {"category": "config",    "label": "Set FOV to",          "input": {"min": 20.0, "max": 360.0,"default": 90.0, "step": 1.0,  "suffix": "°"}},
-
-	"when_always":          {"category": "condition", "label": "Always",               "input": null},
-	"when_sees":            {"category": "condition", "label": "When I see anyone",    "input": null},
-	"when_alone":           {"category": "condition", "label": "When I see nobody",    "input": null},
-	"when_near_wall":       {"category": "condition", "label": "When I touch a wall",  "input": null},
-	"when_sees_wall":       {"category": "condition", "label": "When I see a wall",    "input": null},
-	"when_sees_species":    {"category": "condition", "label": "When I see a",         "input": {"type": "species", "default": "hunter"}},
-	"when_no_sees_species": {"category": "condition", "label": "When I don't see a",   "input": {"type": "species", "default": "hunter"}},
-
-	"do_forward":    {"category": "action", "label": "Move forward",    "input": null},
-	"do_backward":   {"category": "action", "label": "Move backward",   "input": null},
-	"do_stop":       {"category": "action", "label": "Stop",            "input": null},
-	"do_wander":     {"category": "action", "label": "Wander randomly", "input": null},
-	"do_turn_left":  {"category": "action", "label": "Turn left at",    "input": {"min": 0.1, "max": 5.0, "default": 1.0, "step": 0.1, "suffix": " rad/s"}},
-	"do_turn_right": {"category": "action", "label": "Turn right at",   "input": {"min": 0.1, "max": 5.0, "default": 1.0, "step": 0.1, "suffix": " rad/s"}},
-	"do_turn_left_by":  {"category": "action", "label": "Turn left by",  "input": {"min": 1.0, "max": 360.0, "default": 180.0, "step": 1.0, "suffix": "°"}},
-	"do_turn_right_by": {"category": "action", "label": "Turn right by", "input": {"min": 1.0, "max": 360.0, "default": 180.0, "step": 1.0, "suffix": "°"}},
-	"do_face":       {"category": "action", "label": "Face the target",  "input": null},
-	"do_flee":       {"category": "action", "label": "Flee the target",  "input": null},
-	"do_throttle":   {"category": "action", "label": "Throttle to",     "input": {"min": 0.0, "max": 1.5, "default": 1.0, "step": 0.05, "suffix": "×"}},
-}
-
-const PALETTE_ORDER := {
-	"config":    ["set_speed", "set_turn", "set_view", "set_fov"],
-	"condition": ["when_always", "when_sees", "when_alone", "when_near_wall", "when_sees_wall", "when_sees_species", "when_no_sees_species"],
-	"action":    ["do_forward", "do_backward", "do_stop", "do_wander", "do_turn_left", "do_turn_right", "do_turn_left_by", "do_turn_right_by", "do_face", "do_flee", "do_throttle"],
-}
-
-func _ready():
-	process_mode = Node.PROCESS_MODE_ALWAYS
-	_install_defaults()
-	for t in robot_types:
-		compile(t.id)
-
-func _install_defaults():
-	behaviors["hunter"] = {"blocks": [
-		{"type": "set_speed", "params": {"value": 5.25}},
-		{"type": "set_turn",  "params": {"value": 3.0}},
-		{"type": "set_view",  "params": {"value": 5.5}},
-		{"type": "set_fov",   "params": {"value": 55.0}},
-		{"type": "when_sees", "params": {}},
-		{"type": "do_face",   "params": {}},
-		{"type": "when_always", "params": {}},
-		{"type": "do_forward", "params": {}},
-	]}
-	behaviors["scout"] = {"blocks": [
-		{"type": "set_speed", "params": {"value": 3.75}},
-		{"type": "set_turn",  "params": {"value": 2.0}},
-		{"type": "set_view",  "params": {"value": 4.5}},
-		{"type": "set_fov",   "params": {"value": 110.0}},
-		{"type": "when_always", "params": {}},
-		{"type": "do_wander",   "params": {}},
-		{"type": "do_forward",  "params": {}},
-	]}
-	behaviors["worker"] = {"blocks": [
-		{"type": "set_speed", "params": {"value": 2.4}},
-		{"type": "set_turn",  "params": {"value": 1.4}},
-		{"type": "set_view",  "params": {"value": 3.25}},
-		{"type": "set_fov",   "params": {"value": 180.0}},
-		{"type": "when_sees",   "params": {}},
-		{"type": "do_flee",     "params": {}},
-		{"type": "when_always", "params": {}},
-		{"type": "do_forward",  "params": {}},
-	]}
-
-func _process(delta: float):
-	if has_started and not get_tree().paused and not is_replaying:
-		simulation_time += delta * settings.time_scale
-
-func get_type(type_id: String) -> Dictionary:
-	for t in robot_types:
-		if t.id == type_id:
-			return t
-	if robot_types.size() > 0:
-		return robot_types[0]
-	return {"id": "", "name": "", "color": Color.WHITE}
-
-func get_type_config(type_id: String) -> Dictionary:
-	return type_configs.get(type_id, {
-		"speed": settings.speed * PX_PER_METER,
-		"turn_speed": settings.turn_speed,
-		"view_distance": settings.view_distance * PX_PER_METER,
-		"fov_degrees": settings.fov_degrees,
-	})
-
-func get_compiled_rules(type_id: String) -> Array:
-	return compiled_rules.get(type_id, [])
-
-func get_blocks(type_id: String) -> Array:
-	return behaviors.get(type_id, {}).get("blocks", [])
-
-func set_blocks(type_id: String, blocks: Array):
-	behaviors[type_id] = {"blocks": blocks.duplicate(true)}
-	compile(type_id)
-	behavior_changed.emit(type_id)
-	type_config_changed.emit(type_id)
-
-func compile(type_id: String):
-	var blocks: Array = behaviors.get(type_id, {}).get("blocks", [])
-	var cfg := {
-		"speed":          settings.speed * PX_PER_METER,
-		"turn_speed":     settings.turn_speed,
-		"view_distance":  settings.view_distance * PX_PER_METER,
-		"fov_degrees":    settings.fov_degrees,
-	}
-	var rules: Array = []
-	var current_rule = null
-	for b in blocks:
-		var t: String = b.get("type", "")
-		var p: Dictionary = b.get("params", {})
-		match t:
-			"set_speed":  cfg.speed         = float(p.get("value", settings.speed)) * PX_PER_METER
-			"set_turn":   cfg.turn_speed    = float(p.get("value", settings.turn_speed))
-			"set_view":   cfg.view_distance = float(p.get("value", settings.view_distance)) * PX_PER_METER
-			"set_fov":    cfg.fov_degrees   = float(p.get("value", settings.fov_degrees))
-			"when_always", "when_sees", "when_alone", "when_near_wall", "when_sees_wall", "when_sees_species", "when_no_sees_species":
-				current_rule = {"condition": t.substr(5), "condition_params": p.duplicate(), "actions": []}
-				rules.append(current_rule)
-			_:
-				if t.begins_with("do_"):
-					if current_rule == null:
-						current_rule = {"condition": "always", "condition_params": {}, "actions": []}
-						rules.append(current_rule)
-					current_rule.actions.append({"id": t.substr(3), "params": p.duplicate()})
-	type_configs[type_id] = cfg
-	compiled_rules[type_id] = rules
-
-func set_selected_type(type_id: String):
-	selected_type_id = type_id
-	selected_type_changed.emit(type_id)
-
-func set_active_tool(tool_id: String):
-	if active_tool == tool_id:
-		return
-	active_tool = tool_id
-	tool_changed.emit(tool_id)
-
-func add_obstacle(data: Dictionary):
-	obstacles.append(data)
-	obstacles_changed.emit()
-
-func clear_obstacles():
-	obstacles.clear()
-	obstacles_changed.emit()
-
-func update_setting(key: String, value):
-	settings[key] = value
-	for t in robot_types:
-		compile(t.id)
-	settings_changed.emit()
-
-func reset_time():
-	simulation_time = 0.0
-	has_started = false
-
-func add_placement(type_id: String, pos: Vector2, rot: float):
-	placements.append({"type_id": type_id, "position": pos, "rotation": rot})
-
-func clear_placements():
-	placements.clear()
-	reset_time()
-
-func clear_all_arena():
-	placements.clear()
-	obstacles.clear()
-	obstacles_changed.emit()
-	reset_time()
-
-
-func add_species(species_name: String, color: Color) -> String:
-	var id := "species_%d" % _next_species_id
-	_next_species_id += 1
-	robot_types.append({"id": id, "name": species_name, "color": color})
-	behaviors[id] = {"blocks": [
-		{"type": "set_speed", "params": {"value": 3.75}},
-		{"type": "set_view",  "params": {"value": 3.75}},
-		{"type": "when_always", "params": {}},
-		{"type": "do_wander",   "params": {}},
-		{"type": "do_forward",  "params": {}},
-	]}
-	compile(id)
-	species_list_changed.emit()
-	return id
-
-func remove_species(type_id: String):
-	if robot_types.size() <= 1:
-		return
-	robot_types = robot_types.filter(func(t): return t.id != type_id)
-	behaviors.erase(type_id)
-	type_configs.erase(type_id)
-	compiled_rules.erase(type_id)
-	placements = placements.filter(func(p): return p.type_id != type_id)
-	if selected_type_id == type_id:
-		selected_type_id = robot_types[0].id
-		selected_type_changed.emit(selected_type_id)
-	species_list_changed.emit()
-
-func set_species_color(type_id: String, color: Color):
-	for t in robot_types:
-		if t.id == type_id:
-			t.color = color
-			break
-	species_list_changed.emit()
-
-func set_species_name(type_id: String, new_name: String):
-	for t in robot_types:
-		if t.id == type_id:
-			t.name = new_name
-			break
-	species_list_changed.emit()
-
-func get_setup_data() -> Dictionary:
-	return {
-		"robot_types": robot_types,
-		"behaviors": behaviors,
-		"type_configs": type_configs,
-		"compiled_rules": compiled_rules,
-		"placements": placements,
-		"obstacles": obstacles,
-		"settings": settings,
-	}
-
-func save_setup(path: String):
-	var f = FileAccess.open(path, FileAccess.WRITE)
-	if f:
-		f.store_var(get_setup_data())
-
-func load_setup(path: String) -> bool:
-	var f = FileAccess.open(path, FileAccess.READ)
-	if f == null: return false
-	var data = f.get_var()
-	if typeof(data) == TYPE_DICTIONARY:
-		robot_types = data.get("robot_types", robot_types)
-		behaviors = data.get("behaviors", behaviors)
-		type_configs = data.get("type_configs", type_configs)
-		compiled_rules = data.get("compiled_rules", compiled_rules)
-		placements = data.get("placements", placements)
-		obstacles = data.get("obstacles", [])
-		settings = data.get("settings", settings)
-
-		species_list_changed.emit()
-		settings_changed.emit()
-		obstacles_changed.emit()
-		return true
-	return false
-
-func load_run(path: String) -> bool:
-	var f = FileAccess.open(path, FileAccess.READ)
-	if f == null: return false
-	var data = f.get_var()
-	if typeof(data) == TYPE_DICTIONARY and data.has("setup") and data.has("frames"):
-		var setup = data["setup"]
-		robot_types = setup.get("robot_types", robot_types)
-		behaviors = setup.get("behaviors", behaviors)
-		type_configs = setup.get("type_configs", type_configs)
-		compiled_rules = setup.get("compiled_rules", compiled_rules)
-		placements = setup.get("placements", placements)
-		obstacles = setup.get("obstacles", [])
-		settings = setup.get("settings", settings)
-
-		species_list_changed.emit()
-		settings_changed.emit()
-		obstacles_changed.emit()
-
-		current_replay = data["frames"]
-		is_replaying = true
-		replay_time = 0.0
-		is_exporting = false
-		return true
-	return false
-
-func export_run(path: String) -> bool:
-	if load_run(path):
-		is_exporting = true
-		return true
-	return false
-
-func start_recording():
-	is_recording = true
-	is_replaying = false
-	recorded_frames.clear()
-	record_timer = 0.0
-
-func _make_run_filename() -> String:
-	var dt: Dictionary = Time.get_datetime_dict_from_system()
-	var base: String = "Run_%04d-%02d-%02d_%02dh%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
-	var candidate: String = base + ".run"
-	var n: int = 2
-	while FileAccess.file_exists("user://runs/" + candidate):
-		candidate = "%s_(%d).run" % [base, n]
-		n += 1
-	return candidate
-
-func stop_recording_and_save():
-	if not is_recording: return
-	is_recording = false
-
-	if recorded_frames.is_empty(): return
-
-	DirAccess.make_dir_absolute("user://runs")
-	var filename: String = _make_run_filename()
-	var path: String = "user://runs/" + filename
-
-	var f = FileAccess.open(path, FileAccess.WRITE)
-	if f:
-		f.store_var({
-			"setup": get_setup_data(),
-			"frames": recorded_frames
-		})
-	print("Saved run to ", path)
-
-func _physics_process(delta: float):
-	if is_exporting: return
-	if not has_started or get_tree().paused: return
-
-	if is_replaying:
-		replay_time += delta * settings.get("time_scale", 1.0)
-		var idx = int(replay_time / RECORD_INTERVAL)
-		if idx < current_replay.size():
-			var frame = current_replay[idx]
-			var robots = get_tree().get_nodes_in_group("robots")
-			for i in range(min(frame.size(), robots.size())):
-				robots[i].global_position = frame[i]["pos"]
-				robots[i].rotation = frame[i]["rot"]
-		else:
-			get_tree().paused = true
-			has_started = false
-
-	elif is_recording:
-		record_timer += delta * settings.get("time_scale", 1.0)
-		if record_timer >= RECORD_INTERVAL:
-			record_timer -= RECORD_INTERVAL
-			var frame = []
-			for r in get_tree().get_nodes_in_group("robots"):
-				frame.append({
-					"pos": r.global_position,
-					"rot": r.rotation
-				})
-			recorded_frames.append(frame)
+![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![Bun](https://img.shields.io/badge/Bun-1.3.14-FBF0DF?logo=bun&logoColor=black)
+
+The companion website for AstroSwarm, a pixel-art swarm-behaviour simulator built in Godot 4. The site lets players share simulator configurations and recorded runs, view a community gallery, check the leaderboard, and download the game.
+
+---
+
+## Pages
+
+### Home
+Landing page with an animated starfield background, a game overview, and navigation to all other sections.
+
+### Simulator Gallery (`/simulator`)
+Browse community-uploaded simulator setups and recorded runs. Each card shows the species list with their colors, robot count, arena dimensions, and frame count. Configurations (`.cfg`) and runs (`.run`) are uploaded directly from Godot and parsed automatically by the backend.
+
+### Leaderboard (`/leaderboard`)
+Rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used. Entries link to a detail page with the full algorithm breakdown.
+
+### Downloads (`/downloads`)
+Links to the latest AstroSwarm game releases fetched live from the GitHub Releases API.
+
+### Previews (`/previews`)
+Internal preview page for component and layout development.
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend framework | SvelteKit 2 + Svelte 5 (runes mode) |
+| Styling | TailwindCSS 4 |
+| Frontend runtime | Static SPA (`adapter-static`, `200.html` fallback) |
+| Backend | Flask 3 + Gunicorn (4 workers, preload) |
+| Database | PostgreSQL 16 via SQLAlchemy + psycopg2 |
+| Package manager | Bun |
+| Containerization | Docker Compose (multi-stage build) |
+
+---
+
+## API
+
+### Simulator Configs
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/configs` | List configs (paginated) |
+| `POST` | `/api/configs` | Upload a `.cfg` file |
+| `GET` | `/api/configs/<id>` | Get a single config |
+| `GET` | `/api/configs/<id>/download` | Download the raw `.cfg` file |
+
+### Simulator Runs
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/runs` | List runs (paginated) |
+| `POST` | `/api/runs` | Upload a `.run` file |
+| `GET` | `/api/runs/<id>` | Get a single run |
+| `GET` | `/api/runs/<id>/download` | Download the raw `.run` file |
+
+### Leaderboard
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/leaderboard` | Top 100 entries |
+| `GET` | `/api/leaderboard/<id>` | Single entry with full algorithm |
+| `POST` | `/api/leaderboard` | Submit or update a time (`X-API-Key` required) |
+
+### Health
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Server health check |
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the values.
+
+| Variable | Description | Default |
+|---|---|---|
+| `DB_NAME` | PostgreSQL database name | `astroswarm` |
+| `DB_USER` | PostgreSQL user | `astroswarm` |
+| `DB_PASSWORD` | PostgreSQL password | `changeme` |
+| `PORT` | Port the server listens on | `5050` |
+| `FRONTEND_ORIGIN` | Allowed CORS origin | `http://localhost:5173` |
+| `API_SECRET_KEY` | Key required for leaderboard POST | `dev_secret_key` |
+| `PUBLIC_API_URL` | API base URL used by the frontend | `http://localhost:5050` |
+
+In Docker the frontend is served by Flask on the same origin, so `PUBLIC_API_URL` is set to an empty string and all API requests are same-origin relative paths.
+
+---
+
+## Running with Docker
+
+```bash
+cp .env.example .env
+docker compose up -d --build
 ```
 
-## Developlement and Code Rules
-You must follow these rules at all times. 
-1. Do not write code comments in the code. 
-2. Do not run commands. I will test everything manually
-3. Use easy to understand code (varibles should be easy to understand). 
-4. Keep the code organized. 
-5. Use Svelte 5 syntax 
-6. Use TailwindCSS
-7. Make sure to organize frontend code into components 
-8. instead of having all ts code in a svelte component create a ts file in the lib/ts folder 
-9. instead of having all the css code in a svelte component create a css file in the lib/css folder
+The server is available at `http://localhost:5050`.
 
+## Running Locally
 
-# Themeing
-The game is pixel art and astro themed. SO i want you to make the game to look astro themed. You can use threejs or Canvas API. 
+```bash
+# Frontend
+bun install
+bun run dev
 
-
-
-### Godot StarField Code 
-
-```gd
-extends Control
-
-const LAYERS := [
-	{ "count": 70, "scale": 0.20, "min_arm": 0, "max_arm": 1, "alpha": 0.45, "tw": 0.25 },
-	{ "count": 45, "scale": 0.50, "min_arm": 1, "max_arm": 1, "alpha": 0.70, "tw": 0.45 },
-	{ "count": 24, "scale": 1.00, "min_arm": 1, "max_arm": 2, "alpha": 1.00, "tw": 0.75 },
-]
-
-const STAR_COLORS := [
-	Color(1.0, 1.0, 1.0, 1.0),
-	Color(0.55, 0.85, 1.0, 1.0),
-	Color(0.45, 0.60, 1.0, 1.0),
-	Color(1.0, 0.85, 0.55, 1.0),
-	Color(1.0, 0.60, 0.85, 1.0),
-	Color(0.78, 0.60, 1.0, 1.0),
-	Color(0.60, 1.0, 0.70, 1.0),
-	Color(1.0, 0.55, 0.45, 1.0),
-]
-
-var STAR_SEED := randi_range(0, 9999999)
-const PIXEL := 2.0
-const MAX_SHIFT := 28.0
-const EASE := 9.0
-
-var _layers: Array = []
-var _time: float = 0.0
-var _mouse_norm: Vector2 = Vector2.ZERO
-var _mouse_target: Vector2 = Vector2.ZERO
-
-func _ready():
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	resized.connect(_regenerate)
-	_regenerate()
-
-func _regenerate():
-	_layers.clear()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = STAR_SEED
-	var area: Vector2 = size
-	if area.x < 1.0 or area.y < 1.0:
-		area = get_viewport_rect().size
-	for cfg in LAYERS:
-		var stars: Array = []
-		var n: int = int(cfg["count"])
-		for i in n:
-			stars.append({
-				"x": rng.randf() * area.x,
-				"y": rng.randf() * area.y,
-				"arm": rng.randi_range(int(cfg["min_arm"]), int(cfg["max_arm"])),
-				"phase": rng.randf() * TAU,
-				"tw": rng.randf_range(0.6, 1.6),
-				"col": _pick_color(rng),
-			})
-		_layers.append({ "cfg": cfg, "stars": stars })
-	queue_redraw()
-
-func _pick_color(rng: RandomNumberGenerator) -> Color:
-	if rng.randf() < 0.35:
-		return STAR_COLORS[0]
-	return STAR_COLORS[rng.randi_range(1, STAR_COLORS.size() - 1)]
-
-func _process(delta: float):
-	_time += delta
-	var area: Vector2 = size
-	if area.x > 1.0 and area.y > 1.0:
-		var m: Vector2 = get_local_mouse_position()
-		var n: Vector2 = (m - area * 0.5) / (area * 0.5)
-		_mouse_target = n.clamp(Vector2(-1.0, -1.0), Vector2(1.0, 1.0))
-	_mouse_norm = _mouse_norm.lerp(_mouse_target, clampf(delta * EASE, 0.0, 1.0))
-	queue_redraw()
-
-func _draw():
-	var area: Vector2 = size
-	if area.x < 1.0 or area.y < 1.0:
-		return
-	for layer in _layers:
-		var cfg: Dictionary = layer["cfg"]
-		var scale_amt: float = float(cfg["scale"])
-		var base_alpha: float = float(cfg["alpha"])
-		var tw_amt: float = float(cfg["tw"])
-		var off: Vector2 = -_mouse_norm * MAX_SHIFT * scale_amt
-		for star in layer["stars"]:
-			var px: float = snappedf(fposmod(float(star["x"]) + off.x, area.x), PIXEL)
-			var py: float = snappedf(fposmod(float(star["y"]) + off.y, area.y), PIXEL)
-			var pulse: float = 0.5 + 0.5 * sin(_time * float(star["tw"]) * 2.0 + float(star["phase"]))
-			var twinkle: float = 1.0 - tw_amt + tw_amt * pulse
-			var col: Color = star["col"]
-			col.a = base_alpha * twinkle
-			var arm: int = int(round(float(star["arm"]) * (0.4 + 0.6 * pulse)))
-			if arm <= 0:
-				draw_rect(Rect2(px, py, PIXEL, PIXEL), col, true)
-			else:
-				_draw_plus(Vector2(px, py), arm, col)
-
-func _draw_plus(p: Vector2, arm: int, col: Color):
-	draw_rect(Rect2(p.x, p.y, PIXEL, PIXEL), col, true)
-	for i in range(1, arm + 1):
-		var d: float = float(i) * PIXEL
-		draw_rect(Rect2(p.x, p.y - d, PIXEL, PIXEL), col, true)
-		draw_rect(Rect2(p.x, p.y + d, PIXEL, PIXEL), col, true)
-		draw_rect(Rect2(p.x - d, p.y, PIXEL, PIXEL), col, true)
-		draw_rect(Rect2(p.x + d, p.y, PIXEL, PIXEL), col, true)
+# Backend (in server/)
+python3 -m venv venv
+source ./venv/bin/activate
+pip install -r requirements.txt
+flask --app main run --port 5050
 ```
-# API Documentation
 
-## Leaderboard API
-
-### Get Leaderboard
-Retrieves the top 100 fastest times for the Timed Local game mode.
-*   **URL:** `/api/leaderboard`
-*   **Method:** `GET`
-*   **Response:** `200 OK`
-    ```json
-    [
-      {
-        "id": "uuid",
-        "username": "Player1",
-        "time_seconds": 25.5,
-        "algorithm": [],
-        "created_at": "2023-10-27T10:00:00Z"
-      }
-    ]
-    ```
-
-### Get Leaderboard Entry
-Retrieves a specific leaderboard entry by ID.
-*   **URL:** `/api/leaderboard/<id>`
-*   **Method:** `GET`
-*   **Response:** `200 OK`
-    ```json
-    {
-      "id": "uuid",
-      "username": "Player1",
-      "time_seconds": 25.5,
-      "algorithm": [
-        {
-          "condition": "sees_enemy",
-          "params": {},
-          "actions": [
-            {"id": "fire", "params": {}}
-          ]
-        }
-      ],
-      "created_at": "2023-10-27T10:00:00Z"
-    }
-    ```
-
-### Submit Time
-Submits a new time to the leaderboard. If the `player_id` already exists, their time is updated only if the new time is faster.
-*   **URL:** `/api/leaderboard`
-*   **Method:** `POST`
-*   **Headers:**
-    *   `X-API-Key`: `<API_SECRET_KEY>` (Default: `dev_secret_key`)
-*   **Body:**
-    ```json
-    {
-      "player_id": "550e8400-e29b-41d4-a716-446655440000",
-      "username": "Player1",
-      "time_seconds": 25.5,
-      "algorithm": [
-        {
-          "condition": "sees",
-          "params": {},
-          "actions": [
-            {"id": "face", "params": {}},
-            {"id": "fire", "params": {}}
-          ]
-        }
-      ]
-    }
-    ```
-*   **Constraints:**
-    *   `player_id`: string (exactly 36 characters, UUID)
-    *   `username`: string (1-30 characters)
-    *   `time_seconds`: float (between 2.0 and 90.0)
-    *   `algorithm`: list of objects (optional)
-*   **Response:** `201 Created` or `200 OK` (if updating existing player)
+---
