@@ -4,26 +4,17 @@ export interface SimSpecies {
 	color: string;
 }
 
-export interface SimConfigItem {
-	id: string;
-	title: string;
-	description: string;
-	author: string;
-	file_type: string;
-	species: SimSpecies[];
-	robot_count: number;
-	download_count: number;
-	created_at: string;
-}
 
 export interface SimRunItem {
 	id: string;
 	title: string;
 	description: string;
 	author: string;
+	thumbnail_filename: string | null;
 	file_size: number;
 	species: SimSpecies[];
 	robot_count: number;
+	frame_count: number;
 	duration_seconds: number;
 	download_count: number;
 	created_at: string;

@@ -1,69 +1,38 @@
 from datetime import datetime
+from dataclasses import dataclass, field
 
-from pydantic import BaseModel, Field
-
-
-class SpeciesInfo(BaseModel):
+@dataclass
+class SpeciesInfo:
     id: str
     name: str
     color: str
 
-
-class SimConfigCreate(BaseModel):
-    title: str = Field(max_length=80)
-    description: str = Field(default="", max_length=400)
-    author: str = Field(default="anonymous", max_length=60)
-
-
-class SimConfigResponse(BaseModel):
-    id: str
+@dataclass
+class SimConfigCreate:
     title: str
-    description: str
-    author: str
-    original_filename: str
-    file_type: str
-    file_size: int
-    species: list[SpeciesInfo]
-    robot_count: int
-    arena_width: float
-    arena_height: float
-    download_count: int
-    created_at: datetime
+    description: str = ""
+    author: str = "anonymous"
 
-    model_config = {"from_attributes": True}
+    def __post_init__(self):
+        if len(self.title) > 80:
+            raise ValueError("title too long")
+        if len(self.description) > 400:
+            raise ValueError("description too long")
+        if len(self.author) > 60:
+            raise ValueError("author too long")
 
-
-class SimConfigListItem(BaseModel):
-    id: str
-    title: str
-    description: str
-    author: str
-    file_type: str
-    species: list[SpeciesInfo]
-    robot_count: int
-    download_count: int
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class PaginatedConfigs(BaseModel):
-    items: list[SimConfigListItem]
-    total: int
-    page: int
-    page_size: int
-
-
-class LeaderboardSubmit(BaseModel):
-    player_id: str = Field(min_length=36, max_length=36)
-    username: str = Field(min_length=1, max_length=30)
-    time_seconds: float = Field(ge=2.0, le=90.0)
-    algorithm: list = Field(default_factory=list)
-
-class LeaderboardResponse(BaseModel):
-    id: str
+@dataclass
+class LeaderboardSubmit:
+    player_id: str
     username: str
     time_seconds: float
-    created_at: datetime
+    algorithm: list = field(default_factory=list)
 
-    model_config = {"from_attributes": True}
+    def __post_init__(self):
+        if not isinstance(self.player_id, str) or len(self.player_id) != 36:
+            raise ValueError("player_id must be exactly 36 characters")
+        if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
+            raise ValueError("username must be between 1 and 30 characters")
+        if not isinstance(self.time_seconds, (int, float)) or not (2.0 <= self.time_seconds <= 90.0):
+            raise ValueError("time_seconds must be between 2.0 and 90.0")
+        self.time_seconds = float(self.time_seconds)

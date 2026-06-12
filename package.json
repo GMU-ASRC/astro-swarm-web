@@ -12,7 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@iconify/svelte": "^4.0.2"
+		"@iconify/svelte": "^4.0.2",
+		"blockly": "^11.1.1"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.8",

@@ -1,5 +1,8 @@
 import os
+import subprocess
+import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request, send_file
@@ -36,10 +39,13 @@ def list_runs():
 
 @runs_bp.post("")
 def upload_run():
-    if "file" not in request.files:
-        return jsonify({"error": "No file provided."}), 400
+    if "run_file" not in request.files or "config_file" not in request.files or "video_file" not in request.files:
+        return jsonify({"error": "Missing run_file, config_file, or video_file."}), 400
 
-    file = request.files["file"]
+    run_file = request.files["run_file"]
+    config_file = request.files["config_file"]
+    video_file = request.files["video_file"]
+    
     title = request.form.get("title", "").strip()
     description = request.form.get("description", "").strip()
     author = request.form.get("author", "anonymous").strip() or "anonymous"
@@ -47,21 +53,52 @@ def upload_run():
     if not title:
         return jsonify({"error": "Title is required."}), 400
 
-    if not file.filename or Path(file.filename).suffix.lower() != ".run":
-        return jsonify({"error": "Only .run files are accepted."}), 400
+    if not run_file.filename or Path(run_file.filename).suffix.lower() != ".run":
+        return jsonify({"error": "run_file must be a .run file."}), 400
 
-    content = file.read()
-    if len(content) > current_app.config["MAX_UPLOAD_BYTES"]:
-        return jsonify({"error": "File exceeds maximum size of 10 MB."}), 413
+    run_content = run_file.read()
+    config_content = config_file.read()
+    video_content = video_file.read()
+    
+    total_size = len(run_content) + len(config_content) + len(video_content)
+    if total_size > current_app.config.get("MAX_UPLOAD_BYTES", 10 * 1024 * 1024):
+        return jsonify({"error": "Total file size exceeds maximum size limit."}), 413
 
-    stored_filename = f"{uuid.uuid4()}.run"
     upload_dir = current_app.config["UPLOAD_DIR"]
+    run_uuid = str(uuid.uuid4())
+    stored_filename = f"{run_uuid}.zip"
+    thumbnail_filename = f"{run_uuid}.jpg"
+    
     dest = run_upload_path(stored_filename, upload_dir)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(content)
+    
+    # Compress files into zip
+    with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(run_file.filename or "run.run", run_content)
+        zf.writestr(config_file.filename or "config.json", config_content)
+        zf.writestr(video_file.filename or "video.mp4", video_content)
+        
+    file_size = dest.stat().st_size
+    
+    # Save video separately for streaming
+    video_filename = f"{run_uuid}.mp4"
+    video_dest = run_upload_path(video_filename, upload_dir)
+    with open(video_dest, "wb") as f:
+        f.write(video_content)
+        
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(video_dest), "-vframes", "1", "-f", "image2", str(thumbnail_dest)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+    except Exception as e:
+        # Ignore thumbnail extraction failure if it happens
+        thumbnail_filename = None
 
     try:
-        metadata = extract_metadata(content)
+        metadata = extract_metadata(run_content)
     except Exception:
         metadata = {}
 
@@ -69,9 +106,11 @@ def upload_run():
         title=title[:80],
         description=description[:400],
         author=author[:60],
-        original_filename=file.filename,
+        original_filename=f"{title}.zip",
         stored_filename=stored_filename,
-        file_size=len(content),
+        thumbnail_filename=thumbnail_filename,
+        video_filename=video_filename,
+        file_size=file_size,
         species=metadata.get("species", []),
         robot_count=metadata.get("robot_count", 0),
         frame_count=metadata.get("frame_count", 0),
@@ -104,14 +143,90 @@ def download_run(run_id: str):
 
     return send_file(str(file_path), download_name=run.original_filename, as_attachment=True)
 
+@runs_bp.get("/<run_id>/thumbnail")
+def get_thumbnail(run_id: str):
+    run = SimRun.query.get_or_404(run_id, description="Run not found.")
+    if not run.thumbnail_filename:
+        return jsonify({"error": "No thumbnail available."}), 404
+        
+    file_path = run_upload_path(run.thumbnail_filename, current_app.config["UPLOAD_DIR"])
+    if not file_path.exists():
+        return jsonify({"error": "Thumbnail file not found on server."}), 404
+        
+    return send_file(str(file_path), mimetype="image/jpeg")
+
+
+@runs_bp.get("/<run_id>/video")
+def get_video(run_id: str):
+    run = SimRun.query.get_or_404(run_id, description="Run not found.")
+    
+    if run.video_filename:
+        file_path = run_upload_path(run.video_filename, current_app.config["UPLOAD_DIR"])
+        if file_path.exists():
+            return send_file(str(file_path), mimetype="video/mp4")
+            
+    # Fallback to extracting from zip for older runs without video_filename
+    zip_path = run_upload_path(run.stored_filename, current_app.config["UPLOAD_DIR"])
+    if not zip_path.exists():
+        return jsonify({"error": "Video file not found on server."}), 404
+        
+    # Extract to a temp file and serve
+    import tempfile
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        video_files = [f for f in zf.namelist() if f.endswith(".mp4") or f.endswith(".webm")]
+        if not video_files:
+            return jsonify({"error": "No video found in run archive."}), 404
+            
+        video_data = zf.read(video_files[0])
+        
+    fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
+    with os.fdopen(fd, "wb") as f:
+        f.write(video_data)
+        
+    return send_file(tmp_path, mimetype="video/mp4")
+
+
+@runs_bp.get("/<run_id>/config")
+def get_config(run_id: str):
+    run = SimRun.query.get_or_404(run_id, description="Run not found.")
+    
+    zip_path = run_upload_path(run.stored_filename, current_app.config["UPLOAD_DIR"])
+    if not zip_path.exists():
+        return jsonify({"error": "Run archive not found on server."}), 404
+        
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            config_files = [f for f in zf.namelist() if f.endswith(".cfg") or f.endswith(".json")]
+            if not config_files:
+                return jsonify({"error": "No config file found in run archive."}), 404
+                
+            config_data = zf.read(config_files[0])
+            
+        import json
+        return jsonify(json.loads(config_data))
+    except Exception as e:
+        return jsonify({"error": f"Failed to parse config: {str(e)}"}), 500
+
 
 @runs_bp.delete("/<run_id>")
 def delete_run(run_id: str):
     run = SimRun.query.get_or_404(run_id, description="Run not found.")
 
-    file_path = run_upload_path(run.stored_filename, current_app.config["UPLOAD_DIR"])
+    upload_dir = current_app.config["UPLOAD_DIR"]
+    file_path = run_upload_path(run.stored_filename, upload_dir)
     if file_path.exists():
         os.remove(file_path)
+        
+        
+    if run.thumbnail_filename:
+        thumb_path = run_upload_path(run.thumbnail_filename, upload_dir)
+        if thumb_path.exists():
+            os.remove(thumb_path)
+            
+    if run.video_filename:
+        video_path = run_upload_path(run.video_filename, upload_dir)
+        if video_path.exists():
+            os.remove(video_path)
 
     db.session.delete(run)
     db.session.commit()

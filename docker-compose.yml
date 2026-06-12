@@ -35,6 +35,13 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
 volumes:
   pgdata:

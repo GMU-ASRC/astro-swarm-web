@@ -7,9 +7,9 @@ from flask_cors import CORS
 
 from config import Config
 from database import db
-from routers.configs import configs_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
+from routers.version import version_bp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -23,9 +23,9 @@ def create_app():
 
     db.init_app(app)
 
-    app.register_blueprint(configs_bp)
     app.register_blueprint(runs_bp)
     app.register_blueprint(leaderboard_bp)
+    app.register_blueprint(version_bp)
 
     with app.app_context():
         db.create_all()
@@ -38,9 +38,10 @@ def create_app():
     @app.after_request
     def after_request(response):
         if hasattr(g, "start_time"):
-            elapsed = time.time() - g.start_time
-            ms = round(elapsed * 1000, 2)
-            logger.info(f"{request.method} {request.path} {response.status_code} - {ms}ms")
+            if not request.path.startswith("/_app/"):
+                elapsed = time.time() - g.start_time
+                ms = round(elapsed * 1000, 2)
+                logger.info(f"{request.method} {request.path} {response.status_code} - {ms}ms")
         return response
 
     client_dir = os.environ.get("CLIENT_DIR", "/app/client")

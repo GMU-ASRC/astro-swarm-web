@@ -18,7 +18,7 @@ The companion website for AstroSwarm, a pixel-art swarm-behaviour simulator buil
 Landing page with an animated starfield background, a game overview, and navigation to all other sections.
 
 ### Simulator Gallery (`/simulator`)
-Browse community-uploaded simulator setups and recorded runs. Each card shows the species list with their colors, robot count, arena dimensions, and frame count. Configurations (`.cfg`) and runs (`.run`) are uploaded directly from Godot and parsed automatically by the backend.
+Browse community-uploaded recorded runs. Each card shows the species list with their colors, robot count, arena dimensions, and frame count. Clicking on a run opens a dedicated detail page featuring a streaming video player and run statistics. Runs (`.run`) are uploaded directly from Godot and parsed automatically by the backend.
 
 ### Leaderboard (`/leaderboard`)
 Rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used. Entries link to a detail page with the full algorithm breakdown.
@@ -47,23 +47,17 @@ Internal preview page for component and layout development.
 
 ## API
 
-### Simulator Configs
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/configs` | List configs (paginated) |
-| `POST` | `/api/configs` | Upload a `.cfg` file |
-| `GET` | `/api/configs/<id>` | Get a single config |
-| `GET` | `/api/configs/<id>/download` | Download the raw `.cfg` file |
 
 ### Simulator Runs
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/runs` | List runs (paginated) |
-| `POST` | `/api/runs` | Upload a `.run` file |
+| `POST` | `/api/runs` | Upload a `.run` file, `.cfg` config, and video (zipped on server) |
 | `GET` | `/api/runs/<id>` | Get a single run |
-| `GET` | `/api/runs/<id>/download` | Download the raw `.run` file |
+| `GET` | `/api/runs/<id>/download` | Download the zipped run files |
+| `GET` | `/api/runs/<id>/thumbnail` | Get the generated video thumbnail |
+| `GET` | `/api/runs/<id>/video` | Stream the raw video file |
 
 ### Leaderboard
 
@@ -78,6 +72,12 @@ Internal preview page for component and layout development.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Server health check |
+
+### Version
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/version` | Get the latest GitHub release info |
 
 ---
 
@@ -101,6 +101,8 @@ In Docker the frontend is served by Flask on the same origin, so `PUBLIC_API_URL
 
 ## Running with Docker
 
+The `server` container expects an NVIDIA GPU to be available to generate video thumbnails efficiently using `ffmpeg`. Ensure the host machine has the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed.
+
 ```bash
 cp .env.example .env
 docker compose up -d --build
@@ -109,6 +111,8 @@ docker compose up -d --build
 The server is available at `http://localhost:5050`.
 
 ## Running Locally
+
+**Prerequisites:** You must have `ffmpeg` installed on your system to generate video thumbnails when running locally.
 
 ```bash
 # Frontend

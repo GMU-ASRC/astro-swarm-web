@@ -69,6 +69,8 @@ class SimRun(db.Model):
 
     original_filename = db.Column(db.String(255), nullable=False)
     stored_filename = db.Column(db.String(255), nullable=False)
+    thumbnail_filename = db.Column(db.String(255), nullable=True)
+    video_filename = db.Column(db.String(255), nullable=True)
     file_size = db.Column(db.Integer, nullable=False)
 
     species = db.Column(db.JSON, default=list)
@@ -94,6 +96,8 @@ class SimRun(db.Model):
             "description": self.description,
             "author": self.author,
             "original_filename": self.original_filename,
+            "thumbnail_filename": self.thumbnail_filename,
+            "video_filename": self.video_filename,
             "file_size": self.file_size,
             "species": self.species or [],
             "robot_count": self.robot_count,
@@ -111,6 +115,8 @@ class SimRun(db.Model):
             "title": self.title,
             "description": self.description,
             "author": self.author,
+            "thumbnail_filename": self.thumbnail_filename,
+            "video_filename": self.video_filename,
             "file_size": self.file_size,
             "species": self.species or [],
             "robot_count": self.robot_count,
