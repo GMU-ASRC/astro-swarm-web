@@ -132,6 +132,7 @@ class PlayerEvaluation(db.Model):
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
     player_id = db.Column(db.String(36), nullable=False, index=True)
     username = db.Column(db.String(30), nullable=False)
+    level_id = db.Column(db.String(40), default="farp", index=True)
     algorithm = db.Column(db.JSON, default=list)
     placements = db.Column(db.JSON, default=list)
 
@@ -160,6 +161,7 @@ class PlayerEvaluation(db.Model):
             "id": self.id,
             "player_id": self.player_id,
             "username": self.username,
+            "level_id": self.level_id or "farp",
             "algorithm": self.algorithm or [],
             "placements": self.placements or [],
             "status": self.status,
@@ -176,6 +178,7 @@ class PlayerEvaluation(db.Model):
             "id": self.id,
             "player_id": self.player_id,
             "username": self.username,
+            "level_id": self.level_id or "farp",
             "status": self.status,
             "progress": self.progress or 0.0,
             "trials": self.trials,

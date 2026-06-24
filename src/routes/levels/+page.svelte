@@ -11,6 +11,8 @@
 	const levels = [{ id: 'farp', label: 'FARP', enabled: true }];
 	let selectedLevel = $state('farp');
 
+	let shown = $derived(data.players.filter((p) => (p.level_id ?? 'farp') === selectedLevel));
+
 	function statusColor(status: string): string {
 		if (status === 'done') return 'text-green-300 border-green-400/40 bg-green-400/10';
 		if (status === 'running' || status === 'queued') return 'text-sky-300 border-sky-400/40 bg-sky-400/10';
@@ -59,13 +61,13 @@
 			<div class="p-6 border-2 border-red-500/30 bg-red-500/10 text-red-200 font-game tracking-wider text-center">
 				COMMUNICATION ERROR. UNABLE TO LOAD LEVEL DATA.
 			</div>
-		{:else if data.players.length === 0}
+		{:else if shown.length === 0}
 			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted text-center">
 				No evaluations yet. Complete the FARP scenario in-game to appear here.
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-				{#each data.players as player}
+				{#each shown as player}
 					<a
 						href={`/levels/${player.id}`}
 						class="block p-5 border-2 border-sky-500/20 bg-sky-500/5 hover:border-sky-400/50 hover:bg-sky-500/10 transition-colors"

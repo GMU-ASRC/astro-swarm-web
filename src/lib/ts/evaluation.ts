@@ -19,6 +19,7 @@ export interface PlayerEvaluation {
 	id: string;
 	player_id: string;
 	username: string;
+	level_id: string;
 	algorithm: any[];
 	placements: PlacementInfo[];
 	status: string;
@@ -34,6 +35,7 @@ export interface PlayerListItem {
 	id: string;
 	player_id: string;
 	username: string;
+	level_id: string;
 	status: string;
 	progress: number;
 	trials: number;

@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import LineChart from '$lib/components/LineChart.svelte';
-	import BarChart from '$lib/components/BarChart.svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import { apiUrl } from '$lib/ts/api';
@@ -38,22 +36,10 @@
 		return c;
 	});
 
-	let total = $derived(Math.max(1, outcomes.length));
-
-	let barPoints = $derived([
-		{ n: 'Intercept', success_rate: (counts.win / total) * 100 },
-		{ n: 'Planet hit', success_rate: (counts.lose / total) * 100 },
-		{ n: 'Timeout', success_rate: (counts.timeout / total) * 100 }
-	] as any);
-
-	let cumulativeSeries = $derived.by(() => {
-		let wins = 0;
-		const points = outcomes.map((o, i) => {
-			if (o === 'win') wins++;
-			return { n: i + 1, success_rate: (wins / (i + 1)) * 100 };
-		});
-		return [{ label: ev.username, color: '#1f77b4', points }];
-	});
+	let chartBust = $derived(ev.completed_at ?? ev.status);
+	function chartUrl(kind: 'line' | 'bar'): string {
+		return apiUrl(`/api/evaluations/${ev.id}/chart/${kind}.png?v=${encodeURIComponent(chartBust)}`);
+	}
 
 	let selectedTrial: number | null = $state(null);
 	let selectedReplay: Replay | null = $state(null);
@@ -116,7 +102,7 @@
 			{ev.username}
 		</h1>
 		<p class="font-sim text-sm text-text-muted">
-			FARP · {ev.placements?.length ?? 0} defenders · {ev.trials} trials · evaluated {dateLabel}
+			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.placements?.length ?? 0} defenders · {ev.trials} trials · evaluated {dateLabel}
 		</p>
 	</div>
 
@@ -157,24 +143,20 @@
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<div
-					role="button"
-					tabindex="0"
+				<button
+					type="button"
 					onclick={() => (zoomed = 'line')}
-					onkeydown={(e) => e.key === 'Enter' && (zoomed = 'line')}
-					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
+					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
 				>
-					<LineChart series={cumulativeSeries} title="Cumulative Detection Rate" subtitle={dateLabel} xLabel="Trial" />
-				</div>
-				<div
-					role="button"
-					tabindex="0"
+					<img src={chartUrl('line')} alt="Cumulative detection rate" class="w-full" />
+				</button>
+				<button
+					type="button"
 					onclick={() => (zoomed = 'bar')}
-					onkeydown={(e) => e.key === 'Enter' && (zoomed = 'bar')}
-					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
+					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
 				>
-					<BarChart points={barPoints} title="Outcome Breakdown" xLabel="Outcome" yLabel="% of trials" />
-				</div>
+					<img src={chartUrl('bar')} alt="Outcome breakdown" class="w-full" />
+				</button>
 			</div>
 
 			<div class="mt-10">
@@ -225,11 +207,7 @@
 			role="presentation"
 			onclick={(e) => e.stopPropagation()}
 		>
-			{#if zoomed === 'line'}
-				<LineChart series={cumulativeSeries} title="Cumulative Detection Rate" subtitle={dateLabel} xLabel="Trial" height={560} maxWidth="1100px" />
-			{:else}
-				<BarChart points={barPoints} title="Outcome Breakdown" xLabel="Outcome" yLabel="% of trials" height={560} maxWidth="1100px" />
-			{/if}
+			<img src={chartUrl(zoomed)} alt="Chart" class="max-w-full" style="width: 1000px" />
 		</div>
 	</div>
 {/if}

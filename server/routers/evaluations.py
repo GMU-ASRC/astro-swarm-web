@@ -1,6 +1,7 @@
-from flask import Blueprint, current_app, jsonify, request
-from werkzeug.exceptions import BadRequest, Unauthorized
+from flask import Blueprint, Response, current_app, jsonify, request
+from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
+import charts
 from config import Config
 from database import db
 from evaluator import run_evaluation_async
@@ -35,6 +36,7 @@ def submit_evaluation():
     evaluation = PlayerEvaluation(
         player_id=parsed.player_id,
         username=parsed.username,
+        level_id=parsed.level_id,
         algorithm=parsed.algorithm,
         placements=parsed.placements,
         trials=parsed.trials,
@@ -78,6 +80,24 @@ def delete_evaluation(eval_id: str):
     db.session.delete(evaluation)
     db.session.commit()
     return "", 204
+
+
+@evaluations_bp.get("/<eval_id>/chart/<kind>.png")
+def chart(eval_id: str, kind: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise NotFound("Evaluation not found")
+    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    outcomes = results.get("outcomes", [])
+    date_label = (evaluation.completed_at or evaluation.created_at).date().isoformat()
+    args = (outcomes, evaluation.username, evaluation.level_id or "farp", evaluation.id, date_label)
+    if kind == "line":
+        png = charts.render_line_png(*args)
+    elif kind == "bar":
+        png = charts.render_bar_png(*args)
+    else:
+        raise NotFound("Unknown chart")
+    return Response(png, mimetype="image/png")
 
 
 @evaluations_bp.get("/<eval_id>/replays")

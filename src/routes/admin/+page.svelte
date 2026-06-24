@@ -33,7 +33,7 @@
 			evaluations = (await evRes.json()).map((e: any) => ({
 				id: e.id,
 				primary: e.username,
-				secondary: `${e.status} · ${e.success_rate ?? '—'}% · ${when(e.created_at)}`,
+				secondary: `${e.level_id ?? 'farp'} · ${e.status} · ${e.success_rate ?? '—'}% · ${when(e.created_at)}`,
 				deletePath: `/api/evaluations/${e.id}`
 			}));
 

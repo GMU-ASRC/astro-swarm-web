@@ -41,6 +41,7 @@ class LeaderboardSubmit:
 class EvaluationSubmit:
     player_id: str
     username: str
+    level_id: str = "farp"
     algorithm: list = field(default_factory=list)
     placements: list = field(default_factory=list)
     trials: int = 100
@@ -50,6 +51,8 @@ class EvaluationSubmit:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
             raise ValueError("username must be between 1 and 30 characters")
+        if not isinstance(self.level_id, str) or not (1 <= len(self.level_id) <= 40):
+            raise ValueError("level_id must be between 1 and 40 characters")
         if not isinstance(self.algorithm, list):
             raise ValueError("algorithm must be a list")
         if not isinstance(self.placements, list):
