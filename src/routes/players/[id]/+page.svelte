@@ -13,6 +13,11 @@
 	let { data }: { data: PageData } = $props();
 
 	let ev: PlayerEvaluation = $state(data.evaluation);
+	let zoomed: null | 'line' | 'bar' = $state(null);
+
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') zoomed = null;
+	}
 
 	let dateLabel = $derived((ev.completed_at ?? ev.created_at).slice(0, 10));
 	let pending = $derived(ev.status === 'queued' || ev.status === 'running');
@@ -89,13 +94,46 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+				<button
+					type="button"
+					onclick={() => (zoomed = 'line')}
+					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
+					aria-label="Zoom Capture Rate chart"
+				>
 					<LineChart series={lineSeries} title="Capture Rate" subtitle={dateLabel} />
-				</div>
-				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+				</button>
+				<button
+					type="button"
+					onclick={() => (zoomed = 'bar')}
+					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
+					aria-label="Zoom Success Rate chart"
+				>
 					<BarChart points={ev.results} title={`(${ev.username}) Success Rate vs. N`} />
-				</div>
+				</button>
 			</div>
 		{/if}
 	</div>
 </div>
+
+{#if zoomed}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out"
+		role="button"
+		tabindex="-1"
+		aria-label="Close zoomed chart"
+		onclick={() => (zoomed = null)}
+		onkeydown={onKey}
+	>
+		<div
+			class="bg-white rounded-md p-2 max-w-[95vw] max-h-[92vh] overflow-auto"
+			role="presentation"
+			onclick={(e) => e.stopPropagation()}
+		>
+			{#if zoomed === 'line'}
+				<LineChart series={lineSeries} title="Capture Rate" subtitle={dateLabel} height={560} maxWidth="1100px" />
+			{:else}
+				<BarChart points={ev.results} title={`(${ev.username}) Success Rate vs. N`} height={560} maxWidth="1100px" />
+			{/if}
+		</div>
+	</div>
+{/if}

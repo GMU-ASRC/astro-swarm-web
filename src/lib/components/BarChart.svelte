@@ -7,7 +7,8 @@
 		color = '#2a6fb0',
 		yLabel = 'Success Rate (%)',
 		xLabel = 'n',
-		height = 380
+		height = 380,
+		maxWidth = '640px'
 	}: {
 		points?: EvalPoint[];
 		title?: string;
@@ -15,6 +16,7 @@
 		yLabel?: string;
 		xLabel?: string;
 		height?: number;
+		maxWidth?: string;
 	} = $props();
 
 	const width = 580;
@@ -38,7 +40,7 @@
 </script>
 
 <figure class="w-full overflow-x-auto">
-	<svg viewBox="0 0 {width} {height}" class="w-full max-w-[640px]" role="img" aria-label={title}>
+	<svg viewBox="0 0 {width} {height}" class="w-full" style={`max-width:${maxWidth}`} role="img" aria-label={title}>
 		<rect x="0" y="0" {width} {height} fill="#ffffff" rx="6" />
 
 		{#if title}
