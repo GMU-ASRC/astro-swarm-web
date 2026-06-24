@@ -195,6 +195,8 @@ class PlayerEvaluation(db.Model):
         return {
             "fps": replays.get("fps", 12),
             "defenders": replays.get("defenders", 0),
+            "view": replays.get("view", 300),
+            "fov": replays.get("fov", 70),
             "planet": replays.get("planet"),
             "arena": replays.get("arena"),
             "runs": [
@@ -212,6 +214,8 @@ class PlayerEvaluation(db.Model):
                     "outcome": run.get("outcome"),
                     "fps": replays.get("fps", 12),
                     "defenders": replays.get("defenders", 0),
+                    "view": replays.get("view", 300),
+                    "fov": replays.get("fov", 70),
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
                     "frames": run.get("frames", []),

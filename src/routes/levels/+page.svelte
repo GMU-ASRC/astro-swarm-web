@@ -80,7 +80,7 @@
 							{#if player.status === 'running' || player.status === 'queued'}
 								Benchmarking · {Math.round((player.progress ?? 0) * 100)}%
 							{:else if player.success_rate !== null && player.success_rate !== undefined}
-								FARP · {player.success_rate}% capture rate · {player.trials} trials
+								FARP · {player.success_rate}% detection rate · {player.trials} trials
 							{:else}
 								FARP · {player.trials} trials
 							{/if}

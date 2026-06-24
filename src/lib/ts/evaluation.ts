@@ -65,6 +65,8 @@ export interface Replay {
 	outcome: string;
 	fps: number;
 	defenders: number;
+	view: number;
+	fov: number;
 	planet: [number, number, number];
 	arena: [number, number];
 	frames: number[][];

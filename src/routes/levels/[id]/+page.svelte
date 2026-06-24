@@ -112,7 +112,7 @@
 <div class="relative z-1 min-h-screen pt-20 font-sim">
 	<div class="max-w-275 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
 		<a href="/levels" class="text-sm text-sky-300 hover:text-sky-200">← All levels</a>
-		<h1 class="font-game text-[clamp(1.6rem,4vw,2.6rem)] font-bold text-star-white leading-tight mt-3 mb-2" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
+		<h1 class="font-sim text-[clamp(1.6rem,4vw,2.6rem)] font-bold text-star-white leading-tight mt-3 mb-2" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
 			{ev.username}
 		</h1>
 		<p class="font-sim text-sm text-text-muted">
@@ -135,7 +135,7 @@
 				<div class="h-3 w-full bg-sky-500/10 border border-sky-500/30 overflow-hidden">
 					<div class="h-full bg-sky-400 transition-all duration-500" style={`width: ${percent}%`}></div>
 				</div>
-				<p class="font-game text-xs text-sky-300 text-center mt-2 tracking-wider">{percent}%</p>
+				<p class="font-sim text-xs text-sky-300 text-center mt-2 tracking-wider">{percent}%</p>
 			</div>
 		{:else if outcomes.length === 0}
 			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted text-center">
@@ -144,10 +144,10 @@
 		{:else}
 			<div class="mb-8 flex flex-wrap gap-6 items-end">
 				<div>
-					<div class="font-game text-[clamp(2.2rem,6vw,3.6rem)] text-green-300 leading-none" style="text-shadow: 0 0 24px rgba(74,222,128,0.35)">
+					<div class="font-sim text-[clamp(2.2rem,6vw,3.6rem)] text-green-300 leading-none" style="text-shadow: 0 0 24px rgba(74,222,128,0.35)">
 						{successRate}%
 					</div>
-					<div class="text-xs text-text-muted mt-1 tracking-wider font-game">CAPTURE RATE</div>
+					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">DETECTION RATE</div>
 				</div>
 				<div class="flex gap-4 text-sm">
 					<span class="text-green-300">{counts.win} intercepts</span>
@@ -164,7 +164,7 @@
 					onkeydown={(e) => e.key === 'Enter' && (zoomed = 'line')}
 					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
 				>
-					<LineChart series={cumulativeSeries} title="Cumulative Capture Rate" subtitle={dateLabel} xLabel="Trial" />
+					<LineChart series={cumulativeSeries} title="Cumulative Detection Rate" subtitle={dateLabel} xLabel="Trial" />
 				</div>
 				<div
 					role="button"
@@ -178,22 +178,22 @@
 			</div>
 
 			<div class="mt-10">
-				<h2 class="font-game text-xl text-star-white mb-2">Runs ({outcomes.length})</h2>
+				<h2 class="font-sim text-xl text-star-white mb-2">Runs ({outcomes.length})</h2>
 				<p class="text-xs text-text-muted mb-4">Each cell is one trial — green intercepted, red reached the planet. Click a run to replay it.</p>
-				<div class="flex flex-wrap gap-1.5 mb-4" style="max-width: 560px">
+				<div class="flex flex-wrap gap-2 mb-4" style="max-width: 760px">
 					{#each outcomes as o, i}
 						<button
 							type="button"
 							title={`Trial ${i + 1}: ${o}`}
 							onclick={() => loadReplay(i)}
-							class="w-6 h-6 border transition-colors {cellColor(o)} {selectedTrial === i ? 'ring-2 ring-sky-300' : ''}"
+							class="w-11 h-11 px-1 border text-[11px] text-white/90 flex items-center justify-center transition-colors {cellColor(o)} {selectedTrial === i ? 'ring-2 ring-sky-300' : ''}"
 							aria-label={`Trial ${i + 1} ${o}`}
-						></button>
+						>{i + 1}</button>
 					{/each}
 				</div>
 				{#if selectedReplay}
 					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[680px]">
-						<div class="text-xs text-text-muted mb-2 font-game tracking-wider">
+						<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
 							TRIAL {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome.toUpperCase()}
 						</div>
 						<FarpReplay replay={selectedReplay} />
@@ -202,7 +202,7 @@
 			</div>
 
 			<div class="mt-10">
-				<h2 class="font-game text-xl text-star-white mb-4">Defender Algorithm</h2>
+				<h2 class="font-sim text-xl text-star-white mb-4">Defender Algorithm</h2>
 				<div class="p-5 border-2 border-sky-500/20 bg-page-bg/60 overflow-x-auto">
 					<AlgorithmView scripts={ev.algorithm} />
 				</div>
@@ -226,7 +226,7 @@
 			onclick={(e) => e.stopPropagation()}
 		>
 			{#if zoomed === 'line'}
-				<LineChart series={cumulativeSeries} title="Cumulative Capture Rate" subtitle={dateLabel} xLabel="Trial" height={560} maxWidth="1100px" />
+				<LineChart series={cumulativeSeries} title="Cumulative Detection Rate" subtitle={dateLabel} xLabel="Trial" height={560} maxWidth="1100px" />
 			{:else}
 				<BarChart points={barPoints} title="Outcome Breakdown" xLabel="Outcome" yLabel="% of trials" height={560} maxWidth="1100px" />
 			{/if}

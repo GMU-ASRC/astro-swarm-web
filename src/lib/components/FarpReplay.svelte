@@ -38,6 +38,16 @@
 
 		const frame = replay.frames[i] ?? [];
 		const total = frame.length / 3;
+
+		const coneRadius = (replay.view ?? 300) * sx;
+		const half = ((replay.fov ?? 70) * Math.PI) / 360;
+		for (let s = 0; s < replay.defenders; s++) {
+			const x = frame[s * 3];
+			const y = frame[s * 3 + 1];
+			const rot = (frame[s * 3 + 2] * Math.PI) / 180;
+			drawCone(ctx, x * sx, y * sy, rot, coneRadius, half, 'rgba(124,158,255,0.16)');
+		}
+
 		for (let s = 0; s < total; s++) {
 			const x = frame[s * 3];
 			const y = frame[s * 3 + 1];
@@ -50,6 +60,23 @@
 		ctx.fillStyle = 'rgba(255,255,255,0.5)';
 		ctx.font = '11px monospace';
 		ctx.fillText(`N=${replay.defenders}  ${replay.outcome}  frame ${i + 1}/${replay.frames.length}`, 8, 16);
+	}
+
+	function drawCone(
+		ctx: CanvasRenderingContext2D,
+		x: number,
+		y: number,
+		rot: number,
+		radius: number,
+		half: number,
+		color: string
+	) {
+		ctx.beginPath();
+		ctx.moveTo(x, y);
+		ctx.arc(x, y, radius, rot - half, rot + half);
+		ctx.closePath();
+		ctx.fillStyle = color;
+		ctx.fill();
 	}
 
 	function drawShip(ctx: CanvasRenderingContext2D, x: number, y: number, rot: number, color: string) {
@@ -108,7 +135,7 @@
 	<div class="flex items-center gap-3">
 		<button
 			type="button"
-			class="px-3 py-1 border border-sky-500/30 text-sky-200 text-xs font-game hover:bg-sky-500/10"
+			class="px-3 py-1 border border-sky-500/30 text-sky-200 text-xs font-sim hover:bg-sky-500/10"
 			onclick={() => (playing = !playing)}
 		>
 			{playing ? 'PAUSE' : 'PLAY'}
