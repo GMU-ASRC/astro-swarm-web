@@ -174,9 +174,9 @@
 					{/each}
 				</div>
 				{#if selectedReplay}
-					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[680px]">
+					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 						<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-							TRIAL {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome.toUpperCase()}
+							TRIAL {(selectedTrial ?? 0) + 1}
 						</div>
 						<FarpReplay replay={selectedReplay} />
 					</div>
