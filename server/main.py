@@ -7,6 +7,7 @@ from flask_cors import CORS
 
 from config import Config
 from database import db
+from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
 from routers.version import version_bp
@@ -26,6 +27,7 @@ def create_app():
     app.register_blueprint(runs_bp)
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(version_bp)
+    app.register_blueprint(evaluations_bp)
 
     with app.app_context():
         db.create_all()

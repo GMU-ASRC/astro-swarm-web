@@ -126,6 +126,54 @@ class SimRun(db.Model):
         }
 
 
+class PlayerEvaluation(db.Model):
+    __tablename__ = "player_evaluations"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.String(36), nullable=False, index=True)
+    username = db.Column(db.String(30), nullable=False)
+    algorithm = db.Column(db.JSON, default=list)
+
+    status = db.Column(db.String(12), default="queued")
+    n_max = db.Column(db.Integer, default=40)
+    trials = db.Column(db.Integer, default=20)
+    results = db.Column(db.JSON, default=list)
+    error = db.Column(db.String(400), nullable=True)
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "player_id": self.player_id,
+            "username": self.username,
+            "algorithm": self.algorithm or [],
+            "status": self.status,
+            "n_max": self.n_max,
+            "trials": self.trials,
+            "results": self.results or [],
+            "error": self.error,
+            "created_at": self.created_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+    def to_list_dict(self):
+        return {
+            "id": self.id,
+            "player_id": self.player_id,
+            "username": self.username,
+            "status": self.status,
+            "n_max": self.n_max,
+            "trials": self.trials,
+            "created_at": self.created_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
 class LeaderboardEntry(db.Model):
     __tablename__ = "leaderboard_entries"
 
