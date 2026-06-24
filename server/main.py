@@ -31,6 +31,21 @@ def _ensure_columns():
             logger.warning("Migration skipped (%s): %s", statement, exc)
 
 
+def _reset_stuck_evaluations():
+    # Worker threads do not survive a restart, so in-flight runs would otherwise
+    # stay "running" forever. Mark them failed so the UI stops polling zombies.
+    try:
+        db.session.execute(text(
+            "UPDATE player_evaluations SET status='failed', "
+            "error='interrupted by server restart' "
+            "WHERE status IN ('queued', 'running')"
+        ))
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("Could not reset stuck evaluations: %s", exc)
+
+
 def create_app():
     app = Flask(__name__, static_folder=None)
     app.config.from_object(Config)
@@ -47,6 +62,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         _ensure_columns()
+        _reset_stuck_evaluations()
         db.engine.dispose()
 
     @app.before_request
