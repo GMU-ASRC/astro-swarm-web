@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 from flask import Blueprint, current_app, jsonify, request
 from werkzeug.exceptions import BadRequest, Unauthorized
 
@@ -38,7 +36,7 @@ def submit_evaluation():
         player_id=parsed.player_id,
         username=parsed.username,
         algorithm=parsed.algorithm,
-        n_max=parsed.n_max,
+        placements=parsed.placements,
         trials=parsed.trials,
         status="queued",
     )
@@ -53,21 +51,13 @@ def submit_evaluation():
 @evaluations_bp.get("/baseline")
 def baseline():
     evaluations = PlayerEvaluation.query.filter_by(status="done").all()
-    totals = defaultdict(float)
-    counts = defaultdict(int)
+    rates = []
     for evaluation in evaluations:
-        for point in evaluation.results or []:
-            n = point.get("n")
-            rate = point.get("success_rate")
-            if n is None or rate is None:
-                continue
-            totals[n] += rate
-            counts[n] += 1
-    results = [
-        {"n": n, "success_rate": round(totals[n] / counts[n], 1)}
-        for n in sorted(totals)
-    ]
-    return jsonify({"results": results, "samples": len(evaluations)})
+        rate = (evaluation.results or {}).get("success_rate") if isinstance(evaluation.results, dict) else None
+        if rate is not None:
+            rates.append(rate)
+    average = round(sum(rates) / len(rates), 1) if rates else None
+    return jsonify({"success_rate": average, "samples": len(rates)})
 
 
 @evaluations_bp.get("/<eval_id>")
@@ -78,6 +68,18 @@ def get_evaluation(eval_id: str):
     return jsonify(evaluation.to_dict())
 
 
+@evaluations_bp.delete("/<eval_id>")
+def delete_evaluation(eval_id: str):
+    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
+        raise Unauthorized("Invalid API key")
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    db.session.delete(evaluation)
+    db.session.commit()
+    return "", 204
+
+
 @evaluations_bp.get("/<eval_id>/replays")
 def list_replays(eval_id: str):
     evaluation = db.session.get(PlayerEvaluation, eval_id)
@@ -86,12 +88,12 @@ def list_replays(eval_id: str):
     return jsonify(evaluation.replay_index())
 
 
-@evaluations_bp.get("/<eval_id>/replay/<int:n>")
-def get_replay(eval_id: str, n: int):
+@evaluations_bp.get("/<eval_id>/replay/<int:trial>")
+def get_replay(eval_id: str, trial: int):
     evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
-    replay = evaluation.replay_for(n)
+    replay = evaluation.replay_for(trial)
     if replay is None:
         raise BadRequest("Replay not found")
     return jsonify(replay)

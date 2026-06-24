@@ -133,13 +133,14 @@ class PlayerEvaluation(db.Model):
     player_id = db.Column(db.String(36), nullable=False, index=True)
     username = db.Column(db.String(30), nullable=False)
     algorithm = db.Column(db.JSON, default=list)
+    placements = db.Column(db.JSON, default=list)
 
     status = db.Column(db.String(12), default="queued")
     progress = db.Column(db.Float, default=0.0)
     n_max = db.Column(db.Integer, default=40)
     trials = db.Column(db.Integer, default=100)
-    results = db.Column(db.JSON, default=list)
-    replays = db.Column(db.JSON, default=list)
+    results = db.Column(db.JSON, default=dict)
+    replays = db.Column(db.JSON, default=dict)
     error = db.Column(db.String(400), nullable=True)
 
     created_at = db.Column(
@@ -148,17 +149,23 @@ class PlayerEvaluation(db.Model):
     )
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
+    def _results_dict(self):
+        results = self.results or {}
+        if isinstance(results, list):
+            return {}
+        return results
+
     def to_dict(self):
         return {
             "id": self.id,
             "player_id": self.player_id,
             "username": self.username,
             "algorithm": self.algorithm or [],
+            "placements": self.placements or [],
             "status": self.status,
             "progress": self.progress or 0.0,
-            "n_max": self.n_max,
             "trials": self.trials,
-            "results": self.results or [],
+            "results": self._results_dict(),
             "error": self.error,
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -171,28 +178,44 @@ class PlayerEvaluation(db.Model):
             "username": self.username,
             "status": self.status,
             "progress": self.progress or 0.0,
-            "n_max": self.n_max,
             "trials": self.trials,
+            "success_rate": self._results_dict().get("success_rate"),
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-    def replay_index(self):
-        return [
-            {
-                "n": r.get("n"),
-                "outcome": r.get("outcome"),
-                "fps": r.get("fps"),
-                "defenders": r.get("defenders"),
-                "frame_count": len(r.get("frames", [])),
-            }
-            for r in (self.replays or [])
-        ]
+    def _replays_dict(self):
+        replays = self.replays or {}
+        if isinstance(replays, list):
+            return {}
+        return replays
 
-    def replay_for(self, n: int):
-        for r in self.replays or []:
-            if r.get("n") == n:
-                return r
+    def replay_index(self):
+        replays = self._replays_dict()
+        return {
+            "fps": replays.get("fps", 12),
+            "defenders": replays.get("defenders", 0),
+            "planet": replays.get("planet"),
+            "arena": replays.get("arena"),
+            "runs": [
+                {"trial": run.get("trial"), "outcome": run.get("outcome")}
+                for run in replays.get("runs", [])
+            ],
+        }
+
+    def replay_for(self, trial: int):
+        replays = self._replays_dict()
+        for run in replays.get("runs", []):
+            if run.get("trial") == trial:
+                return {
+                    "trial": run.get("trial"),
+                    "outcome": run.get("outcome"),
+                    "fps": replays.get("fps", 12),
+                    "defenders": replays.get("defenders", 0),
+                    "planet": replays.get("planet"),
+                    "arena": replays.get("arena"),
+                    "frames": run.get("frames", []),
+                }
         return None
 
 

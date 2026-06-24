@@ -11,7 +11,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		const res = await fetch(apiUrl(`/api/evaluations/${params.id}`));
 		if (!res.ok) {
-			error(404, 'Player not found');
+			error(404, 'Evaluation not found');
 		}
 		evaluation = await res.json();
 	} catch (err) {
@@ -19,7 +19,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		error(500, 'Server error');
 	}
 
-	let baseline: BaselineResult = { results: [], samples: 0 };
+	let baseline: BaselineResult = { success_rate: null, samples: 0 };
 	try {
 		const res = await fetch(apiUrl('/api/evaluations/baseline'));
 		if (res.ok) {

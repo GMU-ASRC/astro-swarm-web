@@ -42,7 +42,7 @@ class EvaluationSubmit:
     player_id: str
     username: str
     algorithm: list = field(default_factory=list)
-    n_max: int = 40
+    placements: list = field(default_factory=list)
     trials: int = 100
 
     def __post_init__(self):
@@ -52,9 +52,10 @@ class EvaluationSubmit:
             raise ValueError("username must be between 1 and 30 characters")
         if not isinstance(self.algorithm, list):
             raise ValueError("algorithm must be a list")
-        self.n_max = int(self.n_max)
+        if not isinstance(self.placements, list):
+            raise ValueError("placements must be a list")
+        if len(self.placements) > 6:
+            raise ValueError("placements must not exceed 6 defenders")
         self.trials = max(100, int(self.trials))
-        if not (1 <= self.n_max <= 95):
-            raise ValueError("n_max must be between 1 and 95")
         if self.trials > 500:
             raise ValueError("trials must not exceed 500")

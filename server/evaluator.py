@@ -31,17 +31,18 @@ def _run(app, evaluation_id):
             evaluation.progress = round(min(0.99, fraction), 3)
             db.session.commit()
 
-        logger.info("evaluation %s: starting (n_max=%s trials=%s)", evaluation_id, evaluation.n_max, evaluation.trials)
+        logger.info("evaluation %s: starting (defenders=%s trials=%s)", evaluation_id, len(evaluation.placements or []), evaluation.trials)
         try:
-            data = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials, on_progress)
-            evaluation.results = data.get("results", [])
-            evaluation.replays = data.get("replays", [])
+            data = _run_godot(evaluation.algorithm, evaluation.placements or [], evaluation.trials, on_progress)
+            evaluation.results = data.get("results", {})
+            evaluation.replays = data.get("replays", {})
             evaluation.status = "done"
             evaluation.progress = 1.0
             evaluation.error = None
-            logger.info("evaluation %s: done (%d points, %d replays)", evaluation_id, len(evaluation.results), len(evaluation.replays))
+            run_count = len((evaluation.replays or {}).get("runs", []))
+            logger.info("evaluation %s: done (success_rate=%s, %d replays)", evaluation_id, (evaluation.results or {}).get("success_rate"), run_count)
         except Exception as exc:
-            evaluation.results = []
+            evaluation.results = {}
             evaluation.status = "failed"
             evaluation.error = str(exc)[:400]
             logger.error("evaluation %s: failed: %s", evaluation_id, exc)
@@ -50,7 +51,7 @@ def _run(app, evaluation_id):
         db.session.commit()
 
 
-def _run_godot(algorithm, n_max, trials, on_progress):
+def _run_godot(algorithm, placements, trials, on_progress):
     godot_bin = os.environ.get("GODOT_SERVER_BIN")
     if not godot_bin:
         raise RuntimeError("GODOT_SERVER_BIN is not configured")
@@ -63,10 +64,13 @@ def _run_godot(algorithm, n_max, trials, on_progress):
 
     with tempfile.TemporaryDirectory() as tmp:
         algorithm_path = os.path.join(tmp, "algorithm.json")
+        placements_path = os.path.join(tmp, "placements.json")
         output_path = os.path.join(tmp, "result.json")
 
         with open(algorithm_path, "w") as f:
             json.dump({"algorithm": algorithm}, f)
+        with open(placements_path, "w") as f:
+            json.dump({"placements": placements}, f)
 
         fixed_fps = os.environ.get("EVAL_FIXED_FPS", "60")
         cmd = [godot_bin, "--headless", "--fixed-fps", fixed_fps]
@@ -77,8 +81,8 @@ def _run_godot(algorithm, n_max, trials, on_progress):
             "--",
             "--bench",
             f"--algorithm={algorithm_path}",
+            f"--placements={placements_path}",
             f"--out={output_path}",
-            f"--nmax={n_max}",
             f"--trials={trials}",
         ]
 

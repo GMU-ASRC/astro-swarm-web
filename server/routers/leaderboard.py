@@ -57,3 +57,14 @@ def get_leaderboard_entry(entry_id):
     if not entry:
         raise BadRequest("Entry not found")
     return jsonify(entry.to_dict()), 200
+
+@leaderboard_bp.route("/<entry_id>", methods=["DELETE"])
+def delete_leaderboard_entry(entry_id):
+    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
+        raise Unauthorized("Invalid API key")
+    entry = LeaderboardEntry.query.get(entry_id)
+    if not entry:
+        raise BadRequest("Entry not found")
+    db.session.delete(entry)
+    db.session.commit()
+    return "", 204

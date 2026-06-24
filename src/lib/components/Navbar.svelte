@@ -28,7 +28,7 @@
 			{ href: '/previews', label: 'PREVIEWS', active: currentPath === '/previews' },
 			{ href: '/downloads', label: 'DOWNLOADS', active: currentPath === '/downloads' },
 			{ href: '/leaderboard', label: 'LEADERBOARD', active: currentPath.startsWith('/leaderboard') },
-			{ href: '/players', label: 'PLAYERS', active: currentPath.startsWith('/players') },
+			{ href: '/levels', label: 'LEVELS', active: currentPath.startsWith('/levels') },
 			{ href: '/simulator', label: 'SIMULATOR', active: currentPath.startsWith('/simulator') }
 		] as link}
 			<li>
@@ -62,6 +62,6 @@
 	<li><a href="/previews" class:active={currentPath === '/previews'} onclick={closeMenu}>PREVIEWS</a></li>
 	<li><a href="/downloads" class:active={currentPath === '/downloads'} onclick={closeMenu}>DOWNLOADS</a></li>
 	<li><a href="/leaderboard" class:active={currentPath.startsWith('/leaderboard')} onclick={closeMenu}>LEADERBOARD</a></li>
-	<li><a href="/players" class:active={currentPath.startsWith('/players')} onclick={closeMenu}>PLAYERS</a></li>
+	<li><a href="/levels" class:active={currentPath.startsWith('/levels')} onclick={closeMenu}>LEVELS</a></li>
 	<li><a href="/simulator" class:active={currentPath.startsWith('/simulator')} onclick={closeMenu}>SIMULATOR</a></li>
 </ul>
