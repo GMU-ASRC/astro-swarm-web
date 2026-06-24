@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -7,6 +8,8 @@ from datetime import datetime, timezone
 
 from database import db
 from models import PlayerEvaluation
+
+logger = logging.getLogger(__name__)
 
 
 def run_evaluation_async(app, evaluation_id):
@@ -28,16 +31,19 @@ def _run(app, evaluation_id):
             evaluation.progress = round(min(0.99, fraction), 3)
             db.session.commit()
 
+        logger.info("evaluation %s: starting (n_max=%s trials=%s)", evaluation_id, evaluation.n_max, evaluation.trials)
         try:
             results = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials, on_progress)
             evaluation.results = results
             evaluation.status = "done"
             evaluation.progress = 1.0
             evaluation.error = None
+            logger.info("evaluation %s: done (%d points)", evaluation_id, len(results))
         except Exception as exc:
             evaluation.results = []
             evaluation.status = "failed"
             evaluation.error = str(exc)[:400]
+            logger.error("evaluation %s: failed: %s", evaluation_id, exc)
 
         evaluation.completed_at = datetime.now(timezone.utc)
         db.session.commit()
@@ -47,6 +53,10 @@ def _run_godot(algorithm, n_max, trials, on_progress):
     godot_bin = os.environ.get("GODOT_SERVER_BIN")
     if not godot_bin:
         raise RuntimeError("GODOT_SERVER_BIN is not configured")
+    if not os.path.isfile(godot_bin):
+        raise RuntimeError(f"GODOT_SERVER_BIN not found at {godot_bin}")
+    if not os.access(godot_bin, os.X_OK):
+        raise RuntimeError(f"GODOT_SERVER_BIN not executable: {godot_bin}")
 
     timeout = int(os.environ.get("EVAL_TIMEOUT_SECONDS", "1800"))
 
@@ -71,6 +81,7 @@ def _run_godot(algorithm, n_max, trials, on_progress):
             f"--trials={trials}",
         ]
 
+        logger.info("running: %s", " ".join(cmd))
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         watchdog = threading.Timer(timeout, proc.kill)
         watchdog.start()
