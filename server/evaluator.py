@@ -33,12 +33,13 @@ def _run(app, evaluation_id):
 
         logger.info("evaluation %s: starting (n_max=%s trials=%s)", evaluation_id, evaluation.n_max, evaluation.trials)
         try:
-            results = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials, on_progress)
-            evaluation.results = results
+            data = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials, on_progress)
+            evaluation.results = data.get("results", [])
+            evaluation.replays = data.get("replays", [])
             evaluation.status = "done"
             evaluation.progress = 1.0
             evaluation.error = None
-            logger.info("evaluation %s: done (%d points)", evaluation_id, len(results))
+            logger.info("evaluation %s: done (%d points, %d replays)", evaluation_id, len(evaluation.results), len(evaluation.replays))
         except Exception as exc:
             evaluation.results = []
             evaluation.status = "failed"
@@ -106,9 +107,9 @@ def _run_godot(algorithm, n_max, trials, on_progress):
 
         if os.path.isfile(output_path):
             with open(output_path) as f:
-                return json.load(f).get("results", [])
+                return json.load(f)
         if result_line:
-            return json.loads(result_line).get("results", [])
+            return json.loads(result_line)
 
         raise RuntimeError(f"benchmark produced no output (exit {proc.returncode}): {' | '.join(recent[-5:])}")
 

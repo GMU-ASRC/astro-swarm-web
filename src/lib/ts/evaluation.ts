@@ -34,3 +34,21 @@ export interface BaselineResult {
 	results: EvalPoint[];
 	samples: number;
 }
+
+export interface ReplayIndexItem {
+	n: number;
+	outcome: string;
+	fps: number;
+	defenders: number;
+	frame_count: number;
+}
+
+export interface Replay {
+	n: number;
+	fps: number;
+	defenders: number;
+	planet: [number, number, number];
+	arena: [number, number];
+	outcome: string;
+	frames: number[][];
+}

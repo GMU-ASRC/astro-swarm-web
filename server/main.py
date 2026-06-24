@@ -21,6 +21,7 @@ def _ensure_columns():
     # Lightweight idempotent migrations for columns added after a table existed.
     statements = [
         "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS replays json DEFAULT '[]'::json",
     ]
     for statement in statements:
         try:

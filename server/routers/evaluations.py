@@ -76,3 +76,22 @@ def get_evaluation(eval_id: str):
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     return jsonify(evaluation.to_dict())
+
+
+@evaluations_bp.get("/<eval_id>/replays")
+def list_replays(eval_id: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    return jsonify(evaluation.replay_index())
+
+
+@evaluations_bp.get("/<eval_id>/replay/<int:n>")
+def get_replay(eval_id: str, n: int):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    replay = evaluation.replay_for(n)
+    if replay is None:
+        raise BadRequest("Replay not found")
+    return jsonify(replay)

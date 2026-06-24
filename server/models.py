@@ -137,8 +137,9 @@ class PlayerEvaluation(db.Model):
     status = db.Column(db.String(12), default="queued")
     progress = db.Column(db.Float, default=0.0)
     n_max = db.Column(db.Integer, default=40)
-    trials = db.Column(db.Integer, default=20)
+    trials = db.Column(db.Integer, default=100)
     results = db.Column(db.JSON, default=list)
+    replays = db.Column(db.JSON, default=list)
     error = db.Column(db.String(400), nullable=True)
 
     created_at = db.Column(
@@ -175,6 +176,24 @@ class PlayerEvaluation(db.Model):
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
+
+    def replay_index(self):
+        return [
+            {
+                "n": r.get("n"),
+                "outcome": r.get("outcome"),
+                "fps": r.get("fps"),
+                "defenders": r.get("defenders"),
+                "frame_count": len(r.get("frames", [])),
+            }
+            for r in (self.replays or [])
+        ]
+
+    def replay_for(self, n: int):
+        for r in self.replays or []:
+            if r.get("n") == n:
+                return r
+        return None
 
 
 class LeaderboardEntry(db.Model):

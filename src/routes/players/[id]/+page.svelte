@@ -3,8 +3,9 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
+	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import type { PlayerEvaluation, BaselineResult } from '$lib/ts/evaluation';
+	import type { PlayerEvaluation, BaselineResult, ReplayIndexItem, Replay } from '$lib/ts/evaluation';
 
 	interface PageData {
 		evaluation: PlayerEvaluation;
@@ -30,6 +31,42 @@
 			? [{ label: 'Community avg', color: '#ff7f0e', points: data.baseline.results }]
 			: [])
 	]);
+
+	let replayIndex: ReplayIndexItem[] = $state([]);
+	let selectedReplay: Replay | null = $state(null);
+	let selectedN: number | null = $state(null);
+	let replaysFetched = false;
+
+	async function fetchReplayIndex() {
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/replays`));
+			if (!res.ok) return;
+			replayIndex = await res.json();
+			if (replayIndex.length > 0) {
+				loadReplay(replayIndex[Math.floor(replayIndex.length / 2)].n);
+			}
+		} catch (err) {
+			console.error('Error fetching replays:', err);
+		}
+	}
+
+	async function loadReplay(n: number) {
+		selectedN = n;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/replay/${n}`));
+			if (!res.ok) return;
+			selectedReplay = await res.json();
+		} catch (err) {
+			console.error('Error loading replay:', err);
+		}
+	}
+
+	$effect(() => {
+		if (ev.status === 'done' && !replaysFetched) {
+			replaysFetched = true;
+			fetchReplayIndex();
+		}
+	});
 
 	onMount(() => {
 		if (!pending) return;
@@ -113,6 +150,31 @@
 				>
 					<BarChart points={ev.results} title={`(${ev.username}) Success Rate vs. N`} />
 				</div>
+			</div>
+		{/if}
+
+		{#if replayIndex.length > 0}
+			<div class="mt-10">
+				<h2 class="font-game text-xl text-star-white mb-2">Run Replays</h2>
+				<p class="text-xs text-text-muted mb-4">One recorded run per swarm size — verify the defenders behave as intended.</p>
+				<div class="flex flex-wrap gap-2 mb-4">
+					{#each replayIndex as item}
+						<button
+							type="button"
+							onclick={() => loadReplay(item.n)}
+							class="px-3 py-1.5 border text-xs font-game transition-colors {selectedN === item.n
+								? 'border-sky-400 bg-sky-500/15 text-sky-200'
+								: 'border-sky-500/20 text-text-muted hover:border-sky-400/50'}"
+						>
+							N{item.n} · {item.outcome}
+						</button>
+					{/each}
+				</div>
+				{#if selectedReplay}
+					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[680px]">
+						<FarpReplay replay={selectedReplay} />
+					</div>
+				{/if}
 			</div>
 		{/if}
 
