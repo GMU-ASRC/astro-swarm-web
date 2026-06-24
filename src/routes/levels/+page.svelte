@@ -13,6 +13,20 @@
 
 	let shown = $derived(data.players.filter((p) => (p.level_id ?? 'farp') === selectedLevel));
 
+	const PAGE_SIZE = 12;
+	let page = $state(1);
+	let pageCount = $derived(Math.max(1, Math.ceil(shown.length / PAGE_SIZE)));
+	let paged = $derived(shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+
+	$effect(() => {
+		selectedLevel;
+		page = 1;
+	});
+
+	$effect(() => {
+		if (page > pageCount) page = pageCount;
+	});
+
 	function statusColor(status: string): string {
 		if (status === 'done') return 'text-green-300 border-green-400/40 bg-green-400/10';
 		if (status === 'running' || status === 'queued') return 'text-sky-300 border-sky-400/40 bg-sky-400/10';
@@ -67,7 +81,7 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-				{#each shown as player}
+				{#each paged as player}
 					<a
 						href={`/levels/${player.id}`}
 						class="block p-5 border-2 border-sky-500/20 bg-sky-500/5 hover:border-sky-400/50 hover:bg-sky-500/10 transition-colors"
@@ -91,6 +105,28 @@
 					</a>
 				{/each}
 			</div>
+
+			{#if pageCount > 1}
+				<div class="flex items-center justify-center gap-3 mt-8">
+					<button
+						type="button"
+						disabled={page <= 1}
+						onclick={() => (page = Math.max(1, page - 1))}
+						class="px-4 py-2 border-2 border-sky-500/20 text-sky-200 text-sm font-game tracking-wider hover:border-sky-400/50 disabled:opacity-30 disabled:cursor-not-allowed"
+					>
+						PREV
+					</button>
+					<span class="text-xs text-text-muted font-game tracking-wider">PAGE {page} / {pageCount}</span>
+					<button
+						type="button"
+						disabled={page >= pageCount}
+						onclick={() => (page = Math.min(pageCount, page + 1))}
+						class="px-4 py-2 border-2 border-sky-500/20 text-sky-200 text-sm font-game tracking-wider hover:border-sky-400/50 disabled:opacity-30 disabled:cursor-not-allowed"
+					>
+						NEXT
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
