@@ -4,6 +4,7 @@ import time
 
 from flask import Flask, abort, g, jsonify, request, send_from_directory
 from flask_cors import CORS
+from sqlalchemy import text
 
 from config import Config
 from database import db
@@ -14,6 +15,20 @@ from routers.version import version_bp
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _ensure_columns():
+    # Lightweight idempotent migrations for columns added after a table existed.
+    statements = [
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
+    ]
+    for statement in statements:
+        try:
+            db.session.execute(text(statement))
+            db.session.commit()
+        except Exception as exc:
+            db.session.rollback()
+            logger.warning("Migration skipped (%s): %s", statement, exc)
 
 
 def create_app():
@@ -31,6 +46,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _ensure_columns()
         db.engine.dispose()
 
     @app.before_request
