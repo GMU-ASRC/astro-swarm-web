@@ -27,9 +27,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server/ ./
 COPY --from=client /client/build ./client
+# Exported AstroSwarm dedicated-server build (binary + .pck) used to run the
+# FARP benchmark. Drop your build into web/server_build/ before building.
+COPY server_build/ ./server_build/
+RUN chmod +x /app/server_build/astroswarm.x86_64 2>/dev/null || true
 
 ENV PORT=5050
 ENV CLIENT_DIR=/app/client
+ENV GODOT_SERVER_BIN=/app/server_build/astroswarm.x86_64
+ENV EVAL_TIMEOUT_SECONDS=1800
 
 EXPOSE ${PORT}
 

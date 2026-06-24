@@ -1,0 +1,2 @@
+Exported FARP benchmark data pack (astroswarm.pck) is written here by
+../scripts/export_server.sh and copied into the server image by the Dockerfile.
