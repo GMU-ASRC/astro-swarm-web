@@ -83,6 +83,15 @@ def create_app():
             if os.path.isfile(os.path.join(client_dir, candidate)):
                 return send_from_directory(client_dir, candidate)
 
+        # Unknown path. Only serve the SPA fallback for app routes. File/dotfile
+        # probes (e.g. /.env, /.git/config, /env.py) that scanners hammer should
+        # 404 instead of returning the SPA page.
+        segments = [s for s in path.split("/") if s]
+        is_dotpath = any(s.startswith(".") for s in segments)
+        has_extension = "." in segments[-1] if segments else False
+        if is_dotpath or has_extension:
+            abort(404)
+
         if os.path.isfile(os.path.join(client_dir, "200.html")):
             return send_from_directory(client_dir, "200.html")
 
