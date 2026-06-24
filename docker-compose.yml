@@ -32,6 +32,7 @@ services:
       # GODOT_PCK only needed if GODOT_SERVER_BIN is a plain Godot binary with a separate pack.
       GODOT_PCK: ${GODOT_PCK:-}
       EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
+      EVAL_FIXED_FPS: ${EVAL_FIXED_FPS:-60}
     ports:
       - "${PORT:-5050}:${PORT:-5050}"
     depends_on:

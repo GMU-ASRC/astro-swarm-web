@@ -57,7 +57,8 @@ def _run_godot(algorithm, n_max, trials, on_progress):
         with open(algorithm_path, "w") as f:
             json.dump({"algorithm": algorithm}, f)
 
-        cmd = [godot_bin, "--headless"]
+        fixed_fps = os.environ.get("EVAL_FIXED_FPS", "60")
+        cmd = [godot_bin, "--headless", "--fixed-fps", fixed_fps]
         main_pack = os.environ.get("GODOT_PCK")
         if main_pack:
             cmd += ["--main-pack", main_pack]
