@@ -21,12 +21,18 @@ def _run(app, evaluation_id):
             return
 
         evaluation.status = "running"
+        evaluation.progress = 0.0
         db.session.commit()
 
+        def on_progress(fraction):
+            evaluation.progress = round(min(0.99, fraction), 3)
+            db.session.commit()
+
         try:
-            results = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials)
+            results = _run_godot(evaluation.algorithm, evaluation.n_max, evaluation.trials, on_progress)
             evaluation.results = results
             evaluation.status = "done"
+            evaluation.progress = 1.0
             evaluation.error = None
         except Exception as exc:
             evaluation.results = []
@@ -37,7 +43,7 @@ def _run(app, evaluation_id):
         db.session.commit()
 
 
-def _run_godot(algorithm, n_max, trials):
+def _run_godot(algorithm, n_max, trials, on_progress):
     godot_bin = os.environ.get("GODOT_SERVER_BIN")
     if not godot_bin:
         raise RuntimeError("GODOT_SERVER_BIN is not configured")
@@ -64,15 +70,41 @@ def _run_godot(algorithm, n_max, trials):
             f"--trials={trials}",
         ]
 
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        watchdog = threading.Timer(timeout, proc.kill)
+        watchdog.start()
+
+        result_line = None
+        recent = []
+        try:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                recent.append(line)
+                if len(recent) > 20:
+                    recent.pop(0)
+                if line.startswith("PROGRESS"):
+                    _parse_progress(line, on_progress)
+                elif line.startswith("{") and "results" in line:
+                    result_line = line
+            proc.wait()
+        finally:
+            watchdog.cancel()
 
         if os.path.isfile(output_path):
             with open(output_path) as f:
                 return json.load(f).get("results", [])
+        if result_line:
+            return json.loads(result_line).get("results", [])
 
-        for line in reversed(proc.stdout.splitlines()):
-            line = line.strip()
-            if line.startswith("{") and "results" in line:
-                return json.loads(line).get("results", [])
+        raise RuntimeError(f"benchmark produced no output (exit {proc.returncode}): {' | '.join(recent[-5:])}")
 
-        raise RuntimeError(f"benchmark produced no output (exit {proc.returncode}): {proc.stderr[-400:]}")
+
+def _parse_progress(line, on_progress):
+    # Expected: "PROGRESS <done>/<total> ..."
+    try:
+        done, total = line.split()[1].split("/")
+        on_progress(int(done) / int(total))
+    except (IndexError, ValueError, ZeroDivisionError):
+        pass

@@ -9,6 +9,7 @@ export interface PlayerEvaluation {
 	username: string;
 	algorithm: any[];
 	status: string;
+	progress: number;
 	n_max: number;
 	trials: number;
 	results: EvalPoint[];
@@ -22,6 +23,7 @@ export interface PlayerListItem {
 	player_id: string;
 	username: string;
 	status: string;
+	progress: number;
 	n_max: number;
 	trials: number;
 	created_at: string;

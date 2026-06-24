@@ -135,6 +135,7 @@ class PlayerEvaluation(db.Model):
     algorithm = db.Column(db.JSON, default=list)
 
     status = db.Column(db.String(12), default="queued")
+    progress = db.Column(db.Float, default=0.0)
     n_max = db.Column(db.Integer, default=40)
     trials = db.Column(db.Integer, default=20)
     results = db.Column(db.JSON, default=list)
@@ -153,6 +154,7 @@ class PlayerEvaluation(db.Model):
             "username": self.username,
             "algorithm": self.algorithm or [],
             "status": self.status,
+            "progress": self.progress or 0.0,
             "n_max": self.n_max,
             "trials": self.trials,
             "results": self.results or [],
@@ -167,6 +169,7 @@ class PlayerEvaluation(db.Model):
             "player_id": self.player_id,
             "username": self.username,
             "status": self.status,
+            "progress": self.progress or 0.0,
             "n_max": self.n_max,
             "trials": self.trials,
             "created_at": self.created_at.isoformat(),

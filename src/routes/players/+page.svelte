@@ -55,7 +55,11 @@
 							</span>
 						</div>
 						<div class="mt-3 text-xs text-text-muted">
-							N = 1…{player.n_max} · {player.trials} trials each
+							{#if player.status === 'running' || player.status === 'queued'}
+								Benchmarking · {Math.round((player.progress ?? 0) * 100)}%
+							{:else}
+								N = 1…{player.n_max} · {player.trials} trials each
+							{/if}
 						</div>
 					</a>
 				{/each}
