@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import BarChart from '$lib/components/BarChart.svelte';
+	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import type { PlayerEvaluation, BaselineResult } from '$lib/ts/evaluation';
 
@@ -35,7 +36,7 @@
 		console.log('Benchmark running. Check back shortly — results appear when the headless run finishes.');
 		const interval = setInterval(async () => {
 			try {
-				const res = await fetch(apiUrl(`/api/evaluations/${ev.player_id}`));
+				const res = await fetch(apiUrl(`/api/evaluations/${ev.id}`));
 				if (!res.ok) return;
 				const next: PlayerEvaluation = await res.json();
 				ev = next;
@@ -59,7 +60,7 @@
 </svelte:head>
 
 <div class="relative z-1 min-h-screen pt-20 font-sim">
-	<div class="max-w-225 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
+	<div class="max-w-275 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
 		<a href="/players" class="text-sm text-sky-300 hover:text-sky-200">← All players</a>
 		<h1 class="font-game text-[clamp(1.6rem,4vw,2.6rem)] font-bold text-star-white leading-tight mt-3 mb-2" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
 			{ev.username}
@@ -71,7 +72,7 @@
 
 	<div class="h-px mx-8 max-sm:mx-5" style="background: linear-gradient(to right, rgba(36,89,184,0.4), transparent)"></div>
 
-	<div class="max-w-225 mx-auto px-8 max-sm:px-5 py-10">
+	<div class="max-w-275 mx-auto px-8 max-sm:px-5 py-10">
 		{#if ev.status === 'failed'}
 			<div class="p-6 border-2 border-red-500/30 bg-red-500/10 text-red-200 text-center">
 				Evaluation failed{ev.error ? `: ${ev.error}` : '.'}
@@ -93,25 +94,34 @@
 				No benchmark data available.
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<button
-					type="button"
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+				<div
+					role="button"
+					tabindex="0"
 					onclick={() => (zoomed = 'line')}
+					onkeydown={(e) => e.key === 'Enter' && (zoomed = 'line')}
 					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
-					aria-label="Zoom Capture Rate chart"
 				>
 					<LineChart series={lineSeries} title="Capture Rate" subtitle={dateLabel} />
-				</button>
-				<button
-					type="button"
+				</div>
+				<div
+					role="button"
+					tabindex="0"
 					onclick={() => (zoomed = 'bar')}
+					onkeydown={(e) => e.key === 'Enter' && (zoomed = 'bar')}
 					class="p-4 border-2 border-sky-500/20 bg-sky-500/5 cursor-zoom-in hover:border-sky-400/50 transition-colors"
-					aria-label="Zoom Success Rate chart"
 				>
 					<BarChart points={ev.results} title={`(${ev.username}) Success Rate vs. N`} />
-				</button>
+				</div>
 			</div>
 		{/if}
+
+		<div class="mt-10">
+			<h2 class="font-game text-xl text-star-white mb-4">Defender Algorithm</h2>
+			<div class="p-5 border-2 border-sky-500/20 bg-page-bg/60 overflow-x-auto">
+				<AlgorithmView scripts={ev.algorithm} />
+			</div>
+		</div>
 	</div>
 </div>
 

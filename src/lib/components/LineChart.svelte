@@ -56,7 +56,7 @@
 	let xTicks = $derived(buildXTicks(maxN));
 </script>
 
-<figure class="w-full overflow-x-auto">
+<figure class="w-full overflow-x-auto m-0">
 	<svg viewBox="0 0 {width} {height}" class="w-full" style={`max-width:${maxWidth}`} role="img" aria-label={title}>
 		<rect x="0" y="0" {width} {height} fill="#ffffff" rx="6" />
 

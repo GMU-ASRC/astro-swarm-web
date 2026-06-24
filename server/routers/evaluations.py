@@ -13,15 +13,11 @@ evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations
 
 
 @evaluations_bp.get("")
-def list_players():
+def list_evaluations():
     evaluations = (
-        PlayerEvaluation.query.order_by(PlayerEvaluation.created_at.desc()).all()
+        PlayerEvaluation.query.order_by(PlayerEvaluation.created_at.desc()).limit(200).all()
     )
-    latest_by_player = {}
-    for evaluation in evaluations:
-        if evaluation.player_id not in latest_by_player:
-            latest_by_player[evaluation.player_id] = evaluation
-    return jsonify([item.to_list_dict() for item in latest_by_player.values()])
+    return jsonify([item.to_list_dict() for item in evaluations])
 
 
 @evaluations_bp.post("")
@@ -74,13 +70,9 @@ def baseline():
     return jsonify({"results": results, "samples": len(evaluations)})
 
 
-@evaluations_bp.get("/<player_id>")
-def get_player(player_id: str):
-    evaluation = (
-        PlayerEvaluation.query.filter_by(player_id=player_id)
-        .order_by(PlayerEvaluation.created_at.desc())
-        .first()
-    )
+@evaluations_bp.get("/<eval_id>")
+def get_evaluation(eval_id: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
-        raise BadRequest("No evaluation found for this player")
+        raise BadRequest("Evaluation not found")
     return jsonify(evaluation.to_dict())

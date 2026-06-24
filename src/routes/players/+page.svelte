@@ -13,6 +13,10 @@
 		if (status === 'running' || status === 'queued') return 'text-sky-300 border-sky-400/40 bg-sky-400/10';
 		return 'text-red-300 border-red-400/40 bg-red-400/10';
 	}
+
+	function when(iso: string): string {
+		return new Date(iso).toLocaleString();
+	}
 </script>
 
 <svelte:head>
@@ -45,7 +49,7 @@
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				{#each data.players as player}
 					<a
-						href={`/players/${player.player_id}`}
+						href={`/players/${player.id}`}
 						class="block p-5 border-2 border-sky-500/20 bg-sky-500/5 hover:border-sky-400/50 hover:bg-sky-500/10 transition-colors"
 					>
 						<div class="flex items-center justify-between gap-3">
@@ -61,6 +65,7 @@
 								N = 1…{player.n_max} · {player.trials} trials each
 							{/if}
 						</div>
+						<div class="mt-1 text-[11px] text-text-muted/70">{when(player.created_at)}</div>
 					</a>
 				{/each}
 			</div>
