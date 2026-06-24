@@ -23,11 +23,12 @@ in `game/export_presets.cfg` is set up for this) and drop it into
 `web/server_build/` so the Dockerfile copies it into the image:
 
 ```
-web/server_build/astroswarm.x86_64   # dedicated-server binary (loads its own .pck)
-web/server_build/astroswarm.pck       # only if you export a plain binary + pack
+web/server_build/AstroSwarm_Linux       # Linux binary (loads its sibling .pck)
+web/server_build/AstroSwarm_Linux.pck    # data pack (same basename as the binary)
 ```
 
-The Dockerfile no longer downloads Godot — it uses your build directly.
+The Dockerfile no longer downloads Godot — it uses your build directly. If you
+name the build differently, set `GODOT_SERVER_BIN` to match.
 
 ## Run
 
@@ -36,14 +37,14 @@ cd web && docker compose up --build
 ```
 
 Env vars (see `docker-compose.yml`):
-- `GODOT_SERVER_BIN` — default `/app/server_build/astroswarm.x86_64`.
-- `GODOT_PCK` — leave empty for a dedicated-server binary; set it only if
-  `GODOT_SERVER_BIN` is a plain Godot binary needing `--main-pack`.
+- `GODOT_SERVER_BIN` — default `/app/server_build/AstroSwarm_Linux`.
+- `GODOT_PCK` — leave empty when the binary loads its sibling `.pck`; set it only
+  if `GODOT_SERVER_BIN` is a plain Godot binary needing `--main-pack`.
 - `EVAL_TIMEOUT_SECONDS` — default 1800.
 
 ## Local smoke test
 
 ```bash
-./astroswarm.x86_64 --headless -- --bench --trials=5 --nmax=8 --out=/tmp/farp.json
+./AstroSwarm_Linux --headless -- --bench --trials=5 --nmax=8 --out=/tmp/farp.json
 cat /tmp/farp.json
 ```

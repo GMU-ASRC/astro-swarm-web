@@ -28,7 +28,7 @@ services:
       PORT: ${PORT:-5050}
       CLIENT_DIR: /app/client
       API_SECRET_KEY: ${API_SECRET_KEY}
-      GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-/app/server_build/astroswarm.x86_64}
+      GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-/app/server_build/AstroSwarm_Linux}
       # GODOT_PCK only needed if GODOT_SERVER_BIN is a plain Godot binary with a separate pack.
       GODOT_PCK: ${GODOT_PCK:-}
       EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
