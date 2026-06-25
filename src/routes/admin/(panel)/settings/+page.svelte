@@ -5,6 +5,8 @@
 	let settings = $state<any>(null);
 	let loading = $state(true);
 	let maxJobs = $state(1);
+	let enemyX = $state(0);
+	let enemyY = $state(0);
 	let saving = $state(false);
 	let message = $state('');
 
@@ -14,7 +16,11 @@
 		data.settingsPromise.then((row) => {
 			if (!active) return;
 			settings = row;
-			if (row) maxJobs = row.max_jobs;
+			if (row) {
+				maxJobs = row.max_jobs;
+				enemyX = row.enemy_start_x;
+				enemyY = row.enemy_start_y;
+			}
 			loading = false;
 		});
 		return () => {
@@ -22,14 +28,14 @@
 		};
 	});
 
-	async function saveJobs() {
+	async function save(body: Record<string, unknown>, successMessage: string) {
 		saving = true;
 		message = '';
 		try {
 			const res = await fetch(apiUrl('/api/evaluations/settings'), {
 				method: 'PUT',
 				headers: { 'X-API-Key': data.adminKey, 'Content-Type': 'application/json' },
-				body: JSON.stringify({ max_jobs: maxJobs })
+				body: JSON.stringify(body)
 			});
 			if (!res.ok) {
 				message = `Failed to save: ${res.status}`;
@@ -37,13 +43,27 @@
 			}
 			const updated = await res.json();
 			maxJobs = updated.max_jobs;
-			if (settings) settings.max_jobs = updated.max_jobs;
-			message = `Saved. Max parallel jobs set to ${updated.max_jobs}.`;
+			enemyX = updated.enemy_start_x;
+			enemyY = updated.enemy_start_y;
+			if (settings) {
+				settings.max_jobs = updated.max_jobs;
+				settings.enemy_start_x = updated.enemy_start_x;
+				settings.enemy_start_y = updated.enemy_start_y;
+			}
+			message = successMessage;
 		} catch (err) {
 			message = `Save failed: ${err}`;
 		} finally {
 			saving = false;
 		}
+	}
+
+	function saveJobs() {
+		save({ max_jobs: maxJobs }, `Saved. Max parallel jobs set to ${maxJobs}.`);
+	}
+
+	function saveEnemyStart() {
+		save({ enemy_start_x: enemyX, enemy_start_y: enemyY }, `Saved enemy start coordinate.`);
 	}
 </script>
 
@@ -64,6 +84,16 @@
 		<button onclick={saveJobs} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
 	</div>
 
+	<h2>Enemy start coordinate</h2>
+	<p class="meta">Where the enemy ship starts for all 100 ring sweep runs. The placement runs keep using their {settings.spawn_points} varied static spawns.</p>
+	<div class="actions">
+		<label for="enemyX">X</label>
+		<input id="enemyX" type="number" step="1" bind:value={enemyX} style="width:6rem" />
+		<label for="enemyY">Y</label>
+		<input id="enemyY" type="number" step="1" bind:value={enemyY} style="width:6rem" />
+		<button onclick={saveEnemyStart} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+	</div>
+
 	<h2>Simulation</h2>
 	<div class="admin-table-wrap">
 		<table>
@@ -75,6 +105,7 @@
 				<tr><th>Static enemy spawn locations</th><td>{settings.spawn_points}</td></tr>
 				<tr><th>Match time cap</th><td>{settings.match_cap_seconds}s</td></tr>
 				<tr><th>Max parallel jobs</th><td>{settings.max_jobs}</td></tr>
+				<tr><th>Sweep enemy start</th><td>({settings.enemy_start_x}, {settings.enemy_start_y})</td></tr>
 			</tbody>
 		</table>
 	</div>

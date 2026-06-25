@@ -2,16 +2,17 @@ import io
 import json
 import re
 import zipfile
+from datetime import datetime, timezone
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import charts
-from app_settings import JOBS_HARD_CAP, get_max_jobs, set_max_jobs
+from app_settings import JOBS_HARD_CAP, get_enemy_start, get_max_jobs, set_enemy_start, set_max_jobs
 from config import Config
 from database import db
-from evaluator import run_evaluation_async
+from evaluator import cancel_evaluation, run_evaluation_async
 from models import PlayerEvaluation
 from schemas import EvaluationSubmit
 
@@ -67,6 +68,7 @@ def submit_evaluation():
 @evaluations_bp.get("/settings")
 def settings():
     seed = Config.EVAL_SEED
+    enemy_x, enemy_y = get_enemy_start()
     return jsonify({
         "seed": seed,
         "placement_trials": 100,
@@ -76,6 +78,8 @@ def settings():
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
         "max_jobs": get_max_jobs(),
         "max_jobs_cap": JOBS_HARD_CAP,
+        "enemy_start_x": enemy_x,
+        "enemy_start_y": enemy_y,
         "derived_seeds": [
             {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
             {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
@@ -90,13 +94,23 @@ def update_settings():
     if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
         raise Unauthorized("Invalid API key")
     data = request.get_json(silent=True) or {}
-    if "max_jobs" not in data:
-        raise BadRequest("max_jobs is required")
-    try:
-        value = int(data["max_jobs"])
-    except (TypeError, ValueError):
-        raise BadRequest("max_jobs must be an integer")
-    return jsonify({"max_jobs": set_max_jobs(value), "max_jobs_cap": JOBS_HARD_CAP})
+    if "max_jobs" in data:
+        try:
+            set_max_jobs(int(data["max_jobs"]))
+        except (TypeError, ValueError):
+            raise BadRequest("max_jobs must be an integer")
+    if "enemy_start_x" in data or "enemy_start_y" in data:
+        try:
+            set_enemy_start(float(data["enemy_start_x"]), float(data["enemy_start_y"]))
+        except (TypeError, ValueError, KeyError):
+            raise BadRequest("enemy_start_x and enemy_start_y must both be numbers")
+    enemy_x, enemy_y = get_enemy_start()
+    return jsonify({
+        "max_jobs": get_max_jobs(),
+        "max_jobs_cap": JOBS_HARD_CAP,
+        "enemy_start_x": enemy_x,
+        "enemy_start_y": enemy_y,
+    })
 
 
 @evaluations_bp.get("/baseline")
@@ -137,6 +151,24 @@ def delete_evaluation(eval_id: str):
     db.session.delete(evaluation)
     db.session.commit()
     return "", 204
+
+
+@evaluations_bp.post("/<eval_id>/cancel")
+def cancel_evaluation_route(eval_id: str):
+    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
+        raise Unauthorized("Invalid API key")
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    if evaluation.status not in ("queued", "running"):
+        raise BadRequest("Evaluation is not running")
+
+    cancel_evaluation(eval_id)
+    evaluation.status = "cancelled"
+    evaluation.error = "cancelled"
+    evaluation.completed_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify(evaluation.to_dict()), 202
 
 
 @evaluations_bp.post("/<eval_id>/resimulate")

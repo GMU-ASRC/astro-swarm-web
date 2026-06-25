@@ -7,23 +7,54 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from app_settings import get_max_jobs
+from app_settings import get_enemy_start, get_max_jobs
 from config import Config
 from database import db
 from models import PlayerEvaluation
 
 logger = logging.getLogger(__name__)
 
+_active_lock = threading.Lock()
+_active = {}
+
+
+def cancel_evaluation(evaluation_id):
+    with _active_lock:
+        control = _active.get(evaluation_id)
+        if control is None:
+            return False
+        control["cancel"].set()
+        for proc in control["procs"]:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        return True
+
 
 def run_evaluation_async(app, evaluation_id):
-    thread = threading.Thread(target=_run, args=(app, evaluation_id), daemon=True)
+    control = {"cancel": threading.Event(), "procs": []}
+    with _active_lock:
+        _active[evaluation_id] = control
+    thread = threading.Thread(target=_run, args=(app, evaluation_id, control), daemon=True)
     thread.start()
 
 
-def _run(app, evaluation_id):
+def _run(app, evaluation_id, control):
     with app.app_context():
         evaluation = db.session.get(PlayerEvaluation, evaluation_id)
         if evaluation is None:
+            with _active_lock:
+                _active.pop(evaluation_id, None)
+            return
+
+        if control["cancel"].is_set():
+            evaluation.status = "cancelled"
+            evaluation.error = "cancelled"
+            evaluation.completed_at = datetime.now(timezone.utc)
+            db.session.commit()
+            with _active_lock:
+                _active.pop(evaluation_id, None)
             return
 
         evaluation.status = "running"
@@ -36,7 +67,7 @@ def _run(app, evaluation_id):
 
         logger.info("evaluation %s: starting (defenders=%s trials=%s)", evaluation_id, len(evaluation.placements or []), evaluation.trials)
         try:
-            data = _run_godot(evaluation.algorithm, evaluation.placements or [], evaluation.trials, on_progress)
+            data = _run_godot(evaluation.algorithm, evaluation.placements or [], evaluation.trials, on_progress, control)
             evaluation.results = data.get("results", {})
             evaluation.replays = data.get("replays", {})
             evaluation.status = "done"
@@ -46,9 +77,17 @@ def _run(app, evaluation_id):
             logger.info("evaluation %s: done (success_rate=%s, %d replays)", evaluation_id, (evaluation.results or {}).get("success_rate"), run_count)
         except Exception as exc:
             evaluation.results = {}
-            evaluation.status = "failed"
-            evaluation.error = str(exc)[:400]
-            logger.error("evaluation %s: failed: %s", evaluation_id, exc)
+            if control["cancel"].is_set():
+                evaluation.status = "cancelled"
+                evaluation.error = "cancelled"
+                logger.info("evaluation %s: cancelled", evaluation_id)
+            else:
+                evaluation.status = "failed"
+                evaluation.error = str(exc)[:400]
+                logger.error("evaluation %s: failed: %s", evaluation_id, exc)
+        finally:
+            with _active_lock:
+                _active.pop(evaluation_id, None)
 
         evaluation.completed_at = datetime.now(timezone.utc)
         db.session.commit()
@@ -66,7 +105,9 @@ def _chunks(total, jobs):
     return ranges
 
 
-def _run_godot(algorithm, placements, trials, on_progress):
+def _run_godot(algorithm, placements, trials, on_progress, control):
+    if control["cancel"].is_set():
+        raise RuntimeError("cancelled")
     godot_bin = os.environ.get("GODOT_SERVER_BIN")
     if not godot_bin:
         raise RuntimeError("GODOT_SERVER_BIN is not configured")
@@ -78,6 +119,7 @@ def _run_godot(algorithm, placements, trials, on_progress):
     timeout = int(os.environ.get("EVAL_TIMEOUT_SECONDS", "1800"))
     sweep_max = Config.EVAL_SWEEP_MAX
     sweep_trials = Config.EVAL_SWEEP_TRIALS
+    enemy_x, enemy_y = get_enemy_start()
     total_work = max(1, trials + sweep_max * sweep_trials)
     jobs = max(1, min(get_max_jobs(), total_work))
 
@@ -122,6 +164,8 @@ def _run_godot(algorithm, placements, trials, on_progress):
                 f"--trial-count={trial_count}",
                 f"--n-start={sweep_start + 1}",
                 f"--n-count={sweep_count}",
+                f"--enemy-x={enemy_x}",
+                f"--enemy-y={enemy_y}",
             ]
             shards.append({"cmd": cmd, "output": output_path, "done": 0})
 
@@ -132,6 +176,8 @@ def _run_godot(algorithm, placements, trials, on_progress):
         def run_shard(shard):
             proc = subprocess.Popen(shard["cmd"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             shard["proc"] = proc
+            with _active_lock:
+                control["procs"].append(proc)
             shard["tail"] = []
             for line in proc.stdout:
                 line = line.strip()
@@ -161,6 +207,9 @@ def _run_godot(algorithm, placements, trials, on_progress):
         watchdog.start()
         try:
             while any(thread.is_alive() for thread in threads):
+                if control["cancel"].is_set():
+                    kill_all()
+                    break
                 with progress_lock:
                     completed = sum(shard["done"] for shard in shards)
                 on_progress(completed / total_work)
@@ -169,6 +218,9 @@ def _run_godot(algorithm, placements, trials, on_progress):
                 thread.join()
         finally:
             watchdog.cancel()
+
+        if control["cancel"].is_set():
+            raise RuntimeError("cancelled")
 
         parts = []
         for shard in shards:

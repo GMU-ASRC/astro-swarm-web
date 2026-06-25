@@ -117,6 +117,29 @@
 	}
 
 	let resimulating = $state(false);
+	let cancelling = $state(false);
+
+	async function cancelRun() {
+		if (!confirm('Cancel this running evaluation?')) return;
+		cancelling = true;
+		message = '';
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${data.id}/cancel`), {
+				method: 'POST',
+				headers: { 'X-API-Key': data.adminKey }
+			});
+			if (!res.ok && res.status !== 202) {
+				message = `Failed to cancel: ${res.status}`;
+				return;
+			}
+			const poll = await fetch(apiUrl(`/api/evaluations/${data.id}`));
+			if (poll.ok) ev = await poll.json();
+		} catch (err) {
+			message = `Cancel failed: ${err}`;
+		} finally {
+			cancelling = false;
+		}
+	}
 
 	async function resimulate() {
 		if (!confirm('Re-run this evaluation with the current simulator build? This overwrites its results and replays.')) return;
@@ -190,6 +213,11 @@
 		<button onclick={resimulate} disabled={resimulating || ev.status === 'queued' || ev.status === 'running'}>
 			{resimulating ? 'Re-simulating...' : 'Re-simulate'}
 		</button>
+		{#if ev.status === 'queued' || ev.status === 'running'}
+			<button class="admin-btn-danger" onclick={cancelRun} disabled={cancelling}>
+				{cancelling ? 'Cancelling...' : 'Cancel run'}
+			</button>
+		{/if}
 		<button class="admin-btn-danger" onclick={remove}>Delete</button>
 	</div>
 
@@ -197,6 +225,8 @@
 
 	{#if ev.status === 'failed'}
 		<p>Evaluation failed{ev.error ? `: ${ev.error}` : '.'}</p>
+	{:else if ev.status === 'cancelled'}
+		<p>This evaluation was cancelled. Re-simulate it to run the benchmark again.</p>
 	{:else if ev.status === 'queued' || ev.status === 'running'}
 		<p>Benchmark still running ({Math.round((ev.progress ?? 0) * 100)}%). Results appear when the headless run finishes.</p>
 	{:else if outcomes.length === 0}

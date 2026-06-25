@@ -24,6 +24,24 @@
 	const pageSize = 25;
 	const pagedEvaluations = $derived(evaluations.slice((page - 1) * pageSize, page * pageSize));
 
+	async function cancel(id: string, name: string) {
+		if (!confirm(`Cancel the running evaluation for "${name}"?`)) return;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${id}/cancel`), {
+				method: 'POST',
+				headers: { 'X-API-Key': data.adminKey }
+			});
+			if (res.ok || res.status === 202) {
+				evaluations = evaluations.map((e: any) => (e.id === id ? { ...e, status: 'cancelled' } : e));
+				message = `Cancelled evaluation for ${name}.`;
+			} else {
+				message = `Failed to cancel: ${res.status}`;
+			}
+		} catch (err) {
+			message = `Cancel failed: ${err}`;
+		}
+	}
+
 	async function remove(id: string, name: string) {
 		if (!confirm(`Delete evaluation for "${name}"? This cannot be undone.`)) return;
 		try {
@@ -72,6 +90,9 @@
 						<td>
 							<div class="actions">
 								<a class="admin-btn" href={`/admin/evaluations/${row.id}`}>View</a>
+								{#if row.status === 'queued' || row.status === 'running'}
+									<button onclick={() => cancel(row.id, row.username)}>Cancel</button>
+								{/if}
 								<button class="admin-btn-danger" onclick={() => remove(row.id, row.username)}>Delete</button>
 							</div>
 						</td>
