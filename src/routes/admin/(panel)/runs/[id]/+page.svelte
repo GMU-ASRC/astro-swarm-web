@@ -45,98 +45,53 @@
 	}
 </script>
 
-<div class="max-w-4xl">
-	<a href="/admin/runs" class="text-sm text-sky-300 hover:text-sky-200">← All simulator runs</a>
+<p><a href="/admin/runs">← All simulator runs</a></p>
 
-	{#if message}<div class="mt-4 text-red-300 text-sm">{message}</div>{/if}
+{#if message}<div class="message">{message}</div>{/if}
 
-	{#if loading}
-		<div class="mt-6 p-6 border-2 border-sky-500/20 bg-sky-500/5 text-sky-200 font-game tracking-wider text-center animate-pulse">
-			Loading entry...
-		</div>
-	{:else if !entry}
-		<div class="mt-6 p-6 border-2 border-red-500/30 bg-red-500/10 text-red-200 font-game tracking-wider text-center">
-			Entry not found.
-		</div>
-	{:else}
-		<div class="mt-3 flex flex-wrap items-start justify-between gap-4">
-			<div>
-				<h1 class="font-game text-3xl text-star-white" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
-					{entry.title}
-				</h1>
-				<p class="text-sm text-text-muted mt-2">
-					by {entry.author} · uploaded {new Date(entry.created_at).toLocaleString()}
-				</p>
-				<p class="text-[11px] text-text-muted/60 font-mono mt-1 break-all">{entry.id}</p>
-			</div>
-			<div class="flex gap-2">
-				<a
-					href={apiUrl(`/api/runs/${entry.id}/export`)}
-					class="px-4 py-2 border-2 border-sky-400/40 text-sky-200 font-game text-sm tracking-wider hover:bg-sky-500/15 transition-colors"
-				>
-					DOWNLOAD ZIP
-				</a>
-				<button
-					onclick={remove}
-					class="px-4 py-2 border-2 border-red-500/30 text-red-300 font-game text-sm tracking-wider hover:bg-red-500/15 transition-colors"
-				>
-					DELETE
-				</button>
-			</div>
-		</div>
+{#if loading}
+	<p>Loading entry...</p>
+{:else if !entry}
+	<p>Entry not found.</p>
+{:else}
+	<h1>{entry.title}</h1>
+	<p class="meta">by {entry.author} · uploaded {new Date(entry.created_at).toLocaleString()}</p>
+	<p class="meta">{entry.id}</p>
 
-		<div class="h-px my-6" style="background: linear-gradient(to right, rgba(36,89,184,0.4), transparent)"></div>
+	<div class="actions">
+		<a class="admin-btn" href={apiUrl(`/api/runs/${entry.id}/export`)}>Download ZIP</a>
+		<button class="admin-btn-danger" onclick={remove}>Delete</button>
+	</div>
 
-		{#if entry.video_filename}
-			<video controls class="w-full mb-6 border-2 border-sky-500/20 bg-black">
+	{#if entry.video_filename}
+		<p>
+			<video controls style="width:100%;max-width:720px;background:#000">
 				<source src={apiUrl(`/api/runs/${entry.id}/video`)} type="video/mp4" />
 			</video>
-		{/if}
-
-		{#if entry.description}
-			<p class="text-text-muted leading-relaxed mb-6">{entry.description}</p>
-		{/if}
-
-		<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">DURATION</div>
-				<div class="text-xl text-sky-200 mt-1">{entry.duration_seconds}s</div>
-			</div>
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">ROBOTS</div>
-				<div class="text-xl text-sky-200 mt-1">{entry.robot_count}</div>
-			</div>
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">FRAMES</div>
-				<div class="text-xl text-sky-200 mt-1">{entry.frame_count}</div>
-			</div>
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">ARENA</div>
-				<div class="text-xl text-sky-200 mt-1">{entry.arena_width}×{entry.arena_height}</div>
-			</div>
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">FILE SIZE</div>
-				<div class="text-xl text-sky-200 mt-1">{formatSize(entry.file_size)}</div>
-			</div>
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-				<div class="text-xs text-text-muted tracking-wider font-game">DOWNLOADS</div>
-				<div class="text-xl text-sky-200 mt-1">{entry.download_count}</div>
-			</div>
-		</div>
-
-		<h2 class="font-sim text-xl text-star-white mb-4">Species</h2>
-		{#if entry.species && entry.species.length > 0}
-			<div class="flex flex-wrap gap-2">
-				{#each entry.species as species}
-					<span class="px-3 py-1 border border-sky-400/40 text-sky-200 text-sm">
-						{typeof species === 'string' ? species : species.name ?? JSON.stringify(species)}
-					</span>
-				{/each}
-			</div>
-		{:else}
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted text-sm">
-				No species data recorded for this run.
-			</div>
-		{/if}
+		</p>
 	{/if}
-</div>
+
+	{#if entry.description}
+		<p>{entry.description}</p>
+	{/if}
+
+	<div class="stat-grid">
+		<div class="stat"><div class="label">Duration</div><div>{entry.duration_seconds}s</div></div>
+		<div class="stat"><div class="label">Robots</div><div>{entry.robot_count}</div></div>
+		<div class="stat"><div class="label">Frames</div><div>{entry.frame_count}</div></div>
+		<div class="stat"><div class="label">Arena</div><div>{entry.arena_width}×{entry.arena_height}</div></div>
+		<div class="stat"><div class="label">File size</div><div>{formatSize(entry.file_size)}</div></div>
+		<div class="stat"><div class="label">Downloads</div><div>{entry.download_count}</div></div>
+	</div>
+
+	<h2>Species</h2>
+	{#if entry.species && entry.species.length > 0}
+		<div class="actions">
+			{#each entry.species as species}
+				<span class="pill">{typeof species === 'string' ? species : species.name ?? JSON.stringify(species)}</span>
+			{/each}
+		</div>
+	{:else}
+		<p>No species data recorded for this run.</p>
+	{/if}
+{/if}

@@ -22,9 +22,7 @@
 
 	let page = $state(1);
 	const pageSize = 25;
-	const pagedEvaluations = $derived(
-		evaluations.slice((page - 1) * pageSize, page * pageSize)
-	);
+	const pagedEvaluations = $derived(evaluations.slice((page - 1) * pageSize, page * pageSize));
 
 	async function remove(id: string, name: string) {
 		if (!confirm(`Delete evaluation for "${name}"? This cannot be undone.`)) return;
@@ -45,56 +43,45 @@
 	}
 </script>
 
-<div>
-	<h1 class="font-game text-2xl text-star-white mb-6">Evaluations</h1>
-	{#if message}<div class="mb-4 text-sky-200 text-sm">{message}</div>{/if}
+<h1>Evaluations</h1>
+{#if message}<div class="message">{message}</div>{/if}
 
-	<div class="overflow-x-auto border border-sky-500/20 bg-sky-500/5">
-		<table class="w-full text-left border-collapse">
-			<thead>
-				<tr class="border-b border-sky-500/20 bg-sky-500/10 text-sky-400 font-game text-xs tracking-wider">
-					<th class="p-4">USERNAME</th>
-					<th class="p-4">LEVEL</th>
-					<th class="p-4">STATUS</th>
-					<th class="p-4">RATE</th>
-					<th class="p-4">DATE</th>
-					<th class="p-4 text-right">ACTIONS</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#if loading}
-					<tr><td colspan="6" class="p-4 text-center text-sky-200 animate-pulse">Loading evaluations...</td></tr>
+<div class="admin-table-wrap">
+	<table>
+		<thead>
+			<tr>
+				<th>Username</th>
+				<th>Level</th>
+				<th>Status</th>
+				<th>Rate</th>
+				<th>Date</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#if loading}
+				<tr><td colspan="6">Loading evaluations...</td></tr>
+			{:else}
+				{#each pagedEvaluations as row}
+					<tr>
+						<td>{row.username}</td>
+						<td>{row.level_id || 'farp'}</td>
+						<td><span class="pill">{row.status.toUpperCase()}</span></td>
+						<td>{row.success_rate != null ? `${row.success_rate}%` : '—'}</td>
+						<td>{new Date(row.created_at).toLocaleString()}</td>
+						<td>
+							<div class="actions">
+								<a class="admin-btn" href={`/admin/evaluations/${row.id}`}>View</a>
+								<button class="admin-btn-danger" onclick={() => remove(row.id, row.username)}>Delete</button>
+							</div>
+						</td>
+					</tr>
 				{:else}
-					{#each pagedEvaluations as row}
-						<tr class="border-b border-sky-500/10 hover:bg-sky-500/10 transition-colors">
-							<td class="p-4 text-star-white">{row.username}</td>
-							<td class="p-4 text-text-muted">{row.level_id || 'farp'}</td>
-							<td class="p-4">
-								<span class="text-[10px] font-game tracking-wider px-2 py-1 border
-									{row.status === 'done' ? 'text-green-300 border-green-400/40 bg-green-400/10' :
-									 row.status === 'failed' || row.status === 'error' ? 'text-red-300 border-red-400/40 bg-red-400/10' :
-									 'text-sky-300 border-sky-400/40 bg-sky-400/10'}">
-									{row.status.toUpperCase()}
-								</span>
-							</td>
-							<td class="p-4 text-text-muted">{row.success_rate != null ? `${row.success_rate}%` : '—'}</td>
-							<td class="p-4 text-text-muted text-sm">{new Date(row.created_at).toLocaleString()}</td>
-							<td class="p-4 text-right whitespace-nowrap">
-								<a href={`/admin/evaluations/${row.id}`} class="px-3 py-1 border border-sky-400/40 text-sky-200 text-xs font-game tracking-wider hover:bg-sky-500/15 transition-colors">
-									VIEW
-								</a>
-								<button onclick={() => remove(row.id, row.username)} class="ml-2 px-3 py-1 border border-red-400/40 text-red-300 text-xs font-game tracking-wider hover:bg-red-500/15 transition-colors">
-									DELETE
-								</button>
-							</td>
-						</tr>
-					{:else}
-						<tr><td colspan="6" class="p-4 text-center text-text-muted">No evaluations found.</td></tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
-
-	<Pagination bind:page total={evaluations.length} {pageSize} />
+					<tr><td colspan="6">No evaluations found.</td></tr>
+				{/each}
+			{/if}
+		</tbody>
+	</table>
 </div>
+
+<Pagination bind:page total={evaluations.length} {pageSize} />

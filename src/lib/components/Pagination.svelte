@@ -18,7 +18,7 @@
 	}
 </script>
 
-<div class="flex items-center justify-between gap-4 mt-4 font-game text-xs tracking-wider text-text-muted">
+<div class="pagination">
 	<span>
 		{#if total === 0}
 			No entries
@@ -27,23 +27,39 @@
 		{/if}
 	</span>
 
-	<div class="flex items-center gap-2">
-		<button
-			type="button"
-			onclick={prev}
-			disabled={page <= 1}
-			class="px-3 py-1 border border-sky-400/40 text-sky-200 hover:bg-sky-500/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-		>
-			PREV
-		</button>
-		<span class="text-sky-300">PAGE {page} / {pageCount}</span>
-		<button
-			type="button"
-			onclick={next}
-			disabled={page >= pageCount}
-			class="px-3 py-1 border border-sky-400/40 text-sky-200 hover:bg-sky-500/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-		>
-			NEXT
-		</button>
-	</div>
+	<span class="controls">
+		<button type="button" onclick={prev} disabled={page <= 1}>Prev</button>
+		<span>Page {page} / {pageCount}</span>
+		<button type="button" onclick={next} disabled={page >= pageCount}>Next</button>
+	</span>
 </div>
+
+<style>
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.controls {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	button {
+		font: inherit;
+		padding: 0.3rem 0.6rem;
+		border: 1px solid #6b7280;
+		background: #f9fafb;
+		cursor: pointer;
+	}
+
+	button:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+</style>

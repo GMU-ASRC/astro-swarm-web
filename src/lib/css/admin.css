@@ -1,0 +1,232 @@
+.admin {
+	min-height: 100vh;
+	background: #ffffff;
+	color: #111827;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	line-height: 1.5;
+}
+
+.admin a {
+	color: #1d4ed8;
+}
+
+.admin h1 {
+	font-size: 1.5rem;
+	margin: 0 0 1rem 0;
+}
+
+.admin h2 {
+	font-size: 1.2rem;
+	margin: 1.5rem 0 0.5rem 0;
+}
+
+.admin-layout {
+	display: flex;
+	gap: 1.5rem;
+	align-items: flex-start;
+}
+
+.admin-sidebar {
+	flex: 0 0 200px;
+	border-right: 1px solid #d1d5db;
+	padding: 1rem;
+}
+
+.admin-sidebar nav {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+.admin-sidebar nav a {
+	padding: 0.4rem 0;
+}
+
+.admin-sidebar nav a.active {
+	font-weight: 700;
+}
+
+.admin-content {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: 1rem;
+}
+
+.admin table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0.5rem 0;
+}
+
+.admin th,
+.admin td {
+	border: 1px solid #d1d5db;
+	padding: 0.5rem 0.6rem;
+	text-align: left;
+	vertical-align: top;
+}
+
+.admin th {
+	background: #f3f4f6;
+}
+
+.admin-table-wrap {
+	overflow-x: auto;
+}
+
+.admin button,
+.admin .admin-btn {
+	font: inherit;
+	padding: 0.35rem 0.7rem;
+	border: 1px solid #6b7280;
+	background: #f9fafb;
+	color: #111827;
+	cursor: pointer;
+	text-decoration: none;
+	display: inline-block;
+}
+
+.admin button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.admin .admin-btn-danger {
+	border-color: #b91c1c;
+	color: #b91c1c;
+}
+
+.admin .message {
+	margin: 0.5rem 0;
+	padding: 0.5rem;
+	background: #eff6ff;
+	border: 1px solid #bfdbfe;
+}
+
+.admin .meta {
+	color: #4b5563;
+	font-size: 0.9rem;
+}
+
+.admin .stat-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 0.75rem;
+	margin: 1rem 0;
+}
+
+.admin .stat {
+	border: 1px solid #d1d5db;
+	padding: 0.6rem;
+}
+
+.admin .stat .label {
+	font-size: 0.75rem;
+	color: #6b7280;
+	text-transform: uppercase;
+}
+
+.admin .charts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 1rem;
+	margin: 1rem 0;
+}
+
+.admin .charts img {
+	width: 100%;
+	border: 1px solid #d1d5db;
+}
+
+.admin .runs-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+	margin: 0.5rem 0;
+}
+
+.admin .runs-grid button {
+	width: 2.2rem;
+	height: 2.2rem;
+	padding: 0;
+	text-align: center;
+}
+
+.admin .run-win {
+	background: #bbf7d0;
+	border-color: #16a34a;
+}
+
+.admin .run-lose {
+	background: #fecaca;
+	border-color: #dc2626;
+}
+
+.admin .run-timeout {
+	background: #fde68a;
+	border-color: #d97706;
+}
+
+.admin .run-selected {
+	outline: 2px solid #1d4ed8;
+}
+
+.admin .pill {
+	display: inline-block;
+	padding: 0.1rem 0.4rem;
+	border: 1px solid #6b7280;
+	font-size: 0.8rem;
+}
+
+.admin .actions {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.admin .login {
+	max-width: 360px;
+	margin: 3rem auto;
+	padding: 1.5rem;
+	border: 1px solid #d1d5db;
+}
+
+.admin .login label {
+	display: block;
+	margin-bottom: 0.25rem;
+}
+
+.admin .login input {
+	width: 100%;
+	font: inherit;
+	padding: 0.5rem;
+	border: 1px solid #6b7280;
+	box-sizing: border-box;
+	margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+	.admin-layout {
+		flex-direction: column;
+		gap: 0;
+	}
+
+	.admin-sidebar {
+		flex: none;
+		width: 100%;
+		border-right: none;
+		border-bottom: 1px solid #d1d5db;
+	}
+
+	.admin-sidebar nav {
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	.admin th,
+	.admin td {
+		padding: 0.4rem;
+		font-size: 0.9rem;
+	}
+}
