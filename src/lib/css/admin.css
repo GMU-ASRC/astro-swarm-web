@@ -30,9 +30,7 @@
 
 .admin-layout {
 	display: flex;
-	gap: 1rem;
-	align-items: flex-start;
-	padding: 1rem;
+	align-items: stretch;
 	max-width: 1200px;
 	margin: 0 auto;
 }
@@ -42,8 +40,11 @@
 	background: #1f2733;
 	color: #cbd3df;
 	padding: 1.25rem;
+	box-sizing: border-box;
 	position: sticky;
-	top: 1rem;
+	top: 0;
+	height: 100vh;
+	overflow-y: auto;
 }
 
 .admin-sidebar h2 {
@@ -336,15 +337,14 @@
 @media (max-width: 768px) {
 	.admin-layout {
 		flex-direction: column;
-		gap: 0.75rem;
-		padding: 0.75rem;
 	}
 
 	.admin-sidebar {
 		flex: none;
 		width: 100%;
+		height: auto;
 		position: static;
-		box-sizing: border-box;
+		overflow: visible;
 	}
 
 	.admin-sidebar nav {
@@ -355,6 +355,22 @@
 
 	.admin-content {
 		padding: 1rem;
+	}
+
+	.admin .charts {
+		grid-template-columns: 1fr;
+	}
+
+	.admin .stat-grid {
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	}
+
+	.admin .actions {
+		gap: 0.4rem;
+	}
+
+	.admin h1 {
+		font-size: 1.3rem;
 	}
 
 	.admin th,
