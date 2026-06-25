@@ -78,6 +78,38 @@
 		if (e.key === 'Escape') zoomed = null;
 	}
 
+	let resimulating = $state(false);
+
+	async function resimulate() {
+		if (!confirm('Re-run this evaluation with the current simulator build? This overwrites its results and replays.')) return;
+		resimulating = true;
+		message = '';
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${data.id}/resimulate`), {
+				method: 'POST',
+				headers: { 'X-API-Key': data.adminKey }
+			});
+			if (!res.ok && res.status !== 202) {
+				message = `Failed to start re-simulation: ${res.status}`;
+				resimulating = false;
+				return;
+			}
+			loadedReplays = false;
+			selectedReplay = null;
+			selectedTrial = null;
+			while (true) {
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+				const poll = await fetch(apiUrl(`/api/evaluations/${data.id}`));
+				if (!poll.ok) continue;
+				ev = await poll.json();
+				if (ev && ev.status !== 'queued' && ev.status !== 'running') break;
+			}
+		} catch (err) {
+			message = `Re-simulate failed: ${err}`;
+		}
+		resimulating = false;
+	}
+
 	async function remove() {
 		if (!confirm('Delete this evaluation? This cannot be undone.')) return;
 		try {
@@ -127,6 +159,13 @@
 				>
 					DOWNLOAD ZIP
 				</a>
+				<button
+					onclick={resimulate}
+					disabled={resimulating || ev.status === 'queued' || ev.status === 'running'}
+					class="px-4 py-2 border-2 border-sky-400/40 text-sky-200 font-game text-sm tracking-wider hover:bg-sky-500/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+				>
+					{resimulating ? 'RE-SIMULATING...' : 'RE-SIMULATE'}
+				</button>
 				<button
 					onclick={remove}
 					class="px-4 py-2 border-2 border-red-500/30 text-red-300 font-game text-sm tracking-wider hover:bg-red-500/15 transition-colors"

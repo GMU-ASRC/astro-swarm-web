@@ -103,6 +103,25 @@ def delete_evaluation(eval_id: str):
     return "", 204
 
 
+@evaluations_bp.post("/<eval_id>/resimulate")
+def resimulate_evaluation(eval_id: str):
+    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
+        raise Unauthorized("Invalid API key")
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    if evaluation.status in ("queued", "running"):
+        raise BadRequest("Evaluation is already running")
+
+    evaluation.status = "queued"
+    evaluation.progress = 0.0
+    evaluation.error = None
+    db.session.commit()
+
+    run_evaluation_async(current_app._get_current_object(), evaluation.id)
+    return jsonify(evaluation.to_dict()), 202
+
+
 @evaluations_bp.get("/<eval_id>/chart/<kind>.png")
 def chart(eval_id: str, kind: str):
     evaluation = db.session.get(PlayerEvaluation, eval_id)
