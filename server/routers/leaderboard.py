@@ -1,4 +1,9 @@
-from flask import Blueprint, request, jsonify
+import io
+import json
+import re
+import zipfile
+
+from flask import Blueprint, request, jsonify, send_file
 from werkzeug.exceptions import Unauthorized, BadRequest
 
 from database import db
@@ -7,6 +12,11 @@ from config import Config
 from schemas import LeaderboardSubmit
 
 leaderboard_bp = Blueprint("leaderboard", __name__, url_prefix="/api/leaderboard")
+
+
+def safe_filename(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", value or "").strip("_")
+    return cleaned or "entry"
 
 @leaderboard_bp.route("", methods=["GET"])
 def get_leaderboard():
@@ -57,6 +67,26 @@ def get_leaderboard_entry(entry_id):
     if not entry:
         raise BadRequest("Entry not found")
     return jsonify(entry.to_dict()), 200
+
+@leaderboard_bp.route("/<entry_id>/export", methods=["GET"])
+def export_leaderboard_entry(entry_id):
+    entry = LeaderboardEntry.query.get(entry_id)
+    if not entry:
+        raise BadRequest("Entry not found")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("entry.json", json.dumps(entry.to_dict(), indent=2))
+    buffer.seek(0)
+
+    download_name = f"leaderboard_{safe_filename(entry.username)}_{entry.id}.zip"
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=download_name,
+    )
+
 
 @leaderboard_bp.route("/<entry_id>", methods=["DELETE"])
 def delete_leaderboard_entry(entry_id):

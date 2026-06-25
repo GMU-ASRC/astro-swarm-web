@@ -1,4 +1,7 @@
+import io
+import json
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -11,6 +14,11 @@ from database import db
 from godot_format import extract_metadata
 
 runs_bp = Blueprint("runs", __name__, url_prefix="/api/runs")
+
+
+def safe_filename(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", value or "").strip("_")
+    return cleaned or "run"
 
 RUNS_DIR = "runs"
 
@@ -128,6 +136,37 @@ def upload_run():
 def get_run(run_id: str):
     run = SimRun.query.get_or_404(run_id, description="Run not found.")
     return jsonify(run.to_dict())
+
+
+@runs_bp.get("/<run_id>/export")
+def export_run(run_id: str):
+    run = SimRun.query.get_or_404(run_id, description="Run not found.")
+
+    config_data = None
+    zip_path = run_upload_path(run.stored_filename, current_app.config["UPLOAD_DIR"])
+    if zip_path.exists():
+        try:
+            with zipfile.ZipFile(zip_path, "r") as source:
+                config_files = [f for f in source.namelist() if f.endswith(".cfg") or f.endswith(".json")]
+                if config_files:
+                    config_data = source.read(config_files[0])
+        except Exception:
+            config_data = None
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("run.json", json.dumps(run.to_dict(), indent=2))
+        if config_data is not None:
+            archive.writestr("config.json", config_data)
+    buffer.seek(0)
+
+    download_name = f"run_{safe_filename(run.title)}_{run.id}.zip"
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=download_name,
+    )
 
 
 @runs_bp.get("/<run_id>/download")

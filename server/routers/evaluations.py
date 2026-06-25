@@ -1,4 +1,9 @@
-from flask import Blueprint, Response, current_app, jsonify, request
+import io
+import json
+import re
+import zipfile
+
+from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
@@ -114,6 +119,36 @@ def chart(eval_id: str, kind: str):
     else:
         raise NotFound("Unknown chart")
     return Response(png, mimetype="image/png")
+
+
+def safe_filename(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", value or "").strip("_")
+    return cleaned or "entry"
+
+
+@evaluations_bp.get("/<eval_id>/export")
+def export_evaluation(eval_id: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("evaluation.json", json.dumps(evaluation.to_dict(), indent=2))
+        for run in evaluation.replay_index().get("runs", []):
+            trial = run.get("trial")
+            replay = evaluation.replay_for(trial)
+            if replay is not None:
+                archive.writestr(f"runs/trial_{trial}.json", json.dumps(replay, indent=2))
+    buffer.seek(0)
+
+    download_name = f"evaluation_{safe_filename(evaluation.username)}_{evaluation.id}.zip"
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=download_name,
+    )
 
 
 @evaluations_bp.get("/<eval_id>/replays")
