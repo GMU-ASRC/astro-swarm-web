@@ -1,8 +1,3 @@
-export interface EvalPoint {
-	n: number;
-	success_rate: number;
-}
-
 export interface EvalSummary {
 	trials: number;
 	success_rate: number;
