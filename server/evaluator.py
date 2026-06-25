@@ -6,6 +6,7 @@ import tempfile
 import threading
 from datetime import datetime, timezone
 
+from config import Config
 from database import db
 from models import PlayerEvaluation
 
@@ -84,6 +85,11 @@ def _run_godot(algorithm, placements, trials, on_progress):
             f"--placements={placements_path}",
             f"--out={output_path}",
             f"--trials={trials}",
+            f"--seed={Config.EVAL_SEED}",
+            f"--n-max={Config.EVAL_SWEEP_MAX}",
+            f"--sweep-trials={Config.EVAL_SWEEP_TRIALS}",
+            f"--spawn-points={Config.EVAL_SPAWN_POINTS}",
+            f"--match-seconds={Config.EVAL_MATCH_CAP_SECONDS}",
         ]
 
         logger.info("running: %s", " ".join(cmd))

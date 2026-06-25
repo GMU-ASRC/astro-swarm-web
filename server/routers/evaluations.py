@@ -63,6 +63,25 @@ def submit_evaluation():
     return jsonify(evaluation.to_dict()), 202
 
 
+@evaluations_bp.get("/settings")
+def settings():
+    seed = Config.EVAL_SEED
+    return jsonify({
+        "seed": seed,
+        "placement_trials": 100,
+        "sweep_max": Config.EVAL_SWEEP_MAX,
+        "sweep_trials": Config.EVAL_SWEEP_TRIALS,
+        "spawn_points": Config.EVAL_SPAWN_POINTS,
+        "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
+        "derived_seeds": [
+            {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
+            {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
+            {"name": "Sweep ring orientations (per n)", "formula": "seed + 100000 + n", "value": f"{seed + 100000} + n"},
+            {"name": "Sweep match RNG (per n)", "formula": "seed + 1000000 + n", "value": f"{seed + 1000000} + n"},
+        ],
+    })
+
+
 @evaluations_bp.get("/baseline")
 def baseline():
     evaluations = (
@@ -130,11 +149,15 @@ def chart(eval_id: str, kind: str):
     results = evaluation.results if isinstance(evaluation.results, dict) else {}
     outcomes = results.get("outcomes", [])
     date_label = (evaluation.completed_at or evaluation.created_at).date().isoformat()
-    args = (outcomes, evaluation.username, evaluation.level_id or "farp", evaluation.id, date_label)
+    meta = (evaluation.username, evaluation.level_id or "farp", evaluation.id, date_label)
     if kind == "line":
-        png = charts.render_line_png(*args)
+        png = charts.render_line_png(outcomes, *meta)
     elif kind == "bar":
-        png = charts.render_bar_png(*args)
+        png = charts.render_bar_png(outcomes, *meta)
+    elif kind == "sweep":
+        png = charts.render_sweep_png(results.get("sweep", []), *meta)
+    elif kind == "times":
+        png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:
         raise NotFound("Unknown chart")
     return Response(png, mimetype="image/png")
