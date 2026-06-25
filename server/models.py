@@ -250,6 +250,13 @@ class PlayerEvaluation(db.Model):
         return None
 
 
+class AppSetting(db.Model):
+    __tablename__ = "app_settings"
+
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.String(255))
+
+
 class LeaderboardEntry(db.Model):
     __tablename__ = "leaderboard_entries"
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import charts
+from app_settings import JOBS_HARD_CAP, get_max_jobs, set_max_jobs
 from config import Config
 from database import db
 from evaluator import run_evaluation_async
@@ -73,6 +74,8 @@ def settings():
         "sweep_trials": Config.EVAL_SWEEP_TRIALS,
         "spawn_points": Config.EVAL_SPAWN_POINTS,
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
+        "max_jobs": get_max_jobs(),
+        "max_jobs_cap": JOBS_HARD_CAP,
         "derived_seeds": [
             {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
             {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
@@ -80,6 +83,20 @@ def settings():
             {"name": "Sweep match RNG (per n)", "formula": "seed + 1000000 + n", "value": f"{seed + 1000000} + n"},
         ],
     })
+
+
+@evaluations_bp.put("/settings")
+def update_settings():
+    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
+        raise Unauthorized("Invalid API key")
+    data = request.get_json(silent=True) or {}
+    if "max_jobs" not in data:
+        raise BadRequest("max_jobs is required")
+    try:
+        value = int(data["max_jobs"])
+    except (TypeError, ValueError):
+        raise BadRequest("max_jobs must be an integer")
+    return jsonify({"max_jobs": set_max_jobs(value), "max_jobs_cap": JOBS_HARD_CAP})
 
 
 @evaluations_bp.get("/baseline")
