@@ -108,7 +108,7 @@
 </svelte:head>
 
 <div class="relative z-1 min-h-screen pt-20 font-sim">
-	<div class="max-w-225 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
+	<div class="max-w-360 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
 		<h1 class="font-game text-[clamp(1.8rem,4vw,3rem)] font-bold text-star-white leading-tight mb-3" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
 			Levels
 		</h1>
@@ -117,7 +117,7 @@
 		</p>
 	</div>
 
-	<div class="max-w-225 mx-auto px-8 max-sm:px-5 pb-6 flex flex-wrap gap-2">
+	<div class="max-w-360 mx-auto px-8 max-sm:px-5 pb-6 flex flex-wrap gap-2">
 		{#each levels as level}
 			<button
 				type="button"
@@ -134,7 +134,7 @@
 
 
 
-	<div class="max-w-225 mx-auto px-8 max-sm:px-5 py-12 max-md:py-8 flex flex-col md:flex-row gap-8 items-start">
+	<div class="max-w-360 mx-auto px-8 max-sm:px-5 py-12 max-md:py-8 flex flex-col md:flex-row gap-8 items-start">
 		<aside class="w-full md:w-64 shrink-0 flex flex-col gap-8">
 			<div>
 				<h3 class="font-game text-sky-400 text-sm tracking-widest mb-3">SEARCH</h3>
@@ -205,7 +205,7 @@
 				No evaluations yet. Complete the FARP scenario in-game to appear here.
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
 				{#each paged as player}
 					<a
 						href={`/levels/${player.id}`}
