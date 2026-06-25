@@ -1,8 +1,43 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
+	import { apiUrl } from '$lib/ts/api';
+	import { sessionKey } from '../+layout';
 
-	let { form } = $props();
 	let loading = $state(false);
+	let error = $state('');
+
+	async function login(event: SubmitEvent) {
+		event.preventDefault();
+		const formData = new FormData(event.currentTarget as HTMLFormElement);
+		const apiKey = (formData.get('apiKey') as string)?.trim();
+
+		if (!apiKey) {
+			error = 'API key is required';
+			return;
+		}
+
+		loading = true;
+		error = '';
+
+		try {
+			const res = await fetch(apiUrl('/api/evaluations/test-auth'), {
+				method: 'DELETE',
+				headers: { 'X-API-Key': apiKey }
+			});
+
+			if (res.status === 401 || res.status === 403) {
+				error = 'Invalid API Key';
+				return;
+			}
+
+			localStorage.setItem(sessionKey, apiKey);
+			await goto('/admin');
+		} catch (err) {
+			error = 'Failed to connect to backend API';
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -14,7 +49,7 @@
 		<h1 class="login-title">ASTROSWARM</h1>
 		<p class="login-subtitle">SECURE ADMIN UPLINK</p>
 
-		<form method="POST" use:enhance={() => { loading = true; return async ({ update }) => { loading = false; update(); } }} class="login-form">
+		<form onsubmit={login} class="login-form">
 			<div class="input-group">
 				<label for="apiKey" class="login-label">MASTER KEY</label>
 				<input
@@ -27,9 +62,9 @@
 				/>
 			</div>
 
-			{#if form?.error}
+			{#if error}
 				<div class="login-error">
-					{form.error}
+					{error}
 				</div>
 			{/if}
 

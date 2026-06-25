@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { sessionKey } from '../+layout';
 
 	let { children } = $props();
+
+	async function logout() {
+		localStorage.removeItem(sessionKey);
+		await goto('/admin/login');
+	}
 
 	const links = [
 		{ href: '/admin', label: 'DASHBOARD' },
@@ -36,14 +43,13 @@
 		</nav>
 
 		<div class="mt-8 pt-6 border-t border-sky-500/20">
-			<form method="POST" action="/admin/logout">
-				<button
-					type="submit"
-					class="w-full px-4 py-3 border-2 border-red-500/30 text-red-300 font-game text-sm tracking-wider hover:bg-red-500/15 transition-colors"
-				>
-					LOGOUT
-				</button>
-			</form>
+			<button
+				type="button"
+				onclick={logout}
+				class="w-full px-4 py-3 border-2 border-red-500/30 text-red-300 font-game text-sm tracking-wider hover:bg-red-500/15 transition-colors"
+			>
+				LOGOUT
+			</button>
 		</div>
 	</aside>
 
