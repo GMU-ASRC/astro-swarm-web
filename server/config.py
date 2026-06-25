@@ -21,3 +21,5 @@ class Config:
     EVAL_MAX_JOBS = max(1, min(20, int(os.environ.get("EVAL_MAX_JOBS", "20"))))
     EVAL_ENEMY_X = float(os.environ.get("EVAL_ENEMY_X", "1920"))
     EVAL_ENEMY_Y = float(os.environ.get("EVAL_ENEMY_Y", "40"))
+    EVAL_ARENA_WIDTH = float(os.environ.get("EVAL_ARENA_WIDTH", "3840"))
+    EVAL_ARENA_HEIGHT = float(os.environ.get("EVAL_ARENA_HEIGHT", "2160"))

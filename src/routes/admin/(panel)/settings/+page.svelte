@@ -86,11 +86,18 @@
 
 	<h2>Enemy start coordinate</h2>
 	<p class="meta">Where the enemy ship starts for all 100 ring sweep runs. The placement runs keep using their {settings.spawn_points} varied static spawns.</p>
+	<div class="stat-grid">
+		<div class="stat"><div class="label">Arena size</div><div>{settings.arena_width} × {settings.arena_height}</div></div>
+		<div class="stat"><div class="label">Target (planet) center</div><div>{settings.planet_x}, {settings.planet_y}</div></div>
+		<div class="stat"><div class="label">Valid X range</div><div>0 – {settings.arena_width}</div></div>
+		<div class="stat"><div class="label">Valid Y range</div><div>0 – {settings.arena_height}</div></div>
+	</div>
+	<p class="meta">The enemy spawns at this point and flies straight toward the target center. Pick a point near an arena edge for a realistic approach.</p>
 	<div class="actions">
 		<label for="enemyX">X</label>
-		<input id="enemyX" type="number" step="1" bind:value={enemyX} style="width:6rem" />
+		<input id="enemyX" type="number" step="1" min="0" max={settings.arena_width} bind:value={enemyX} style="width:6rem" />
 		<label for="enemyY">Y</label>
-		<input id="enemyY" type="number" step="1" bind:value={enemyY} style="width:6rem" />
+		<input id="enemyY" type="number" step="1" min="0" max={settings.arena_height} bind:value={enemyY} style="width:6rem" />
 		<button onclick={saveEnemyStart} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
 	</div>
 

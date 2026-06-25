@@ -191,7 +191,7 @@
 			</div>
 		</aside>
 
-		<div class="flex-1 min-w-0">
+		<div class="flex-1 min-w-0 w-full">
 		{#if loading}
 			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-sky-200 font-game tracking-wider text-center animate-pulse">
 				LOADING LEVEL DATA...

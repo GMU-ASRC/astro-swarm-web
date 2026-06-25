@@ -80,6 +80,10 @@ def settings():
         "max_jobs_cap": JOBS_HARD_CAP,
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
+        "arena_width": Config.EVAL_ARENA_WIDTH,
+        "arena_height": Config.EVAL_ARENA_HEIGHT,
+        "planet_x": Config.EVAL_ARENA_WIDTH / 2,
+        "planet_y": Config.EVAL_ARENA_HEIGHT / 2,
         "derived_seeds": [
             {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
             {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},

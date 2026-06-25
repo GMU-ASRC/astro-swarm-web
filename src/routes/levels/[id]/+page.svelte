@@ -70,6 +70,40 @@
 		}
 	});
 
+	let sweepRuns = $state<{ n: number; outcome: string }[]>([]);
+	let selectedN: number | null = $state(null);
+	let selectedSweepReplay: Replay | null = $state(null);
+	let loadedSweep = false;
+
+	async function loadSweepIndex() {
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replays`));
+			if (!res.ok) return;
+			sweepRuns = await res.json();
+			if (sweepRuns.length > 0) loadSweepReplay(sweepRuns[0].n);
+		} catch (err) {
+			console.error('Error loading sweep index:', err);
+		}
+	}
+
+	async function loadSweepReplay(n: number) {
+		selectedN = n;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
+			if (!res.ok) return;
+			selectedSweepReplay = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep replay:', err);
+		}
+	}
+
+	$effect(() => {
+		if (ev.status === 'done' && !loadedSweep) {
+			loadedSweep = true;
+			loadSweepIndex();
+		}
+	});
+
 	onMount(() => {
 		if (!pending) return;
 		console.log('Benchmark running. Check back shortly — results appear when the headless run finishes.');
@@ -197,6 +231,32 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if sweepRuns.length > 0}
+				<div class="mt-10">
+					<h2 class="font-sim text-xl text-star-white mb-2">Ring Sweep Runs ({sweepRuns.length})</h2>
+					<p class="text-xs text-text-muted mb-4">One sim per ring size — n defenders placed in a circle around the target at random orientations, against a fixed enemy spawn. Click an n to replay it.</p>
+					<div class="flex flex-wrap gap-2 mb-4" style="max-width: 760px">
+						{#each sweepRuns as run}
+							<button
+								type="button"
+								title={`n=${run.n}: ${run.outcome}`}
+								onclick={() => loadSweepReplay(run.n)}
+								class="w-11 h-11 px-1 border text-[11px] text-white/90 flex items-center justify-center transition-colors {cellColor(run.outcome)} {selectedN === run.n ? 'ring-2 ring-sky-300' : ''}"
+								aria-label={`n ${run.n} ${run.outcome}`}
+							>{run.n}</button>
+						{/each}
+					</div>
+					{#if selectedSweepReplay}
+						<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
+							<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
+								N = {selectedN} DEFENDERS
+							</div>
+							<FarpReplay replay={selectedSweepReplay} />
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="mt-10">
 				<h2 class="font-sim text-xl text-star-white mb-4">Defender Algorithm</h2>
