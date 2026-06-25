@@ -18,6 +18,11 @@
 	let selectedReplay: Replay | null = $state(null);
 	let loadedReplays = false;
 
+	let sweepRuns = $state<{ n: number; outcome: string }[]>([]);
+	let selectedN: number | null = $state(null);
+	let selectedSweepReplay: Replay | null = $state(null);
+	let loadedSweep = false;
+
 	$effect(() => {
 		let active = true;
 		loading = true;
@@ -76,6 +81,37 @@
 		}
 	});
 
+	async function loadSweepIndex() {
+		if (!ev) return;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replays`));
+			if (!res.ok) return;
+			sweepRuns = await res.json();
+			if (sweepRuns.length > 0) loadSweepReplay(sweepRuns[0].n);
+		} catch (err) {
+			console.error('Error loading sweep index:', err);
+		}
+	}
+
+	async function loadSweepReplay(n: number) {
+		if (!ev) return;
+		selectedN = n;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
+			if (!res.ok) return;
+			selectedSweepReplay = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep replay:', err);
+		}
+	}
+
+	$effect(() => {
+		if (ev && ev.status === 'done' && !loadedSweep) {
+			loadedSweep = true;
+			loadSweepIndex();
+		}
+	});
+
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') zoomed = null;
 	}
@@ -99,6 +135,10 @@
 			loadedReplays = false;
 			selectedReplay = null;
 			selectedTrial = null;
+			loadedSweep = false;
+			sweepRuns = [];
+			selectedSweepReplay = null;
+			selectedN = null;
 			while (true) {
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 				const poll = await fetch(apiUrl(`/api/evaluations/${data.id}`));
@@ -206,6 +246,28 @@
 				<p class="meta">Trial {(selectedTrial ?? 0) + 1}</p>
 				<FarpReplay replay={selectedReplay} />
 			</div>
+		{/if}
+
+		{#if sweepRuns.length > 0}
+			<h2>Ring Sweep Replays ({sweepRuns.length})</h2>
+			<p class="meta">One sim per ring size — n defenders placed in a circle around the target at random orientations. Click an n to replay it.</p>
+			<div class="runs-grid">
+				{#each sweepRuns as run}
+					<button
+						type="button"
+						title={`n=${run.n}: ${run.outcome}`}
+						onclick={() => loadSweepReplay(run.n)}
+						class="{cellClass(run.outcome)} {selectedN === run.n ? 'run-selected' : ''}"
+						aria-label={`n ${run.n} ${run.outcome}`}
+					>{run.n}</button>
+				{/each}
+			</div>
+			{#if selectedSweepReplay}
+				<div>
+					<p class="meta">N = {selectedN} defenders</p>
+					<FarpReplay replay={selectedSweepReplay} />
+				</div>
+			{/if}
 		{/if}
 
 		<h2>Defender Algorithm</h2>
