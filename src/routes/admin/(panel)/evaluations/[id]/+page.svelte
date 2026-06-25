@@ -228,8 +228,8 @@
 			<button type="button" onclick={() => (zoomed = 'times')}><img src={chartUrl('times')} alt="Detection and capture times per trial" /></button>
 		</div>
 
-		<h2>Runs ({outcomes.length})</h2>
-		<p class="meta">Each cell is one trial — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>
+		<h2>Placement Runs ({outcomes.length})</h2>
+		<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>
 		<div class="runs-grid">
 			{#each outcomes as o, i}
 				<button
@@ -248,9 +248,9 @@
 			</div>
 		{/if}
 
+		<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
+		<p class="meta">One sim per ring size — n defenders placed in a circle around the target at random orientations, against a fixed enemy spawn. Click an n to replay it.</p>
 		{#if sweepRuns.length > 0}
-			<h2>Ring Sweep Replays ({sweepRuns.length})</h2>
-			<p class="meta">One sim per ring size — n defenders placed in a circle around the target at random orientations. Click an n to replay it.</p>
 			<div class="runs-grid">
 				{#each sweepRuns as run}
 					<button
@@ -268,6 +268,8 @@
 					<FarpReplay replay={selectedSweepReplay} />
 				</div>
 			{/if}
+		{:else}
+			<div class="message">No ring sweep data for this entry. Re-simulate it with the latest simulator build to generate the sweep replays.</div>
 		{/if}
 
 		<h2>Defender Algorithm</h2>
