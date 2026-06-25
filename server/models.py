@@ -225,6 +225,30 @@ class PlayerEvaluation(db.Model):
                 }
         return None
 
+    def sweep_index(self):
+        replays = self._replays_dict()
+        return [
+            {"n": run.get("n"), "outcome": run.get("outcome")}
+            for run in replays.get("sweep_runs", [])
+        ]
+
+    def sweep_replay_for(self, n: int):
+        replays = self._replays_dict()
+        for run in replays.get("sweep_runs", []):
+            if run.get("n") == n:
+                return {
+                    "n": run.get("n"),
+                    "outcome": run.get("outcome"),
+                    "fps": replays.get("fps", 12),
+                    "defenders": run.get("defenders", 0),
+                    "view": replays.get("view", 300),
+                    "fov": replays.get("fov", 70),
+                    "planet": replays.get("planet"),
+                    "arena": replays.get("arena"),
+                    "frames": run.get("frames", []),
+                }
+        return None
+
 
 class LeaderboardEntry(db.Model):
     __tablename__ = "leaderboard_entries"

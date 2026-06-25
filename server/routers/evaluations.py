@@ -210,3 +210,22 @@ def get_replay(eval_id: str, trial: int):
     if replay is None:
         raise BadRequest("Replay not found")
     return jsonify(replay)
+
+
+@evaluations_bp.get("/<eval_id>/sweep-replays")
+def list_sweep_replays(eval_id: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    return jsonify(evaluation.sweep_index())
+
+
+@evaluations_bp.get("/<eval_id>/sweep-replay/<int:n>")
+def get_sweep_replay(eval_id: str, n: int):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    replay = evaluation.sweep_replay_for(n)
+    if replay is None:
+        raise BadRequest("Replay not found")
+    return jsonify(replay)
