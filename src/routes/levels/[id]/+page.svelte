@@ -11,8 +11,10 @@
 
 	let { data }: { data: PageData } = $props();
 
+	type ChartKind = 'line' | 'bar' | 'sweep' | 'times';
+
 	let ev: PlayerEvaluation = $state(data.evaluation);
-	let zoomed: null | 'line' | 'bar' = $state(null);
+	let zoomed: null | ChartKind = $state(null);
 
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') zoomed = null;
@@ -36,7 +38,7 @@
 	});
 
 	let chartBust = $derived(ev.completed_at ?? ev.status);
-	function chartUrl(kind: 'line' | 'bar'): string {
+	function chartUrl(kind: ChartKind): string {
 		return apiUrl(`/api/evaluations/${ev.id}/chart/${kind}.png?v=${encodeURIComponent(chartBust)}`);
 	}
 
@@ -155,6 +157,20 @@
 					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
 				>
 					<img src={chartUrl('bar')} alt="Outcome breakdown" class="w-full" />
+				</button>
+				<button
+					type="button"
+					onclick={() => (zoomed = 'sweep')}
+					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
+				>
+					<img src={chartUrl('sweep')} alt="Detection rate vs number of defenders" class="w-full" />
+				</button>
+				<button
+					type="button"
+					onclick={() => (zoomed = 'times')}
+					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
+				>
+					<img src={chartUrl('times')} alt="Detection and capture times per trial" class="w-full" />
 				</button>
 			</div>
 
