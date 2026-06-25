@@ -5,22 +5,20 @@ import { apiUrl } from '$lib/ts/api';
 export const ssr = false;
 export const prerender = false;
 
-export const load: PageLoad = async ({ fetch }) => {
-	let players: PlayerListItem[] = [];
-	let apiError = false;
-
-	try {
-		const res = await fetch(apiUrl('/api/evaluations'));
-		if (res.ok) {
-			players = await res.json();
-		} else {
-			apiError = true;
+export const load: PageLoad = ({ fetch }) => {
+	const playersPromise = (async () => {
+		try {
+			const res = await fetch(apiUrl('/api/evaluations'));
+			if (res.ok) {
+				return { players: (await res.json()) as PlayerListItem[], apiError: false };
+			}
 			console.error('Failed to fetch players:', await res.text());
+			return { players: [] as PlayerListItem[], apiError: true };
+		} catch (err) {
+			console.error('Error fetching players:', err);
+			return { players: [] as PlayerListItem[], apiError: true };
 		}
-	} catch (err) {
-		apiError = true;
-		console.error('Error fetching players:', err);
-	}
+	})();
 
-	return { players, apiError };
+	return { playersPromise };
 };

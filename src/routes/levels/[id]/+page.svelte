@@ -3,11 +3,10 @@
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import type { PlayerEvaluation, BaselineResult, Replay } from '$lib/ts/evaluation';
+	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	interface PageData {
 		evaluation: PlayerEvaluation;
-		baseline: BaselineResult;
 	}
 
 	let { data }: { data: PageData } = $props();

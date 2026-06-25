@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import type { PlayerEvaluation, BaselineResult } from '$lib/ts/evaluation';
+import type { PlayerEvaluation } from '$lib/ts/evaluation';
 import { apiUrl } from '$lib/ts/api';
 import { error } from '@sveltejs/kit';
 
@@ -19,15 +19,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		error(500, 'Server error');
 	}
 
-	let baseline: BaselineResult = { success_rate: null, samples: 0 };
-	try {
-		const res = await fetch(apiUrl('/api/evaluations/baseline'));
-		if (res.ok) {
-			baseline = await res.json();
-		}
-	} catch (err) {
-		console.error('Error fetching baseline:', err);
-	}
-
-	return { evaluation, baseline };
+	return { evaluation };
 };

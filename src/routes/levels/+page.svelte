@@ -2,11 +2,28 @@
 	import type { PlayerListItem } from '$lib/ts/evaluation';
 
 	interface PageData {
-		players: PlayerListItem[];
-		apiError: boolean;
+		playersPromise: Promise<{ players: PlayerListItem[]; apiError: boolean }>;
 	}
 
 	let { data }: { data: PageData } = $props();
+
+	let players = $state<PlayerListItem[]>([]);
+	let apiError = $state(false);
+	let loading = $state(true);
+
+	$effect(() => {
+		let active = true;
+		loading = true;
+		data.playersPromise.then((result) => {
+			if (!active) return;
+			players = result.players;
+			apiError = result.apiError;
+			loading = false;
+		});
+		return () => {
+			active = false;
+		};
+	});
 
 	const levels = [{ id: 'farp', label: 'FARP', enabled: true }];
 	let selectedLevel = $state('farp');
@@ -16,7 +33,7 @@
 	let startDate = $state('');
 	let endDate = $state('');
 
-	let shown = $derived(data.players.filter((p) => {
+	let shown = $derived(players.filter((p) => {
 		if ((p.level_id ?? 'farp') !== selectedLevel) return false;
 		
 		if (searchQuery.trim() !== '') {
@@ -175,7 +192,11 @@
 		</aside>
 
 		<div class="flex-1 min-w-0">
-		{#if data.apiError}
+		{#if loading}
+			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-sky-200 font-game tracking-wider text-center animate-pulse">
+				LOADING LEVEL DATA...
+			</div>
+		{:else if apiError}
 			<div class="p-6 border-2 border-red-500/30 bg-red-500/10 text-red-200 font-game tracking-wider text-center">
 				COMMUNICATION ERROR. UNABLE TO LOAD LEVEL DATA.
 			</div>

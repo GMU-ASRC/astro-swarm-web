@@ -1,4 +1,5 @@
 from flask import Blueprint, Response, current_app, jsonify, request
+from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import charts
@@ -14,7 +15,14 @@ evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations
 @evaluations_bp.get("")
 def list_evaluations():
     evaluations = (
-        PlayerEvaluation.query.order_by(PlayerEvaluation.created_at.desc()).limit(200).all()
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+        )
+        .order_by(PlayerEvaluation.created_at.desc())
+        .limit(200)
+        .all()
     )
     return jsonify([item.to_list_dict() for item in evaluations])
 
@@ -52,7 +60,15 @@ def submit_evaluation():
 
 @evaluations_bp.get("/baseline")
 def baseline():
-    evaluations = PlayerEvaluation.query.filter_by(status="done").all()
+    evaluations = (
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+        )
+        .filter_by(status="done")
+        .all()
+    )
     rates = []
     for evaluation in evaluations:
         rate = (evaluation.results or {}).get("success_rate") if isinstance(evaluation.results, dict) else None

@@ -1,9 +1,30 @@
 <script lang="ts">
 	import { apiUrl } from '$lib/ts/api';
+	import Pagination from '$lib/components/Pagination.svelte';
 
 	let { data } = $props();
-	let leaderboard = $state(data.leaderboard);
+	let leaderboard = $state<any[]>([]);
+	let loading = $state(true);
 	let message = $state('');
+
+	$effect(() => {
+		let active = true;
+		loading = true;
+		data.leaderboardPromise.then((rows) => {
+			if (!active) return;
+			leaderboard = rows;
+			loading = false;
+		});
+		return () => {
+			active = false;
+		};
+	});
+
+	let page = $state(1);
+	const pageSize = 25;
+	const pagedLeaderboard = $derived(
+		leaderboard.slice((page - 1) * pageSize, page * pageSize)
+	);
 
 	async function remove(id: string, name: string) {
 		if (!confirm(`Delete leaderboard entry for "${name}"? This cannot be undone.`)) return;
@@ -39,21 +60,30 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each leaderboard as row}
-					<tr class="border-b border-sky-500/10 hover:bg-sky-500/10 transition-colors">
-						<td class="p-4 text-star-white">{row.username}</td>
-						<td class="p-4 text-text-muted">{row.time_seconds}s</td>
-						<td class="p-4 text-text-muted text-sm">{new Date(row.created_at).toLocaleString()}</td>
-						<td class="p-4 text-right">
-							<button onclick={() => remove(row.id, row.username)} class="px-3 py-1 border border-red-400/40 text-red-300 text-xs font-game tracking-wider hover:bg-red-500/15 transition-colors">
-								DELETE
-							</button>
-						</td>
-					</tr>
+				{#if loading}
+					<tr><td colspan="4" class="p-4 text-center text-sky-200 animate-pulse">Loading leaderboard...</td></tr>
 				{:else}
-					<tr><td colspan="4" class="p-4 text-center text-text-muted">No leaderboard entries found.</td></tr>
-				{/each}
+					{#each pagedLeaderboard as row}
+						<tr class="border-b border-sky-500/10 hover:bg-sky-500/10 transition-colors">
+							<td class="p-4 text-star-white">{row.username}</td>
+							<td class="p-4 text-text-muted">{row.time_seconds}s</td>
+							<td class="p-4 text-text-muted text-sm">{new Date(row.created_at).toLocaleString()}</td>
+							<td class="p-4 text-right whitespace-nowrap">
+								<a href={`/admin/leaderboard/${row.id}`} class="px-3 py-1 border border-sky-400/40 text-sky-200 text-xs font-game tracking-wider hover:bg-sky-500/15 transition-colors">
+									VIEW
+								</a>
+								<button onclick={() => remove(row.id, row.username)} class="ml-2 px-3 py-1 border border-red-400/40 text-red-300 text-xs font-game tracking-wider hover:bg-red-500/15 transition-colors">
+									DELETE
+								</button>
+							</td>
+						</tr>
+					{:else}
+						<tr><td colspan="4" class="p-4 text-center text-text-muted">No leaderboard entries found.</td></tr>
+					{/each}
+				{/if}
 			</tbody>
 		</table>
 	</div>
+
+	<Pagination bind:page total={leaderboard.length} {pageSize} />
 </div>

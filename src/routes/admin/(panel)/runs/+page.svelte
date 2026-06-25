@@ -1,9 +1,28 @@
 <script lang="ts">
 	import { apiUrl } from '$lib/ts/api';
+	import Pagination from '$lib/components/Pagination.svelte';
 
 	let { data } = $props();
-	let runs = $state(data.runs);
+	let runs = $state<any[]>([]);
+	let loading = $state(true);
 	let message = $state('');
+
+	$effect(() => {
+		let active = true;
+		loading = true;
+		data.runsPromise.then((rows) => {
+			if (!active) return;
+			runs = rows;
+			loading = false;
+		});
+		return () => {
+			active = false;
+		};
+	});
+
+	let page = $state(1);
+	const pageSize = 25;
+	const pagedRuns = $derived(runs.slice((page - 1) * pageSize, page * pageSize));
 
 	async function remove(id: string, title: string) {
 		if (!confirm(`Delete simulator run "${title}"? This cannot be undone.`)) return;
@@ -40,22 +59,31 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each runs as row}
-					<tr class="border-b border-sky-500/10 hover:bg-sky-500/10 transition-colors">
-						<td class="p-4 text-star-white">{row.title}</td>
-						<td class="p-4 text-text-muted">{row.author}</td>
-						<td class="p-4 text-text-muted">{row.duration_seconds}s</td>
-						<td class="p-4 text-text-muted text-sm">{new Date(row.created_at).toLocaleString()}</td>
-						<td class="p-4 text-right">
-							<button onclick={() => remove(row.id, row.title)} class="px-3 py-1 border border-red-400/40 text-red-300 text-xs font-game tracking-wider hover:bg-red-500/15 transition-colors">
-								DELETE
-							</button>
-						</td>
-					</tr>
+				{#if loading}
+					<tr><td colspan="5" class="p-4 text-center text-sky-200 animate-pulse">Loading simulator runs...</td></tr>
 				{:else}
-					<tr><td colspan="5" class="p-4 text-center text-text-muted">No simulator runs found.</td></tr>
-				{/each}
+					{#each pagedRuns as row}
+						<tr class="border-b border-sky-500/10 hover:bg-sky-500/10 transition-colors">
+							<td class="p-4 text-star-white">{row.title}</td>
+							<td class="p-4 text-text-muted">{row.author}</td>
+							<td class="p-4 text-text-muted">{row.duration_seconds}s</td>
+							<td class="p-4 text-text-muted text-sm">{new Date(row.created_at).toLocaleString()}</td>
+							<td class="p-4 text-right whitespace-nowrap">
+								<a href={`/admin/runs/${row.id}`} class="px-3 py-1 border border-sky-400/40 text-sky-200 text-xs font-game tracking-wider hover:bg-sky-500/15 transition-colors">
+									VIEW
+								</a>
+								<button onclick={() => remove(row.id, row.title)} class="ml-2 px-3 py-1 border border-red-400/40 text-red-300 text-xs font-game tracking-wider hover:bg-red-500/15 transition-colors">
+									DELETE
+								</button>
+							</td>
+						</tr>
+					{:else}
+						<tr><td colspan="5" class="p-4 text-center text-text-muted">No simulator runs found.</td></tr>
+					{/each}
+				{/if}
 			</tbody>
 		</table>
 	</div>
+
+	<Pagination bind:page total={runs.length} {pageSize} />
 </div>
