@@ -215,6 +215,8 @@ class PlayerEvaluation(db.Model):
                 return {
                     "trial": run.get("trial"),
                     "outcome": run.get("outcome"),
+                    "detection_time": run.get("detection_time", -1),
+                    "capture_time": run.get("capture_time", -1),
                     "fps": replays.get("fps", 12),
                     "defenders": replays.get("defenders", 0),
                     "view": replays.get("view", 300),
@@ -239,6 +241,8 @@ class PlayerEvaluation(db.Model):
                 return {
                     "n": run.get("n"),
                     "outcome": run.get("outcome"),
+                    "detection_time": run.get("detection_time", -1),
+                    "capture_time": run.get("capture_time", -1),
                     "fps": replays.get("fps", 12),
                     "defenders": run.get("defenders", 0),
                     "view": replays.get("view", 300),

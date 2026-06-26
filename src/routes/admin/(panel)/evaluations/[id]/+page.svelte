@@ -2,17 +2,16 @@
 	import { goto } from '$app/navigation';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
+	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
+	import { barConfig, lineConfig, sweepConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	let { data } = $props();
 
-	type ChartKind = 'line' | 'bar' | 'sweep' | 'times';
-
 	let ev = $state<PlayerEvaluation | null>(null);
 	let loading = $state(true);
 	let message = $state('');
-	let zoomed: null | ChartKind = $state(null);
 
 	let selectedTrial: number | null = $state(null);
 	let selectedReplay: Replay | null = $state(null);
@@ -50,16 +49,18 @@
 		return c;
 	});
 
-	let chartBust = $derived(ev ? (ev.completed_at ?? ev.status) : '');
-	function chartUrl(kind: ChartKind): string {
-		if (!ev) return '';
-		return apiUrl(`/api/evaluations/${ev.id}/chart/${kind}.png?v=${encodeURIComponent(chartBust)}`);
-	}
+	let detectionTimes = $derived(ev?.results?.detection_times ?? []);
+	let captureTimes = $derived(ev?.results?.capture_times ?? []);
+	let sweep = $derived(ev?.results?.sweep ?? []);
 
 	function cellClass(o: string): string {
 		if (o === 'win') return 'run-win';
 		if (o === 'lose') return 'run-lose';
 		return 'run-timeout';
+	}
+
+	function fmtTime(t: number | undefined): string {
+		return t != null && t >= 0 ? `${t}s` : '—';
 	}
 
 	async function loadReplay(trial: number) {
@@ -111,10 +112,6 @@
 			loadSweepIndex();
 		}
 	});
-
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') zoomed = null;
-	}
 
 	let resimulating = $state(false);
 	let cancelling = $state(false);
@@ -252,10 +249,14 @@
 		</div>
 
 		<div class="charts">
-			<button type="button" onclick={() => (zoomed = 'line')}><img src={chartUrl('line')} alt="Cumulative detection rate" /></button>
-			<button type="button" onclick={() => (zoomed = 'bar')}><img src={chartUrl('bar')} alt="Outcome breakdown" /></button>
-			<button type="button" onclick={() => (zoomed = 'sweep')}><img src={chartUrl('sweep')} alt="Detection rate vs number of defenders" /></button>
-			<button type="button" onclick={() => (zoomed = 'times')}><img src={chartUrl('times')} alt="Detection and capture times per trial" /></button>
+			<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+			<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
+			{#if sweep.length > 0}
+				<ChartCard config={sweepConfig(sweep)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
+			{/if}
+			{#if detectionTimes.length > 0}
+				<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
+			{/if}
 		</div>
 
 		<h2>Placement Runs ({outcomes.length})</h2>
@@ -273,7 +274,10 @@
 		</div>
 		{#if selectedReplay}
 			<div>
-				<p class="meta">Trial {(selectedTrial ?? 0) + 1}</p>
+				<p class="meta">
+					Trial {(selectedTrial ?? 0) + 1} · outcome: {selectedReplay.outcome} · detected:
+					{fmtTime(selectedReplay.detection_time)} · captured: {fmtTime(selectedReplay.capture_time)}
+				</p>
 				<FarpReplay replay={selectedReplay} />
 			</div>
 		{/if}
@@ -294,7 +298,10 @@
 			</div>
 			{#if selectedSweepReplay}
 				<div>
-					<p class="meta">N = {selectedN} defenders</p>
+					<p class="meta">
+						N = {selectedN} defenders · outcome: {selectedSweepReplay.outcome} · detected:
+						{fmtTime(selectedSweepReplay.detection_time)} · captured: {fmtTime(selectedSweepReplay.capture_time)}
+					</p>
 					<FarpReplay replay={selectedSweepReplay} />
 				</div>
 			{/if}
@@ -309,41 +316,10 @@
 	{/if}
 {/if}
 
-{#if zoomed && ev}
-	<div
-		class="zoom-overlay"
-		role="button"
-		tabindex="-1"
-		aria-label="Close zoomed chart"
-		onclick={() => (zoomed = null)}
-		onkeydown={onKey}
-	>
-		<img src={chartUrl(zoomed)} alt="Chart" />
-	</div>
-{/if}
-
 <style>
 	hr {
 		border: none;
 		border-top: 1px solid #d1d5db;
 		margin: 1rem 0;
-	}
-
-	.zoom-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 50;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: rgba(0, 0, 0, 0.8);
-		padding: 1rem;
-		cursor: zoom-out;
-	}
-
-	.zoom-overlay img {
-		max-width: 95vw;
-		max-height: 92vh;
-		background: #ffffff;
 	}
 </style>

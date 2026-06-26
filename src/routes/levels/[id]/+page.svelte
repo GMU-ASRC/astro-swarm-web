@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
+	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
+	import { barConfig, lineConfig, sweepConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	interface PageData {
@@ -11,14 +13,7 @@
 
 	let { data }: { data: PageData } = $props();
 
-	type ChartKind = 'line' | 'bar' | 'sweep' | 'times';
-
 	let ev: PlayerEvaluation = $state(data.evaluation);
-	let zoomed: null | ChartKind = $state(null);
-
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') zoomed = null;
-	}
 
 	let dateLabel = $derived((ev.completed_at ?? ev.created_at).slice(0, 10));
 	let pending = $derived(ev.status === 'queued' || ev.status === 'running');
@@ -37,10 +32,9 @@
 		return c;
 	});
 
-	let chartBust = $derived(ev.completed_at ?? ev.status);
-	function chartUrl(kind: ChartKind): string {
-		return apiUrl(`/api/evaluations/${ev.id}/chart/${kind}.png?v=${encodeURIComponent(chartBust)}`);
-	}
+	let detectionTimes = $derived(ev.results?.detection_times ?? []);
+	let captureTimes = $derived(ev.results?.capture_times ?? []);
+	let sweep = $derived(ev.results?.sweep ?? []);
 
 	let selectedTrial: number | null = $state(null);
 	let selectedReplay: Replay | null = $state(null);
@@ -50,6 +44,10 @@
 		if (o === 'win') return 'bg-green-500/70 hover:bg-green-400 border-green-300/40';
 		if (o === 'lose') return 'bg-red-500/70 hover:bg-red-400 border-red-300/40';
 		return 'bg-amber-500/60 hover:bg-amber-400 border-amber-300/40';
+	}
+
+	function fmtTime(t: number | undefined): string {
+		return t != null && t >= 0 ? `${t}s` : '—';
 	}
 
 	async function loadReplay(trial: number) {
@@ -178,34 +176,14 @@
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<button
-					type="button"
-					onclick={() => (zoomed = 'line')}
-					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
-				>
-					<img src={chartUrl('line')} alt="Cumulative detection rate" class="w-full" />
-				</button>
-				<button
-					type="button"
-					onclick={() => (zoomed = 'bar')}
-					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
-				>
-					<img src={chartUrl('bar')} alt="Outcome breakdown" class="w-full" />
-				</button>
-				<button
-					type="button"
-					onclick={() => (zoomed = 'sweep')}
-					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
-				>
-					<img src={chartUrl('sweep')} alt="Detection rate vs number of defenders" class="w-full" />
-				</button>
-				<button
-					type="button"
-					onclick={() => (zoomed = 'times')}
-					class="p-2 border-2 border-sky-500/20 bg-white cursor-zoom-in hover:border-sky-400/50 transition-colors"
-				>
-					<img src={chartUrl('times')} alt="Detection and capture times per trial" class="w-full" />
-				</button>
+				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
+				{#if sweep.length > 0}
+					<ChartCard config={sweepConfig(sweep)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
+				{/if}
+				{#if detectionTimes.length > 0}
+					<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
+				{/if}
 			</div>
 
 			<div class="mt-10">
@@ -225,7 +203,7 @@
 				{#if selectedReplay}
 					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 						<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-							TRIAL {(selectedTrial ?? 0) + 1}
+							TRIAL {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedReplay.detection_time)} · CAPTURED {fmtTime(selectedReplay.capture_time)}
 						</div>
 						<FarpReplay replay={selectedReplay} />
 					</div>
@@ -250,7 +228,7 @@
 					{#if selectedSweepReplay}
 						<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 							<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-								N = {selectedN} DEFENDERS
+								N = {selectedN} DEFENDERS · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)}
 							</div>
 							<FarpReplay replay={selectedSweepReplay} />
 						</div>
@@ -267,22 +245,3 @@
 		{/if}
 	</div>
 </div>
-
-{#if zoomed}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out"
-		role="button"
-		tabindex="-1"
-		aria-label="Close zoomed chart"
-		onclick={() => (zoomed = null)}
-		onkeydown={onKey}
-	>
-		<div
-			class="bg-white rounded-md p-2 max-w-[95vw] max-h-[92vh] overflow-auto"
-			role="presentation"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<img src={chartUrl(zoomed)} alt="Chart" class="max-w-full" style="width: 1000px" />
-		</div>
-	</div>
-{/if}

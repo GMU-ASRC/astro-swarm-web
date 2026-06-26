@@ -2,6 +2,9 @@ export interface EvalSummary {
 	trials: number;
 	success_rate: number;
 	outcomes: string[];
+	detection_times?: number[];
+	capture_times?: number[];
+	sweep?: { n: number; success_rate: number }[];
 }
 
 export interface PlacementInfo {
@@ -58,8 +61,11 @@ export interface ReplayIndex {
 }
 
 export interface Replay {
-	trial: number;
+	trial?: number;
+	n?: number;
 	outcome: string;
+	detection_time?: number;
+	capture_time?: number;
 	fps: number;
 	defenders: number;
 	view: number;

@@ -213,7 +213,7 @@ def chart(eval_id: str, kind: str):
         png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:
         raise NotFound("Unknown chart")
-    return Response(png, mimetype="image/png")
+    return Response(png, mimetype="image/png", headers={"Content-Disposition": f'attachment; filename="{kind}_{evaluation.id}.png"'})
 
 
 def safe_filename(value: str) -> str:
