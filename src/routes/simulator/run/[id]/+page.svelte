@@ -32,7 +32,7 @@
 					workspace = Blockly.inject(blocklyDiv, {
 						readOnly: true,
 						scrollbars: true,
-						theme: Blockly.Themes?.Dark || undefined
+						theme: (Blockly.Themes as any)?.Dark || undefined
 					});
 					Blockly.serialization.workspaces.load(config, workspace);
 				}

@@ -13,6 +13,7 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// svelte-ignore state_referenced_locally
 	let ev: PlayerEvaluation = $state(data.evaluation);
 
 	let dateLabel = $derived((ev.completed_at ?? ev.created_at).slice(0, 10));

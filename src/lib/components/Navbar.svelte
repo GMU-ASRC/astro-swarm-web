@@ -34,8 +34,6 @@
 			<li>
 				<a
 					href={link.href}
-					target={link.external ? '_blank' : undefined}
-					rel={link.external ? 'noreferrer' : undefined}
 					class="font-game text-base no-underline tracking-[0.08em] transition-colors hover:text-accent-cyan
 						{link.active ? 'text-star-white' : 'text-text-muted'}"
 				>

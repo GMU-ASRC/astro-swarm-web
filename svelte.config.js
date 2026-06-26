@@ -8,7 +8,13 @@ const config = {
 	kit: {
 		adapter: adapter({
 			fallback: '200.html'
-		})
+		}),
+		prerender: {
+			handleHttpError: ({ path, message }) => {
+				if (path.includes('__META')) return;
+				throw new Error(message);
+			}
+		}
 	}
 };
 

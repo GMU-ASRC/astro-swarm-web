@@ -13,6 +13,7 @@ export interface GithubRelease {
 	name: string;
 	body: string;
 	prerelease: boolean;
+	draft: boolean;
 	published_at: string;
 	assets: GithubAsset[];
 	html_url: string;

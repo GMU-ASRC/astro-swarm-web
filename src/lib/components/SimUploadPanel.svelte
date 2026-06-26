@@ -13,7 +13,7 @@
 	let uploadError = $state('');
 	let uploadSuccess = $state(false);
 
-	let fileInput: HTMLInputElement;
+	let fileInput = $state<HTMLInputElement>();
 
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
@@ -67,7 +67,7 @@
 				title = '';
 				description = '';
 				author = '';
-				fileInput.value = '';
+				if (fileInput) fileInput.value = '';
 				await invalidateAll();
 			}
 		} catch {
@@ -106,7 +106,7 @@
 				ondragover={(e) => { e.preventDefault(); dragOver = true; }}
 				ondragleave={() => (dragOver = false)}
 				ondrop={handleDrop}
-				onclick={() => fileInput.click()}
+				onclick={() => fileInput?.click()}
 			>
 				<div class="flex justify-center mb-3">
 					{#if selectedFile}
