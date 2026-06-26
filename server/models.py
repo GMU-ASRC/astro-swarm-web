@@ -1,7 +1,26 @@
+import base64
+import json
 import uuid
+import zlib
 from datetime import datetime, timezone
 
 from database import db
+
+
+def _unpack_frames(packed):
+    if not packed:
+        return []
+    raw = zlib.decompress(base64.b64decode(packed))
+    delta_encoded = json.loads(raw)
+    if not delta_encoded:
+        return []
+    frames = [delta_encoded[0]]
+    for i in range(1, len(delta_encoded)):
+        prev = frames[i - 1]
+        delta = delta_encoded[i]
+        frame = [prev[j] + delta[j] for j in range(len(delta))]
+        frames.append(frame)
+    return frames
 
 
 class SimConfig(db.Model):
@@ -212,6 +231,8 @@ class PlayerEvaluation(db.Model):
         replays = self._replays_dict()
         for run in replays.get("runs", []):
             if run.get("trial") == trial:
+                packed = run.get("frames_packed")
+                frames = _unpack_frames(packed) if packed else run.get("frames", [])
                 return {
                     "trial": run.get("trial"),
                     "outcome": run.get("outcome"),
@@ -223,7 +244,7 @@ class PlayerEvaluation(db.Model):
                     "fov": replays.get("fov", 70),
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
-                    "frames": run.get("frames", []),
+                    "frames": frames,
                 }
         return None
 
@@ -238,6 +259,8 @@ class PlayerEvaluation(db.Model):
         replays = self._replays_dict()
         for run in replays.get("sweep_runs", []):
             if run.get("n") == n:
+                packed = run.get("frames_packed")
+                frames = _unpack_frames(packed) if packed else run.get("frames", [])
                 return {
                     "n": run.get("n"),
                     "outcome": run.get("outcome"),
@@ -249,7 +272,7 @@ class PlayerEvaluation(db.Model):
                     "fov": replays.get("fov", 70),
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
-                    "frames": run.get("frames", []),
+                    "frames": frames,
                 }
         return None
 

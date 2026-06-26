@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import zlib
 from datetime import datetime, timezone
 
 from app_settings import JOBS_HARD_CAP, get_enemy_start, get_max_jobs
@@ -284,6 +286,13 @@ def _merge(parts):
     runs.sort(key=lambda run: run.get("trial", 0))
     sweep_runs.sort(key=lambda run: run.get("n", 0))
 
+    for run in runs:
+        raw_frames = run.pop("frames", [])
+        run["frames_packed"] = _pack_frames(raw_frames)
+    for run in sweep_runs:
+        raw_frames = run.pop("frames", [])
+        run["frames_packed"] = _pack_frames(raw_frames)
+
     outcomes = [run.get("outcome") for run in runs]
     detection_times = [run.get("detection_time", -1.0) for run in runs]
     capture_times = [run.get("capture_time", -1.0) for run in runs]
@@ -311,6 +320,19 @@ def _merge(parts):
         },
         "replays": replays,
     }
+
+
+def _pack_frames(frames):
+    if not frames:
+        return ""
+    delta_encoded = [frames[0]]
+    for i in range(1, len(frames)):
+        prev = frames[i - 1]
+        curr = frames[i]
+        delta = [curr[j] - prev[j] for j in range(min(len(curr), len(prev)))]
+        delta_encoded.append(delta)
+    raw = json.dumps(delta_encoded, separators=(",", ":"))
+    return base64.b64encode(zlib.compress(raw.encode(), 9)).decode("ascii")
 
 
 def _progress_done(line):
