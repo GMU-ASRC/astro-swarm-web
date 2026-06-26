@@ -52,8 +52,10 @@ services:
       API_SECRET_KEY: ${API_SECRET_KEY}
       WORKER_NAME: ${WORKER_NAME:-worker}
       WORKER_MAX_JOBS: ${WORKER_MAX_JOBS:-4}
-      GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-/app/server_build/AstroSwarm_Linux.x86_64}
-      # GODOT_PCK only needed if GODOT_SERVER_BIN is a plain Godot binary with a separate pack.
+      # The worker downloads this release's AstroSwarm_Linux_Server.zip on startup.
+      GODOT_RELEASE_TAG: ${GODOT_RELEASE_TAG:-latest}
+      # Optional: point at a mounted binary to skip the download.
+      GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-}
       GODOT_PCK: ${GODOT_PCK:-}
       EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
       EVAL_FIXED_FPS: ${EVAL_FIXED_FPS:-60}

@@ -32,7 +32,7 @@ API-key gated management panel (client-side session stored in `localStorage`) wi
 
 ### Evaluation Workers
 
-Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. A worker (`web/worker/`) registers with the server, polls for queued evaluations, claims one at a time, runs the Godot dedicated server locally (splitting the work into `WORKER_MAX_JOBS` parallel processes — a per-worker setting), streams progress back, and posts the merged results/replays. Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight job is requeued for another worker), and jobs from workers that go silent are automatically requeued. Run more workers with `docker compose up --scale worker=N`, or start a worker on another machine pointed at the server's public URL.
+Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. A worker (`web/worker/`) downloads the Godot dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release on startup and unzips it — so nothing needs to be bundled into the image. It then registers with the server, polls for queued evaluations, claims one at a time, runs the build locally (splitting the work into `WORKER_MAX_JOBS` parallel processes — a per-worker setting, editable on each worker's admin page), streams progress back, and posts the merged results/replays. Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight job is requeued for another worker), and jobs from workers that go silent are automatically requeued. To add compute, run a worker on another machine (its own data volume gives it a stable, distinct id) pointed at the server's public URL with the matching `API_SECRET_KEY`.
 
 ### Downloads (`/downloads`)
 Links to the latest AstroSwarm game releases fetched live from the GitHub Releases API.
@@ -149,8 +149,9 @@ The following are used by the **worker** service (`web/worker/`), not the web se
 | `WORKER_SERVER_URL` | How the worker reaches the server (internal name in Docker, or a public URL on another machine) | `http://server:5050` |
 | `WORKER_NAME` | Display name shown in the admin Workers page | `worker` |
 | `WORKER_MAX_JOBS` | Default max parallel Godot processes per worker (overridable per worker in the admin panel) | `4` |
-| `GODOT_SERVER_BIN` | Path to the headless Godot dedicated-server binary | `/app/server_build/AstroSwarm_Linux.x86_64` |
-| `GODOT_PCK` | Path to the exported game `.pck` (only if the binary needs a separate pack) | _(unset)_ |
+| `GODOT_RELEASE_TAG` | Release to download the dedicated-server build from (`latest` or a tag like `0.0.4`) | `latest` |
+| `GODOT_SERVER_BIN` | Optional path to a provided binary; set this to skip the download | _(unset → download)_ |
+| `GODOT_PCK` | Path to the exported game `.pck` (only when providing a binary that needs a separate pack) | _(unset)_ |
 | `EVAL_TIMEOUT_SECONDS` | Max wall-clock time for a single evaluation run | `1800` |
 | `EVAL_FIXED_FPS` | Fixed physics step the headless benchmark runs at | `60` |
 
@@ -167,7 +168,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The server is available at `http://localhost:5050`. Compose also starts one `worker` container that runs evaluations; scale it with `docker compose up -d --scale worker=N`. To run a worker on another machine, build `worker/Dockerfile` (also published to GHCR by the **Build worker image** GitHub Action), drop the Godot dedicated-server build into `server_build/`, and set `WORKER_SERVER_URL` to the server's public URL with the matching `API_SECRET_KEY`.
+The server is available at `http://localhost:5050`. Compose also starts one `worker` container that runs evaluations and downloads the dedicated-server build from the GitHub release automatically. To add more compute, run additional workers on other machines (each with its own data volume so it gets a stable, distinct id): use the image published to GHCR by the **Build worker image** GitHub Action (or build `worker/Dockerfile`) and set `WORKER_SERVER_URL` to the server's public URL with the matching `API_SECRET_KEY`.
 
 ## Running Locally
 
@@ -178,10 +179,10 @@ The server is available at `http://localhost:5050`. Compose also starts one `wor
 bun install
 bun run dev
 
-# Worker (in worker/) — pulls and runs evaluation jobs
+# Worker (in worker/) — downloads the dedicated-server build, then runs jobs
 pip install -r requirements.txt
 SERVER_URL=http://localhost:5050 API_SECRET_KEY=dev_secret_key \
-  GODOT_SERVER_BIN=/path/to/AstroSwarm_Linux.x86_64 python worker.py
+  GODOT_DIR=./server_build python worker.py
 
 # Backend (in server/)
 python3 -m venv venv

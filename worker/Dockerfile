@@ -16,12 +16,11 @@ COPY worker/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY worker/ ./
-# Exported AstroSwarm dedicated-server build (binary + .pck) used to run the
-# FARP benchmark. Drop your build into web/server_build/ before building.
-COPY server_build/ ./server_build/
-RUN chmod +x /app/server_build/AstroSwarm_Linux.x86_64 2>/dev/null || true
 
-ENV GODOT_SERVER_BIN=/app/server_build/AstroSwarm_Linux.x86_64
+# The worker downloads the AstroSwarm dedicated-server build from the GitHub
+# release on startup and unzips it under GODOT_DIR. Set GODOT_SERVER_BIN to a
+# mounted binary instead if you want to provide your own build.
+ENV GODOT_DIR=/data/server_build
 ENV WORKER_ID_FILE=/data/worker_id
 
 CMD ["python", "worker.py"]

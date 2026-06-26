@@ -6,6 +6,7 @@ import uuid
 
 import requests
 
+import godot_release
 import runner
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -17,8 +18,8 @@ POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", "3"))
 ID_FILE = os.environ.get("WORKER_ID_FILE", "/app/worker_id")
 
 SETTINGS = {
-    "godot_bin": os.environ.get("GODOT_SERVER_BIN", "/app/server_build/AstroSwarm_Linux.x86_64"),
-    "godot_pck": os.environ.get("GODOT_PCK", "") or None,
+    "godot_bin": None,
+    "godot_pck": None,
     "fixed_fps": os.environ.get("EVAL_FIXED_FPS", "60"),
     "timeout_seconds": int(os.environ.get("EVAL_TIMEOUT_SECONDS", "1800")),
     "max_jobs": max(1, int(os.environ.get("WORKER_MAX_JOBS", "4"))),
@@ -78,6 +79,22 @@ def claim():
     return resp.json()
 
 
+def heartbeat(status, current_job=None):
+    try:
+        _post("/api/worker/heartbeat", {
+            "worker_id": WORKER_ID,
+            "status": status,
+            "current_job": current_job,
+        }, timeout=30)
+    except requests.RequestException:
+        pass
+
+
+def godot_ready():
+    binary = SETTINGS.get("godot_bin")
+    return bool(binary) and os.path.isfile(binary)
+
+
 def run_job(job, max_jobs):
     job_id = job.get("id")
     settings = dict(SETTINGS)
@@ -134,6 +151,16 @@ def main():
     register()
     while True:
         try:
+            if not godot_ready():
+                heartbeat("preparing")
+                try:
+                    binary, pck = godot_release.ensure_server_build()
+                    SETTINGS["godot_bin"] = binary
+                    SETTINGS["godot_pck"] = pck
+                except Exception as exc:
+                    logger.warning("could not prepare server build: %s", exc)
+                    time.sleep(POLL_SECONDS)
+                    continue
             response = claim()
             if response is None:
                 time.sleep(POLL_SECONDS)

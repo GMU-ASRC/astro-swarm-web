@@ -4,10 +4,11 @@ A standalone service that runs FARP benchmark jobs for the AstroSwarm web server
 
 ## How it works
 
-1. On startup the worker generates a stable id (persisted to `WORKER_ID_FILE`) and registers with the server.
-2. It polls `/api/worker/claim`; when it claims a queued evaluation it runs the Godot dedicated server, splitting the work into `WORKER_MAX_JOBS` parallel processes.
-3. It streams progress to the server (which also signals cancellation), then posts the result.
-4. The admin Workers page shows it live and can set its max parallel jobs or connect/disconnect/remove it.
+1. On startup the worker downloads the dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release (`GODOT_RELEASE_TAG`, default `latest`) and unzips it into `GODOT_DIR` — re-downloading only when the release tag changes. Set `GODOT_SERVER_BIN` to a provided binary to skip this.
+2. It generates a stable id (persisted to `WORKER_ID_FILE`) and registers with the server.
+3. It polls `/api/worker/claim`; when it claims a queued evaluation it runs the dedicated server, splitting the work into `WORKER_MAX_JOBS` parallel processes.
+4. It streams progress to the server (which also signals cancellation), then posts the result.
+5. The admin Workers page shows it live and can set its name/max parallel jobs or connect/disconnect/remove it.
 
 ## Configuration (environment variables)
 
@@ -17,8 +18,12 @@ A standalone service that runs FARP benchmark jobs for the AstroSwarm web server
 | `API_SECRET_KEY` | Must match the server's key | `dev_secret_key` |
 | `WORKER_NAME` | Display name in the admin panel | hostname |
 | `WORKER_MAX_JOBS` | Default parallel Godot processes (admin can override) | `4` |
-| `GODOT_SERVER_BIN` | Path to the headless Godot dedicated-server binary | `/app/server_build/AstroSwarm_Linux.x86_64` |
-| `GODOT_PCK` | Path to the exported `.pck` (only if the binary needs a separate pack) | _(unset)_ |
+| `GODOT_RELEASE_TAG` | Release to download the build from (`latest` or a tag) | `latest` |
+| `GODOT_RELEASE_REPO` | GitHub repo to download the build from | `GMU-ASRC/astro-swarm` |
+| `GODOT_RELEASE_ASSET` | Release asset name to download | `AstroSwarm_Linux_Server.zip` |
+| `GODOT_DIR` | Where the downloaded build is unzipped | `/data/server_build` |
+| `GODOT_SERVER_BIN` | Optional path to a provided binary; set to skip the download | _(unset)_ |
+| `GODOT_PCK` | Path to the exported `.pck` (only when providing a binary that needs a separate pack) | _(unset)_ |
 | `EVAL_TIMEOUT_SECONDS` | Max wall-clock time per job | `1800` |
 | `EVAL_FIXED_FPS` | Fixed physics step for the benchmark | `60` |
 | `WORKER_POLL_SECONDS` | Idle poll interval | `3` |
@@ -26,6 +31,6 @@ A standalone service that runs FARP benchmark jobs for the AstroSwarm web server
 
 ## Running
 
-With Docker Compose (from `web/`): `docker compose up -d --scale worker=N`.
+With Docker Compose (from `web/`): the `worker` service starts automatically. To add more compute, run a worker on another machine (each with its own data volume so it gets a stable, distinct id) pointed at the server.
 
-Standalone: `pip install -r requirements.txt` then `python worker.py` with the variables above set. The Godot dedicated-server build must be available at `GODOT_SERVER_BIN`.
+Standalone: `pip install -r requirements.txt` then `python worker.py` with the variables above set. The worker downloads the dedicated-server build itself, so only `SERVER_URL` and `API_SECRET_KEY` are required.
