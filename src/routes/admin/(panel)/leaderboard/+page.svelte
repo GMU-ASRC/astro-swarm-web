@@ -24,6 +24,11 @@
 	const pageSize = 25;
 	const pagedLeaderboard = $derived(leaderboard.slice((page - 1) * pageSize, page * pageSize));
 
+	function formatTime(seconds: number): string {
+		if (seconds == null) return '—';
+		return Math.round(seconds) + 's';
+	}
+
 	async function remove(id: string, name: string) {
 		if (!confirm(`Delete leaderboard entry for "${name}"? This cannot be undone.`)) return;
 		try {
@@ -63,7 +68,7 @@
 				{#each pagedLeaderboard as row}
 					<tr>
 						<td>{row.username}</td>
-						<td>{row.time_seconds}s</td>
+						<td>{formatTime(row.time_seconds)}</td>
 						<td>{new Date(row.created_at).toLocaleString()}</td>
 						<td>
 							<div class="actions">

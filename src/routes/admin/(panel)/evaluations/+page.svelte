@@ -20,9 +20,66 @@
 		};
 	});
 
+	let searchQuery = $state('');
+	let statusFilter = $state('all');
+	let levelFilter = $state('all');
+	let sortOrder = $state('date_desc');
+	let startDate = $state('');
+	let endDate = $state('');
+
+	const levelOptions = $derived(
+		Array.from(new Set(evaluations.map((e: any) => e.level_id || 'farp'))).sort()
+	);
+
+	const filtered = $derived(
+		evaluations
+			.filter((e: any) => {
+				if (searchQuery.trim() !== '') {
+					const q = searchQuery.toLowerCase();
+					const user = (e.username ?? '').toLowerCase();
+					const id = (e.id ?? '').toLowerCase();
+					if (!user.includes(q) && !id.includes(q)) return false;
+				}
+				if (statusFilter !== 'all' && e.status !== statusFilter) return false;
+				if (levelFilter !== 'all' && (e.level_id || 'farp') !== levelFilter) return false;
+				if (startDate) {
+					const d = new Date(e.created_at);
+					const s = new Date(startDate);
+					s.setHours(0, 0, 0, 0);
+					if (d.getTime() < s.getTime()) return false;
+				}
+				if (endDate) {
+					const d = new Date(e.created_at);
+					const en = new Date(endDate);
+					en.setHours(23, 59, 59, 999);
+					if (d.getTime() > en.getTime()) return false;
+				}
+				return true;
+			})
+			.sort((a: any, b: any) => {
+				if (sortOrder === 'date_desc')
+					return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+				if (sortOrder === 'date_asc')
+					return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+				if (sortOrder === 'rate_desc') return (b.success_rate ?? -1) - (a.success_rate ?? -1);
+				if (sortOrder === 'rate_asc') return (a.success_rate ?? -1) - (b.success_rate ?? -1);
+				return 0;
+			})
+	);
+
 	let page = $state(1);
 	const pageSize = 25;
-	const pagedEvaluations = $derived(evaluations.slice((page - 1) * pageSize, page * pageSize));
+	const pagedEvaluations = $derived(filtered.slice((page - 1) * pageSize, page * pageSize));
+
+	$effect(() => {
+		searchQuery;
+		statusFilter;
+		levelFilter;
+		sortOrder;
+		startDate;
+		endDate;
+		page = 1;
+	});
 
 	async function cancel(id: string, name: string) {
 		if (!confirm(`Cancel the running evaluation for "${name}"?`)) return;
@@ -63,6 +120,54 @@
 
 <h1>Evaluations</h1>
 {#if message}<div class="message">{message}</div>{/if}
+
+<div class="admin-filters">
+	<div class="filter-field grow">
+		<label for="ev-search">Search</label>
+		<input id="ev-search" type="text" placeholder="Username or ID..." bind:value={searchQuery} />
+	</div>
+	<div class="filter-field">
+		<label for="ev-status">Status</label>
+		<select id="ev-status" bind:value={statusFilter}>
+			<option value="all">All</option>
+			<option value="queued">Queued</option>
+			<option value="running">Running</option>
+			<option value="done">Done</option>
+			<option value="failed">Failed</option>
+			<option value="cancelled">Cancelled</option>
+		</select>
+	</div>
+	<div class="filter-field">
+		<label for="ev-level">Level</label>
+		<select id="ev-level" bind:value={levelFilter}>
+			<option value="all">All</option>
+			{#each levelOptions as lvl}
+				<option value={lvl}>{lvl}</option>
+			{/each}
+		</select>
+	</div>
+	<div class="filter-field">
+		<label for="ev-start">From</label>
+		<input id="ev-start" type="date" bind:value={startDate} />
+	</div>
+	<div class="filter-field">
+		<label for="ev-end">To</label>
+		<input id="ev-end" type="date" bind:value={endDate} />
+	</div>
+	<div class="filter-field">
+		<label for="ev-sort">Sort by</label>
+		<select id="ev-sort" bind:value={sortOrder}>
+			<option value="date_desc">Date (Newest)</option>
+			<option value="date_asc">Date (Oldest)</option>
+			<option value="rate_desc">Rate (High to Low)</option>
+			<option value="rate_asc">Rate (Low to High)</option>
+		</select>
+	</div>
+</div>
+
+{#if !loading}
+	<p class="filter-summary">Showing {filtered.length} of {evaluations.length} evaluations</p>
+{/if}
 
 <div class="admin-table-wrap">
 	<table>
@@ -105,4 +210,4 @@
 	</table>
 </div>
 
-<Pagination bind:page total={evaluations.length} {pageSize} />
+<Pagination bind:page total={filtered.length} {pageSize} />

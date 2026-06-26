@@ -21,6 +21,11 @@
 		};
 	});
 
+	function formatTime(seconds: number): string {
+		if (seconds == null) return '—';
+		return Math.round(seconds) + 's';
+	}
+
 	async function remove() {
 		if (!confirm('Delete this leaderboard entry? This cannot be undone.')) return;
 		try {
@@ -49,7 +54,7 @@
 	<p>Entry not found.</p>
 {:else}
 	<h1>{entry.username}</h1>
-	<p class="meta">Best time {entry.time_seconds}s · submitted {new Date(entry.created_at).toLocaleString()}</p>
+	<p class="meta">Best time {formatTime(entry.time_seconds)} · submitted {new Date(entry.created_at).toLocaleString()}</p>
 	<p class="meta">{entry.id}</p>
 
 	<div class="actions">
@@ -60,7 +65,7 @@
 	<div class="stat-grid">
 		<div class="stat">
 			<div class="label">Time</div>
-			<div>{entry.time_seconds}s</div>
+			<div>{formatTime(entry.time_seconds)}</div>
 		</div>
 	</div>
 
