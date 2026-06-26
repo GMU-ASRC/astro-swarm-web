@@ -74,7 +74,12 @@
 
 		ctx.fillStyle = 'rgba(255,255,255,0.5)';
 		ctx.font = '11px monospace';
-		ctx.fillText(`N=${replay.defenders}  ${replay.outcome}  frame ${frameIndex + 1}/${replay.frames.length}`, 8, 16);
+		const seconds = (frameIndex / (replay.fps || 1)).toFixed(1);
+		ctx.fillText(
+			`N=${replay.defenders}  ${replay.outcome}  frame ${frameIndex + 1}/${replay.frames.length}  t=${seconds}s`,
+			8,
+			16
+		);
 	}
 
 	function drawCone(
@@ -163,5 +168,8 @@
 			oninput={() => (playing = false)}
 			class="flex-1"
 		/>
+		<span class="text-xs font-sim text-text-muted whitespace-nowrap">
+			frame {frameIndex + 1}/{replay.frames.length} · {(frameIndex / (replay.fps || 1)).toFixed(1)}s
+		</span>
 	</div>
 </div>
