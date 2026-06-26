@@ -44,19 +44,19 @@
 	<title>Admin Login — AstroSwarm</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center px-5 py-8 bg-[#0a0f28]">
+<div class="min-h-screen flex items-center justify-center px-5 py-8 bg-[#f4f4f5]">
 	<form
-		class="w-full max-w-sm p-10 bg-[#111a3d] border border-[#213160] border-t-2 border-t-[#5b8cff] rounded-xl"
+		class="w-full max-w-sm p-10 bg-white border border-[#e4e4e7] border-t-2 border-t-[#27272a]"
 		onsubmit={login}
 	>
-		<div class="flex flex-col items-center gap-1 pb-6 mb-6 border-b border-[#213160]">
-			<span class="text-xl font-bold tracking-[0.1em] text-white">ASTROSWARM</span>
-			<span class="text-[0.62rem] tracking-[0.24em] uppercase text-[#5f76b8]">Admin Console</span>
+		<div class="flex flex-col items-center gap-1 pb-6 mb-6 border-b border-[#e4e4e7]">
+			<span class="text-xl font-bold tracking-[0.1em] text-[#18181b]">ASTROSWARM</span>
+			<span class="text-[0.62rem] tracking-[0.24em] uppercase text-[#a1a1aa]">Admin Console</span>
 		</div>
 
-		<h1 class="text-lg text-center text-[#eaf0ff] mb-6">Sign in</h1>
+		<h1 class="text-lg text-center text-[#18181b] mb-6">Sign in</h1>
 
-		<label for="apiKey" class="block text-xs font-semibold uppercase tracking-wider text-[#8ea2d6] mb-2">
+		<label for="apiKey" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
 			Master key
 		</label>
 		<input
@@ -65,11 +65,11 @@
 			name="apiKey"
 			placeholder="Enter API key"
 			required
-			class="w-full px-3.5 py-2.5 mb-5 bg-[#0c1230] border border-[#2a3a6b] rounded-lg text-[#eaf0ff] placeholder:text-[#5b6da0] focus:outline-none focus:border-[#5b8cff]"
+			class="w-full px-3.5 py-2.5 mb-5 bg-white border border-[#d4d4d8] text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#18181b]"
 		/>
 
 		{#if error}
-			<div class="mb-5 px-3 py-2 rounded-lg bg-red-500/15 border border-red-500/30 text-red-200 text-sm">
+			<div class="mb-5 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-sm">
 				{error}
 			</div>
 		{/if}
@@ -77,7 +77,7 @@
 		<button
 			type="submit"
 			disabled={loading}
-			class="w-full py-2.5 rounded-lg bg-[#3f6bea] hover:bg-[#4f7bf0] text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+			class="w-full py-2.5 bg-[#27272a] hover:bg-[#18181b] text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
 		>
 			{loading ? 'Authorizing...' : 'Access panel'}
 		</button>
