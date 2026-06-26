@@ -50,14 +50,6 @@ def _find_binary(root):
     return max(files, key=lambda p: os.path.getsize(p))
 
 
-def _find_pck(root):
-    for dirpath, _dirs, names in os.walk(root):
-        for name in names:
-            if name.endswith(".pck"):
-                return os.path.join(dirpath, name)
-    return None
-
-
 def _read_marker():
     path = os.path.join(DEST_DIR, MARKER)
     if os.path.isfile(path):
@@ -70,7 +62,8 @@ def ensure_server_build():
     """Resolve the Godot dedicated-server binary. If GODOT_SERVER_BIN points at an
     existing file it is used as-is; otherwise the release asset is downloaded and
     unzipped into GODOT_DIR (re-downloaded only when the release tag changes).
-    Returns (binary_path, pck_path or None)."""
+    Returns (binary_path, pck_path or None). The downloaded export binary loads its
+    adjacent .pck automatically, so no pack path override is returned for it."""
     explicit = os.environ.get("GODOT_SERVER_BIN")
     if explicit and os.path.isfile(explicit):
         logger.info("using provided GODOT_SERVER_BIN=%s", explicit)
@@ -84,7 +77,7 @@ def ensure_server_build():
     existing = _find_binary(DEST_DIR)
     if _read_marker() == tag and existing:
         logger.info("server build %s already present at %s", tag, existing)
-        return existing, _find_pck(DEST_DIR)
+        return existing, None
 
     asset = next((a for a in release.get("assets", []) if a.get("name") == ASSET), None)
     if asset is None:
@@ -114,6 +107,5 @@ def ensure_server_build():
     with open(os.path.join(DEST_DIR, MARKER), "w") as f:
         f.write(tag)
 
-    pck = _find_pck(DEST_DIR)
-    logger.info("server build %s ready: binary=%s pck=%s", tag, binary, pck)
-    return binary, pck
+    logger.info("server build %s ready: binary=%s", tag, binary)
+    return binary, None
