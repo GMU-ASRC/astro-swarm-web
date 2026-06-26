@@ -74,7 +74,6 @@ def settings():
         "placement_trials": 100,
         "sweep_max": Config.EVAL_SWEEP_MAX,
         "sweep_trials": Config.EVAL_SWEEP_TRIALS,
-        "spawn_points": Config.EVAL_SPAWN_POINTS,
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
         "max_jobs": get_max_jobs(),
         "max_jobs_cap": JOBS_HARD_CAP,

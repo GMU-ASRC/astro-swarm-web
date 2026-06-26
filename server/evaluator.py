@@ -158,7 +158,6 @@ def _run_godot(algorithm, placements, trials, on_progress, control):
                 f"--seed={Config.EVAL_SEED}",
                 f"--n-max={sweep_max}",
                 f"--sweep-trials={sweep_trials}",
-                f"--spawn-points={Config.EVAL_SPAWN_POINTS}",
                 f"--match-seconds={Config.EVAL_MATCH_CAP_SECONDS}",
                 f"--trial-start={trial_start}",
                 f"--trial-count={trial_count}",

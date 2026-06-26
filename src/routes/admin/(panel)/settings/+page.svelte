@@ -85,7 +85,7 @@
 	</div>
 
 	<h2>Enemy start coordinate</h2>
-	<p class="meta">Where the enemy ship starts for all 100 ring sweep runs. The placement runs keep using their {settings.spawn_points} varied static spawns.</p>
+	<p class="meta">Where the enemy ship starts for all 100 ring sweep runs. The placement runs use their own seeded per-trial enemy spawns.</p>
 	<div class="stat-grid">
 		<div class="stat"><div class="label">Arena size</div><div>{settings.arena_width} × {settings.arena_height}</div></div>
 		<div class="stat"><div class="label">Target (planet) center</div><div>{settings.planet_x}, {settings.planet_y}</div></div>
@@ -109,7 +109,6 @@
 				<tr><th>Placement trials</th><td>{settings.placement_trials}</td></tr>
 				<tr><th>Sweep range (n)</th><td>1 to {settings.sweep_max}</td></tr>
 				<tr><th>Trials per sweep n</th><td>{settings.sweep_trials}</td></tr>
-				<tr><th>Static enemy spawn locations</th><td>{settings.spawn_points}</td></tr>
 				<tr><th>Match time cap</th><td>{settings.match_cap_seconds}s</td></tr>
 				<tr><th>Max parallel jobs</th><td>{settings.max_jobs}</td></tr>
 				<tr><th>Sweep enemy start</th><td>({settings.enemy_start_x}, {settings.enemy_start_y})</td></tr>

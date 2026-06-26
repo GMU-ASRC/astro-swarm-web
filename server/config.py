@@ -16,7 +16,6 @@ class Config:
     EVAL_SEED = int(os.environ.get("EVAL_SEED", "987654321"))
     EVAL_SWEEP_MAX = int(os.environ.get("EVAL_SWEEP_MAX", "100"))
     EVAL_SWEEP_TRIALS = int(os.environ.get("EVAL_SWEEP_TRIALS", "1"))
-    EVAL_SPAWN_POINTS = int(os.environ.get("EVAL_SPAWN_POINTS", "20"))
     EVAL_MATCH_CAP_SECONDS = int(os.environ.get("EVAL_MATCH_CAP_SECONDS", "240"))
     EVAL_MAX_JOBS = max(1, min(20, int(os.environ.get("EVAL_MAX_JOBS", "20"))))
     EVAL_ENEMY_X = float(os.environ.get("EVAL_ENEMY_X", "1920"))
