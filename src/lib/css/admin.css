@@ -393,59 +393,6 @@
 	align-items: center;
 }
 
-.admin .login {
-	max-width: 380px;
-	margin: 5rem auto;
-	padding: 2.5rem;
-	background: #f5f8ff;
-	border: 1px solid #d8e2f5;
-	border-top: 4px solid #4f7bf0;
-	box-shadow: 0 4px 18px rgba(40, 60, 120, 0.12);
-}
-
-.admin .login h1 {
-	border: none;
-	padding: 0;
-	text-align: center;
-}
-
-.admin .login label {
-	display: block;
-	margin-bottom: 0.4rem;
-	font-size: 0.85rem;
-	color: #3a4a6b;
-}
-
-.admin .login input {
-	width: 100%;
-	font: inherit;
-	padding: 0.65rem 0.8rem;
-	border: 1px solid #c0cfeb;
-	background: #ffffff;
-	box-sizing: border-box;
-	margin-bottom: 1.1rem;
-}
-
-.admin .login input:focus {
-	outline: none;
-	border-color: #4f7bf0;
-	box-shadow: 0 0 0 3px rgba(79, 123, 240, 0.18);
-}
-
-.admin .login button {
-	width: 100%;
-	padding: 0.7rem;
-	background: #3f6bea;
-	border-color: #3f6bea;
-	color: #ffffff;
-	font-weight: 600;
-}
-
-.admin .login button:hover:not(:disabled) {
-	background: #2f5fe0;
-	border-color: #2f5fe0;
-}
-
 .admin input[type="number"],
 .admin input[type="text"] {
 	font: inherit;
