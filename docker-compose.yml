@@ -35,6 +35,12 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-5050}/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   worker:
     build:
@@ -52,7 +58,8 @@ services:
       EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
       EVAL_FIXED_FPS: ${EVAL_FIXED_FPS:-60}
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     volumes:
       - worker_data:/data
     # deploy:
