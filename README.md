@@ -25,10 +25,10 @@ Browse community-uploaded recorded runs. Each card shows the species list with t
 Rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used. Entries link to a detail page with the full algorithm breakdown.
 
 ### Levels (`/levels`)
-Per-level benchmark results for player algorithms. Each completed FARP scenario is evaluated headlessly over many trials on the dedicated server, then listed here with its entry ID, username, status, detection rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum detection rate, date range, and sort order. Clicking an entry opens a detail page with cumulative/outcome charts, a per-trial replay grid, and the defender algorithm.
+Per-level benchmark results for player algorithms. Each completed FARP scenario is evaluated headlessly over many trials on the dedicated server, then listed here with its entry ID, username, status, detection rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum detection rate, date range, and sort order. Clicking an entry opens a detail page with cumulative/outcome charts, a detection-and-capture-rate-vs-defender-count chart, frame-perfect 60 FPS placement and ring-sweep replays, and the defender algorithm.
 
 ### Admin CMS (`/admin`)
-API-key gated management panel (client-side session stored in `localStorage`). It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluation viewer can **re-simulate** an entry, re-running it with the current Godot build to refresh its results and replays.
+API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, re-running it with the current Godot build to refresh its results and replays.
 
 ### Downloads (`/downloads`)
 Links to the latest AstroSwarm game releases fetched live from the GitHub Releases API.
@@ -71,14 +71,17 @@ Internal preview page for component and layout development.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/evaluations` | List evaluations (most recent) |
-| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking (`X-API-Key` required) |
+| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking; an identical submission (same level, algorithm, placements, trials) reuses the existing result instead of re-running (`X-API-Key` required) |
 | `GET` | `/api/evaluations/<id>` | Get a single evaluation |
 | `GET` | `/api/evaluations/baseline` | Average success rate across completed runs |
-| `GET` | `/api/evaluations/<id>/replays` | Replay index for an evaluation |
-| `GET` | `/api/evaluations/<id>/replay/<trial>` | Replay frames for one trial |
-| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered line/bar chart |
+| `GET` | `/api/evaluations/<id>/replays` | Placement-run replay index |
+| `GET` | `/api/evaluations/<id>/replay/<trial>` | Replay frames for one placement trial |
+| `GET` | `/api/evaluations/<id>/sweep-replays` | Ring-sweep replay index (n, outcome, detection/capture time) |
+| `GET` | `/api/evaluations/<id>/sweep-replay/<n>` | Replay frames for one ring-sweep run |
+| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep`, `sweep-rates`, `times`) |
 | `GET` | `/api/evaluations/<id>/export` | Download a ZIP of the entry and per-run JSON |
 | `POST` | `/api/evaluations/<id>/resimulate` | Re-run an evaluation on the current build (`X-API-Key` required) |
+| `POST` | `/api/evaluations/<id>/cancel` | Cancel a queued or running evaluation (`X-API-Key` required) |
 | `DELETE` | `/api/evaluations/<id>` | Delete an evaluation (`X-API-Key` required) |
 
 ### Leaderboard
