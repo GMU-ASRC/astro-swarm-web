@@ -1,10 +1,27 @@
 import base64
 import json
+import threading
 import uuid
 import zlib
+from collections import OrderedDict
 from datetime import datetime, timezone
 
 from database import db
+
+
+_REPLAYS_CACHE = OrderedDict()
+_REPLAYS_CACHE_MAX = 6
+_CACHE_LOCK = threading.Lock()
+_KEY_LOCKS = {}
+
+
+def _get_key_lock(key):
+    with _CACHE_LOCK:
+        lock = _KEY_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _KEY_LOCKS[key] = lock
+        return lock
 
 
 def _unpack_frames(packed):
@@ -212,8 +229,33 @@ class PlayerEvaluation(db.Model):
             return {}
         return replays
 
+    def _cache_version(self):
+        stamp = self.completed_at or self.created_at
+        return "%s:%s" % (stamp.isoformat() if stamp else "", self.status)
+
+    def _cached_replays(self):
+        key = (self.id, self._cache_version())
+        with _CACHE_LOCK:
+            cached = _REPLAYS_CACHE.get(key)
+            if cached is not None:
+                _REPLAYS_CACHE.move_to_end(key)
+                return cached
+        with _get_key_lock(key):
+            with _CACHE_LOCK:
+                cached = _REPLAYS_CACHE.get(key)
+                if cached is not None:
+                    return cached
+            replays = self._replays_dict()
+            with _CACHE_LOCK:
+                _REPLAYS_CACHE[key] = replays
+                _REPLAYS_CACHE.move_to_end(key)
+                while len(_REPLAYS_CACHE) > _REPLAYS_CACHE_MAX:
+                    old_key, _ = _REPLAYS_CACHE.popitem(last=False)
+                    _KEY_LOCKS.pop(old_key, None)
+            return replays
+
     def replay_index(self):
-        replays = self._replays_dict()
+        replays = self._cached_replays()
         return {
             "fps": replays.get("fps", 12),
             "defenders": replays.get("defenders", 0),
@@ -228,7 +270,7 @@ class PlayerEvaluation(db.Model):
         }
 
     def replay_for(self, trial: int):
-        replays = self._replays_dict()
+        replays = self._cached_replays()
         for run in replays.get("runs", []):
             if run.get("trial") == trial:
                 packed = run.get("frames_packed")
@@ -249,14 +291,14 @@ class PlayerEvaluation(db.Model):
         return None
 
     def sweep_index(self):
-        replays = self._replays_dict()
+        replays = self._cached_replays()
         return [
             {"n": run.get("n"), "outcome": run.get("outcome")}
             for run in replays.get("sweep_runs", [])
         ]
 
     def sweep_replay_for(self, n: int):
-        replays = self._replays_dict()
+        replays = self._cached_replays()
         for run in replays.get("sweep_runs", []):
             if run.get("n") == n:
                 packed = run.get("frames_packed")

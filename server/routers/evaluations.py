@@ -19,6 +19,35 @@ from schemas import EvaluationSubmit
 evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations")
 
 
+def _get_eval_light(eval_id: str):
+    return (
+        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
+        .filter_by(id=eval_id)
+        .first()
+    )
+
+
+def _submission_key(algorithm, placements, trials):
+    return json.dumps(
+        {"a": algorithm or [], "p": placements or [], "t": trials},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _find_matching_done(level_id, algorithm, placements, trials):
+    key = _submission_key(algorithm, placements, trials)
+    candidates = (
+        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
+        .filter_by(status="done", level_id=level_id)
+        .all()
+    )
+    for candidate in candidates:
+        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials) == key:
+            return candidate
+    return None
+
+
 @evaluations_bp.get("")
 def list_evaluations():
     evaluations = (
@@ -58,6 +87,17 @@ def submit_evaluation():
         status="queued",
     )
     db.session.add(evaluation)
+
+    existing = _find_matching_done(parsed.level_id, parsed.algorithm, parsed.placements, parsed.trials)
+    if existing is not None:
+        evaluation.results = existing.results
+        evaluation.replays = existing.replays
+        evaluation.progress = 1.0
+        evaluation.status = "done"
+        evaluation.completed_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return jsonify(evaluation.to_dict()), 202
+
     db.session.commit()
 
     run_evaluation_async(current_app._get_current_object(), evaluation.id)
@@ -138,7 +178,7 @@ def baseline():
 
 @evaluations_bp.get("/<eval_id>")
 def get_evaluation(eval_id: str):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     return jsonify(evaluation.to_dict())
@@ -195,7 +235,7 @@ def resimulate_evaluation(eval_id: str):
 
 @evaluations_bp.get("/<eval_id>/chart/<kind>.png")
 def chart(eval_id: str, kind: str):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise NotFound("Evaluation not found")
     results = evaluation.results if isinstance(evaluation.results, dict) else {}
@@ -217,7 +257,7 @@ def chart(eval_id: str, kind: str):
 
 @evaluations_bp.get("/<eval_id>/thumbnail.png")
 def thumbnail(eval_id: str):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise NotFound("Evaluation not found")
     results = evaluation.results if isinstance(evaluation.results, dict) else {}
@@ -259,7 +299,7 @@ def export_evaluation(eval_id: str):
 
 @evaluations_bp.get("/<eval_id>/replays")
 def list_replays(eval_id: str):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     return jsonify(evaluation.replay_index())
@@ -267,7 +307,7 @@ def list_replays(eval_id: str):
 
 @evaluations_bp.get("/<eval_id>/replay/<int:trial>")
 def get_replay(eval_id: str, trial: int):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     replay = evaluation.replay_for(trial)
@@ -278,7 +318,7 @@ def get_replay(eval_id: str, trial: int):
 
 @evaluations_bp.get("/<eval_id>/sweep-replays")
 def list_sweep_replays(eval_id: str):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     return jsonify(evaluation.sweep_index())
@@ -286,7 +326,7 @@ def list_sweep_replays(eval_id: str):
 
 @evaluations_bp.get("/<eval_id>/sweep-replay/<int:n>")
 def get_sweep_replay(eval_id: str, n: int):
-    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     replay = evaluation.sweep_replay_for(n)
