@@ -12,7 +12,7 @@ import charts
 from app_settings import JOBS_HARD_CAP, get_enemy_start, get_max_jobs, set_enemy_start, set_max_jobs
 from config import Config
 from database import db
-from evaluator import cancel_evaluation, run_evaluation_async
+from evaluator import cancel_evaluation, run_evaluation_async, set_job_limit
 from models import PlayerEvaluation
 from schemas import EvaluationSubmit
 
@@ -99,7 +99,7 @@ def update_settings():
     data = request.get_json(silent=True) or {}
     if "max_jobs" in data:
         try:
-            set_max_jobs(int(data["max_jobs"]))
+            set_job_limit(set_max_jobs(int(data["max_jobs"])))
         except (TypeError, ValueError):
             raise BadRequest("max_jobs must be an integer")
     if "enemy_start_x" in data or "enemy_start_y" in data:

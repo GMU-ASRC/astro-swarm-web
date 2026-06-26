@@ -45,4 +45,4 @@ ENV EVAL_TIMEOUT_SECONDS=1800
 
 EXPOSE ${PORT}
 
-CMD exec gunicorn --bind "0.0.0.0:${PORT}" --workers 4 --preload main:app
+CMD exec gunicorn --bind "0.0.0.0:${PORT}" --workers 1 --threads 8 main:app

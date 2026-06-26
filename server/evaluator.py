@@ -7,7 +7,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from app_settings import get_enemy_start, get_max_jobs
+from app_settings import JOBS_HARD_CAP, get_enemy_start, get_max_jobs
 from config import Config
 from database import db
 from models import PlayerEvaluation
@@ -16,6 +16,35 @@ logger = logging.getLogger(__name__)
 
 _active_lock = threading.Lock()
 _active = {}
+
+_jobs_cond = threading.Condition()
+_jobs_running = 0
+_job_limit = Config.EVAL_MAX_JOBS
+
+
+def set_job_limit(value):
+    global _job_limit
+    with _jobs_cond:
+        _job_limit = max(1, min(JOBS_HARD_CAP, int(value)))
+        _jobs_cond.notify_all()
+
+
+def _acquire_job_slot(cancel_event):
+    global _jobs_running
+    with _jobs_cond:
+        while _jobs_running >= _job_limit:
+            if cancel_event.is_set():
+                return False
+            _jobs_cond.wait(timeout=0.5)
+        _jobs_running += 1
+        return True
+
+
+def _release_job_slot():
+    global _jobs_running
+    with _jobs_cond:
+        _jobs_running -= 1
+        _jobs_cond.notify()
 
 
 def cancel_evaluation(evaluation_id):
@@ -120,8 +149,10 @@ def _run_godot(algorithm, placements, trials, on_progress, control):
     sweep_max = Config.EVAL_SWEEP_MAX
     sweep_trials = Config.EVAL_SWEEP_TRIALS
     enemy_x, enemy_y = get_enemy_start()
+    limit = get_max_jobs()
+    set_job_limit(limit)
     total_work = max(1, trials + sweep_max * sweep_trials)
-    jobs = max(1, min(get_max_jobs(), total_work))
+    jobs = max(1, min(limit, total_work))
 
     placement_ranges = _chunks(trials, jobs)
     sweep_ranges = _chunks(sweep_max, jobs)
@@ -173,24 +204,29 @@ def _run_godot(algorithm, placements, trials, on_progress, control):
         progress_lock = threading.Lock()
 
         def run_shard(shard):
-            proc = subprocess.Popen(shard["cmd"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-            shard["proc"] = proc
-            with _active_lock:
-                control["procs"].append(proc)
-            shard["tail"] = []
-            for line in proc.stdout:
-                line = line.strip()
-                if not line:
-                    continue
-                shard["tail"].append(line)
-                if len(shard["tail"]) > 10:
-                    shard["tail"].pop(0)
-                if line.startswith("PROGRESS"):
-                    count = _progress_done(line)
-                    if count is not None:
-                        with progress_lock:
-                            shard["done"] = count
-            proc.wait()
+            if not _acquire_job_slot(control["cancel"]):
+                return
+            try:
+                proc = subprocess.Popen(shard["cmd"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                shard["proc"] = proc
+                with _active_lock:
+                    control["procs"].append(proc)
+                shard["tail"] = []
+                for line in proc.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    shard["tail"].append(line)
+                    if len(shard["tail"]) > 10:
+                        shard["tail"].pop(0)
+                    if line.startswith("PROGRESS"):
+                        count = _progress_done(line)
+                        if count is not None:
+                            with progress_lock:
+                                shard["done"] = count
+                proc.wait()
+            finally:
+                _release_job_slot()
 
         threads = [threading.Thread(target=run_shard, args=(shard,), daemon=True) for shard in shards]
         for thread in threads:
