@@ -4,13 +4,19 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-6 libxcursor1 libxinerama1 libxi6 libxrandr2 libxext6 libxrender1 \
-    libgl1 libglu1-mesa \
+    libgl1 libglu1-mesa libgl1-mesa-dri \
+    libvulkan1 mesa-vulkan-drivers \
     libfontconfig1 libfreetype6 \
     libasound2 libpulse0 libudev1 \
     && rm -rf /var/lib/apt/lists/*
 
+# "graphics" is required for the GPU to expose Vulkan/OpenGL when you do pass an
+# NVIDIA GPU into the container (uncomment the deploy block in docker-compose).
 ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,compute,utility,video
+# Fall back to CPU rendering (Mesa lavapipe / llvmpipe) when the worker host has
+# no GPU passed in, so the headless Godot build can still create a rendering device.
+ENV LIBGL_ALWAYS_SOFTWARE=true
 
 COPY worker/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
