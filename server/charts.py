@@ -27,6 +27,38 @@ def _save(fig):
     return buffer.getvalue()
 
 
+def render_thumbnail_png(username, level_id, detection_rate, trials, outcomes):
+    fig = plt.figure(figsize=(12.0, 6.3), dpi=100)
+    fig.patch.set_facecolor("#0a0e1a")
+
+    fig.text(0.06, 0.84, "ASTROSWARM", fontsize=26, color="#7c9eff", weight="bold")
+    fig.text(0.06, 0.66, str(username), fontsize=52, color="#ffffff", weight="bold")
+    fig.text(0.06, 0.55, f"{str(level_id).upper()} defender benchmark", fontsize=20, color="#8ba3c9")
+    fig.text(0.06, 0.30, f"{detection_rate}%", fontsize=72, color="#4ade80", weight="bold")
+    fig.text(0.06, 0.20, f"detection rate over {trials} trials", fontsize=18, color="#8ba3c9")
+
+    if outcomes:
+        ax = fig.add_axes([0.55, 0.2, 0.39, 0.58])
+        ax.set_facecolor("#0a0e1a")
+        wins = 0
+        xs = []
+        ys = []
+        for index, outcome in enumerate(outcomes):
+            if outcome == "win":
+                wins += 1
+            xs.append(index + 1)
+            ys.append(100.0 * wins / (index + 1))
+        ax.plot(xs, ys, color="#7c9eff", linewidth=3)
+        ax.set_ylim(0, 100)
+        ax.set_title("Cumulative detection rate", color="#8ba3c9", fontsize=14)
+        ax.tick_params(colors="#8ba3c9")
+        for spine in ax.spines.values():
+            spine.set_color("#22304d")
+        ax.grid(True, color="#16203a")
+
+    return _save(fig)
+
+
 def render_line_png(outcomes, username, level_id, eval_id, date_label):
     wins = 0
     xs = []

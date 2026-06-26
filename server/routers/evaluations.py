@@ -215,6 +215,18 @@ def chart(eval_id: str, kind: str):
     return Response(png, mimetype="image/png", headers={"Content-Disposition": f'attachment; filename="{kind}_{evaluation.id}.png"'})
 
 
+@evaluations_bp.get("/<eval_id>/thumbnail.png")
+def thumbnail(eval_id: str):
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise NotFound("Evaluation not found")
+    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    outcomes = results.get("outcomes", [])
+    rate = results.get("success_rate", 0)
+    png = charts.render_thumbnail_png(evaluation.username, evaluation.level_id or "farp", rate, evaluation.trials, outcomes)
+    return Response(png, mimetype="image/png")
+
+
 def safe_filename(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", value or "").strip("_")
     return cleaned or "entry"

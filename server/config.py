@@ -12,6 +12,7 @@ class Config:
     ALLOWED_EXTENSIONS = {".cfg", ".run"}
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
     API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "dev_secret_key")
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")
 
     EVAL_SEED = int(os.environ.get("EVAL_SEED", "987654321"))
     EVAL_SWEEP_MAX = int(os.environ.get("EVAL_SWEEP_MAX", "100"))
