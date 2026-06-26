@@ -72,11 +72,11 @@ def register_worker():
     if is_new:
         worker = Worker(id=worker_id)
         db.session.add(worker)
-    worker.name = str(data.get("name", worker.name or "worker"))[:80]
     worker.hostname = str(data.get("hostname", worker.hostname or ""))[:120]
-    # max_jobs is owned by the admin panel; only seed it from the worker's own
-    # default when the worker first registers, so later overrides survive restarts.
+    # Name and max_jobs are owned by the admin panel; only seed them from the
+    # worker's own defaults on first registration so later edits survive restarts.
     if is_new:
+        worker.name = str(data.get("name", "worker"))[:80]
         worker.max_jobs = max(1, int(data.get("max_jobs", 1)))
     worker.last_seen = _now()
     worker.reported_status = "idle"
@@ -244,18 +244,33 @@ def _requeue_worker_job(worker):
     worker.current_job_id = None
 
 
-@workers_bp.post("/workers/<worker_id>/max-jobs")
-def set_worker_max_jobs(worker_id):
+@workers_bp.get("/workers/<worker_id>")
+def get_worker(worker_id):
+    _require_api_key()
+    _reap_stale_workers()
+    worker = db.session.get(Worker, worker_id)
+    if worker is None:
+        raise NotFound("Worker not found")
+    return jsonify(worker.to_dict())
+
+
+@workers_bp.post("/workers/<worker_id>/settings")
+def update_worker_settings(worker_id):
     _require_api_key()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
     data = request.get_json(silent=True) or {}
-    try:
-        value = int(data.get("max_jobs"))
-    except (TypeError, ValueError):
-        raise BadRequest("max_jobs must be an integer")
-    worker.max_jobs = max(1, min(64, value))
+    if "name" in data:
+        name = str(data["name"]).strip()[:80]
+        if name:
+            worker.name = name
+    if "max_jobs" in data:
+        try:
+            value = int(data["max_jobs"])
+        except (TypeError, ValueError):
+            raise BadRequest("max_jobs must be an integer")
+        worker.max_jobs = max(1, min(64, value))
     db.session.commit()
     return jsonify(worker.to_dict())
 

@@ -93,7 +93,8 @@ Internal preview page for component and layout development.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/workers` | List worker nodes with live status (`X-API-Key` required) |
-| `POST` | `/api/workers/<id>/max-jobs` | Set a worker's max parallel jobs (`X-API-Key` required) |
+| `GET` | `/api/workers/<id>` | Get a single worker (`X-API-Key` required) |
+| `POST` | `/api/workers/<id>/settings` | Update a worker's name and/or max parallel jobs (`X-API-Key` required) |
 | `POST` | `/api/workers/<id>/connect` | Re-enable a worker (`X-API-Key` required) |
 | `POST` | `/api/workers/<id>/disconnect` | Stop a worker taking jobs; requeue its current job (`X-API-Key` required) |
 | `DELETE` | `/api/workers/<id>` | Remove a worker record (`X-API-Key` required) |
