@@ -4,15 +4,14 @@ import re
 import zipfile
 from datetime import datetime, timezone
 
-from flask import Blueprint, Response, current_app, jsonify, request, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import charts
-from app_settings import JOBS_HARD_CAP, get_enemy_start, get_max_jobs, set_enemy_start, set_max_jobs
+from app_settings import get_enemy_start, set_enemy_start
 from config import Config
 from database import db
-from evaluator import cancel_evaluation, run_evaluation_async, set_job_limit
 from models import PlayerEvaluation
 from schemas import EvaluationSubmit
 
@@ -100,8 +99,6 @@ def submit_evaluation():
 
     db.session.commit()
 
-    run_evaluation_async(current_app._get_current_object(), evaluation.id)
-
     return jsonify(evaluation.to_dict()), 202
 
 
@@ -115,8 +112,6 @@ def settings():
         "sweep_max": Config.EVAL_SWEEP_MAX,
         "sweep_trials": Config.EVAL_SWEEP_TRIALS,
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
-        "max_jobs": get_max_jobs(),
-        "max_jobs_cap": JOBS_HARD_CAP,
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
         "arena_width": Config.EVAL_ARENA_WIDTH,
@@ -137,11 +132,6 @@ def update_settings():
     if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
         raise Unauthorized("Invalid API key")
     data = request.get_json(silent=True) or {}
-    if "max_jobs" in data:
-        try:
-            set_job_limit(set_max_jobs(int(data["max_jobs"])))
-        except (TypeError, ValueError):
-            raise BadRequest("max_jobs must be an integer")
     if "enemy_start_x" in data or "enemy_start_y" in data:
         try:
             set_enemy_start(float(data["enemy_start_x"]), float(data["enemy_start_y"]))
@@ -149,8 +139,6 @@ def update_settings():
             raise BadRequest("enemy_start_x and enemy_start_y must both be numbers")
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
-        "max_jobs": get_max_jobs(),
-        "max_jobs_cap": JOBS_HARD_CAP,
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
     })
@@ -206,9 +194,9 @@ def cancel_evaluation_route(eval_id: str):
     if evaluation.status not in ("queued", "running"):
         raise BadRequest("Evaluation is not running")
 
-    cancel_evaluation(eval_id)
     evaluation.status = "cancelled"
     evaluation.error = "cancelled"
+    evaluation.worker_id = None
     evaluation.completed_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify(evaluation.to_dict()), 202
@@ -227,9 +215,9 @@ def resimulate_evaluation(eval_id: str):
     evaluation.status = "queued"
     evaluation.progress = 0.0
     evaluation.error = None
+    evaluation.worker_id = None
     db.session.commit()
 
-    run_evaluation_async(current_app._get_current_object(), evaluation.id)
     return jsonify(evaluation.to_dict()), 202
 
 

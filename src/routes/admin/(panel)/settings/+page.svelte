@@ -4,7 +4,6 @@
 	let { data } = $props();
 	let settings = $state<any>(null);
 	let loading = $state(true);
-	let maxJobs = $state(1);
 	let enemyX = $state(0);
 	let enemyY = $state(0);
 	let saving = $state(false);
@@ -17,7 +16,6 @@
 			if (!active) return;
 			settings = row;
 			if (row) {
-				maxJobs = row.max_jobs;
 				enemyX = row.enemy_start_x;
 				enemyY = row.enemy_start_y;
 			}
@@ -42,11 +40,9 @@
 				return;
 			}
 			const updated = await res.json();
-			maxJobs = updated.max_jobs;
 			enemyX = updated.enemy_start_x;
 			enemyY = updated.enemy_start_y;
 			if (settings) {
-				settings.max_jobs = updated.max_jobs;
 				settings.enemy_start_x = updated.enemy_start_x;
 				settings.enemy_start_y = updated.enemy_start_y;
 			}
@@ -56,10 +52,6 @@
 		} finally {
 			saving = false;
 		}
-	}
-
-	function saveJobs() {
-		save({ max_jobs: maxJobs }, `Saved. Max parallel jobs set to ${maxJobs}.`);
 	}
 
 	function saveEnemyStart() {
@@ -75,14 +67,8 @@
 {:else if !settings}
 	<p>Could not load settings.</p>
 {:else}
-	<h2>Performance</h2>
 	{#if message}<div class="message">{message}</div>{/if}
-	<p class="meta">Each entry is split into this many parallel simulator processes to finish benchmarks faster (capped at {settings.max_jobs_cap}). Higher values use more CPU and memory.</p>
-	<div class="actions">
-		<label for="maxJobs">Max parallel jobs</label>
-		<input id="maxJobs" type="number" min="1" max={settings.max_jobs_cap} bind:value={maxJobs} style="width:5rem" />
-		<button onclick={saveJobs} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-	</div>
+	<p class="meta">Max parallel jobs is configured per worker on the <a href="/admin/workers">Workers</a> page.</p>
 
 	<h2>Enemy start coordinate</h2>
 	<p class="meta">Where the enemy ship starts for all 100 ring sweep runs. The placement runs use their own seeded per-trial enemy spawns.</p>
@@ -110,7 +96,6 @@
 				<tr><th>Sweep range (n)</th><td>1 to {settings.sweep_max}</td></tr>
 				<tr><th>Trials per sweep n</th><td>{settings.sweep_trials}</td></tr>
 				<tr><th>Match time cap</th><td>{settings.match_cap_seconds}s</td></tr>
-				<tr><th>Max parallel jobs</th><td>{settings.max_jobs}</td></tr>
 				<tr><th>Sweep enemy start</th><td>({settings.enemy_start_x}, {settings.enemy_start_y})</td></tr>
 			</tbody>
 		</table>

@@ -14,6 +14,7 @@ from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
 from routers.version import version_bp
+from routers.workers import workers_bp
 
 SITE_DESCRIPTION = (
     "Design species, program behavior, unleash your swarm. AstroSwarm — a pixel-art "
@@ -90,6 +91,7 @@ def _ensure_columns():
         "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS replays json DEFAULT '[]'::json",
         "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS placements json DEFAULT '[]'::json",
         "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS level_id varchar(40) DEFAULT 'farp'",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS worker_id varchar(64)",
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS thumbnail_filename varchar(255)",
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS video_filename varchar(255)",
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS frame_count integer DEFAULT 0",
@@ -103,19 +105,19 @@ def _ensure_columns():
             logger.warning("Migration skipped (%s): %s", statement, exc)
 
 
-def _reset_stuck_evaluations():
-    # Worker threads do not survive a restart, so in-flight runs would otherwise
-    # stay "running" forever. Mark them failed so the UI stops polling zombies.
+def _requeue_running_evaluations():
+    # Jobs run on external worker nodes now. On a server restart, return any
+    # in-flight runs to the queue so a connected worker can pick them back up;
+    # leave already-queued jobs untouched.
     try:
         db.session.execute(text(
-            "UPDATE player_evaluations SET status='failed', "
-            "error='interrupted by server restart' "
-            "WHERE status IN ('queued', 'running')"
+            "UPDATE player_evaluations SET status='queued', progress=0, worker_id=NULL "
+            "WHERE status='running'"
         ))
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
-        logger.warning("Could not reset stuck evaluations: %s", exc)
+        logger.warning("Could not requeue running evaluations: %s", exc)
 
 
 def create_app():
@@ -130,11 +132,12 @@ def create_app():
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(version_bp)
     app.register_blueprint(evaluations_bp)
+    app.register_blueprint(workers_bp)
 
     with app.app_context():
         db.create_all()
         _ensure_columns()
-        _reset_stuck_evaluations()
+        _requeue_running_evaluations()
         db.engine.dispose()
 
     @app.before_request

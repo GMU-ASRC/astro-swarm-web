@@ -174,6 +174,7 @@ class PlayerEvaluation(db.Model):
 
     status = db.Column(db.String(12), default="queued")
     progress = db.Column(db.Float, default=0.0)
+    worker_id = db.Column(db.String(64), nullable=True)
     n_max = db.Column(db.Integer, default=40)
     trials = db.Column(db.Integer, default=100)
     results = db.Column(db.JSON, default=dict)
@@ -329,6 +330,60 @@ class AppSetting(db.Model):
 
     key = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.String(255))
+
+
+WORKER_ONLINE_SECONDS = 30
+
+
+class Worker(db.Model):
+    __tablename__ = "workers"
+
+    id = db.Column(db.String(64), primary_key=True)
+    name = db.Column(db.String(80), default="worker")
+    hostname = db.Column(db.String(120), default="")
+    enabled = db.Column(db.Boolean, default=True)
+    max_jobs = db.Column(db.Integer, default=1)
+    reported_status = db.Column(db.String(20), default="idle")
+    current_job_id = db.Column(db.String(64), nullable=True)
+    last_seen = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def is_online(self):
+        if self.last_seen is None:
+            return False
+        last = self.last_seen
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - last).total_seconds() <= WORKER_ONLINE_SECONDS
+
+    def status(self):
+        if not self.is_online():
+            return "offline"
+        if not self.enabled:
+            return "disconnected"
+        if self.current_job_id:
+            return "busy"
+        return "idle"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "hostname": self.hostname,
+            "enabled": self.enabled,
+            "max_jobs": self.max_jobs,
+            "status": self.status(),
+            "online": self.is_online(),
+            "current_job_id": self.current_job_id,
+            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 class LeaderboardEntry(db.Model):

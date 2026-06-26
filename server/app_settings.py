@@ -2,10 +2,8 @@ from config import Config
 from database import db
 from models import AppSetting
 
-MAX_JOBS_KEY = "max_jobs"
 ENEMY_X_KEY = "enemy_start_x"
 ENEMY_Y_KEY = "enemy_start_y"
-JOBS_HARD_CAP = 20
 
 
 def _get(key):
@@ -22,22 +20,6 @@ def _set(key, value):
     else:
         setting.value = str(value)
     db.session.commit()
-
-
-def get_max_jobs():
-    value = _get(MAX_JOBS_KEY)
-    if value is None:
-        return Config.EVAL_MAX_JOBS
-    try:
-        return max(1, min(JOBS_HARD_CAP, int(value)))
-    except (TypeError, ValueError):
-        return Config.EVAL_MAX_JOBS
-
-
-def set_max_jobs(value):
-    value = max(1, min(JOBS_HARD_CAP, int(value)))
-    _set(MAX_JOBS_KEY, value)
-    return value
 
 
 def get_enemy_start():
