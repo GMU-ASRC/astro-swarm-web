@@ -248,6 +248,8 @@ def chart(eval_id: str, kind: str):
         png = charts.render_bar_png(outcomes, *meta)
     elif kind == "sweep":
         png = charts.render_sweep_png(results.get("sweep", []), *meta)
+    elif kind == "sweep-rates":
+        png = charts.render_sweep_rates_png(evaluation.sweep_index(), *meta)
     elif kind == "times":
         png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:

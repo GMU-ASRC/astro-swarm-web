@@ -87,6 +87,47 @@ export function sweepConfig(sweep: { n: number; success_rate: number }[]): Chart
 	};
 }
 
+export function sweepRatesConfig(
+	rows: { n: number; outcome?: string; detection_time?: number; capture_time?: number }[]
+): ChartConfiguration {
+	const points = [...rows].sort((a, b) => a.n - b.n);
+	const rate = (value: number | undefined) => (value != null && value >= 0 ? 100 : 0);
+
+	const options = baseOptions(
+		'Detection and Capture Rate vs Number of Defenders',
+		'Rate (%)',
+		'Defenders in ring (n)',
+		true
+	);
+	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels: points.map((point) => point.n),
+			datasets: [
+				{
+					label: 'Detection rate',
+					data: points.map((point) => rate(point.detection_time)),
+					borderColor: '#2563eb',
+					backgroundColor: '#2563eb',
+					pointRadius: 0,
+					borderWidth: 2
+				},
+				{
+					label: 'Capture rate',
+					data: points.map((point) => rate(point.capture_time)),
+					borderColor: '#dc2626',
+					backgroundColor: '#dc2626',
+					pointRadius: 0,
+					borderWidth: 2
+				}
+			]
+		},
+		options
+	};
+}
+
 export function timesConfig(detection: number[], capture: number[]): ChartConfiguration {
 	const count = Math.max(detection.length, capture.length);
 	const labels = Array.from({ length: count }, (_, index) => index + 1);

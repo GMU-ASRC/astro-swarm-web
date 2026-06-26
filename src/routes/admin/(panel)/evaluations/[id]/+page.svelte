@@ -4,7 +4,7 @@
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, sweepConfig, timesConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, sweepConfig, sweepRatesConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	let { data } = $props();
@@ -17,7 +17,7 @@
 	let selectedReplay: Replay | null = $state(null);
 	let loadedReplays = false;
 
-	let sweepRuns = $state<{ n: number; outcome: string }[]>([]);
+	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number }[]>([]);
 	let selectedN: number | null = $state(null);
 	let selectedSweepReplay: Replay | null = $state(null);
 	let loadedSweep = false;
@@ -253,6 +253,9 @@
 			<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
 			{#if sweep.length > 0}
 				<ChartCard config={sweepConfig(sweep)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
+			{/if}
+			{#if sweepRuns.length > 0}
+				<ChartCard config={sweepRatesConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-rates.png`)} />
 			{/if}
 			{#if detectionTimes.length > 0}
 				<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />

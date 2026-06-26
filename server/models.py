@@ -293,7 +293,12 @@ class PlayerEvaluation(db.Model):
     def sweep_index(self):
         replays = self._cached_replays()
         return [
-            {"n": run.get("n"), "outcome": run.get("outcome")}
+            {
+                "n": run.get("n"),
+                "outcome": run.get("outcome"),
+                "detection_time": run.get("detection_time", -1),
+                "capture_time": run.get("capture_time", -1),
+            }
             for run in replays.get("sweep_runs", [])
         ]
 
