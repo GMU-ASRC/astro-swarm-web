@@ -4,7 +4,7 @@ A standalone service that runs FARP benchmark jobs for the AstroSwarm web server
 
 ## How it works
 
-1. On startup the worker downloads the dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release (`GODOT_RELEASE_TAG`, default `latest`) and unzips it into `GODOT_DIR` — re-downloading only when the release tag changes. Set `GODOT_SERVER_BIN` to a provided binary to skip this.
+1. On every startup the worker freshly downloads the dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release (`GODOT_RELEASE_TAG`, default `latest`) and unzips it into `GODOT_DIR`, replacing any previous build. Set `GODOT_SERVER_BIN` to a provided binary to skip this.
 2. It generates a stable id (persisted to `WORKER_ID_FILE`) and registers with the server.
 3. The server splits each evaluation into many small work shards. The worker polls `/api/worker/claim` for as many shards as it has free capacity (`WORKER_MAX_JOBS` minus the shards it is already running) and runs each as one Godot process. Multiple workers therefore share a single evaluation in proportion to their capacity.
 4. It streams each shard's progress to the server (which also signals cancellation), then posts the shard result. The server merges the shards once all are done.

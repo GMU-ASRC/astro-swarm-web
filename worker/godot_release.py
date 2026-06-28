@@ -13,7 +13,6 @@ ASSET = os.environ.get("GODOT_RELEASE_ASSET", "AstroSwarm_Linux_Server.zip")
 DEST_DIR = os.environ.get("GODOT_DIR", "/data/server_build")
 
 BINARY_SUFFIXES = (".x86_64", ".x86_32", ".arm64", ".arm32")
-MARKER = ".release"
 
 
 def _release_url():
@@ -50,20 +49,12 @@ def _find_binary(root):
     return max(files, key=lambda p: os.path.getsize(p))
 
 
-def _read_marker():
-    path = os.path.join(DEST_DIR, MARKER)
-    if os.path.isfile(path):
-        with open(path) as f:
-            return f.read().strip()
-    return None
-
-
 def ensure_server_build():
     """Resolve the Godot dedicated-server binary. If GODOT_SERVER_BIN points at an
-    existing file it is used as-is; otherwise the release asset is downloaded and
-    unzipped into GODOT_DIR (re-downloaded only when the release tag changes).
-    Returns (binary_path, pck_path or None). The downloaded export binary loads its
-    adjacent .pck automatically, so no pack path override is returned for it."""
+    existing file it is used as-is; otherwise the release asset is freshly downloaded
+    and unzipped into GODOT_DIR every time the worker starts, replacing any previous
+    build. Returns (binary_path, pck_path or None). The downloaded export binary loads
+    its adjacent .pck automatically, so no pack path override is returned for it."""
     explicit = os.environ.get("GODOT_SERVER_BIN")
     if explicit and os.path.isfile(explicit):
         logger.info("using provided GODOT_SERVER_BIN=%s", explicit)
@@ -73,11 +64,6 @@ def ensure_server_build():
     resp.raise_for_status()
     release = resp.json()
     tag = release.get("tag_name", "unknown")
-
-    existing = _find_binary(DEST_DIR)
-    if _read_marker() == tag and existing:
-        logger.info("server build %s already present at %s", tag, existing)
-        return existing, None
 
     asset = next((a for a in release.get("assets", []) if a.get("name") == ASSET), None)
     if asset is None:
@@ -103,9 +89,6 @@ def ensure_server_build():
     if binary is None:
         raise RuntimeError(f"no server binary found inside {ASSET}")
     os.chmod(binary, 0o755)
-
-    with open(os.path.join(DEST_DIR, MARKER), "w") as f:
-        f.write(tag)
 
     logger.info("server build %s ready: binary=%s", tag, binary)
     return binary, None
