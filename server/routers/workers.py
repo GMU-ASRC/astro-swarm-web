@@ -203,6 +203,9 @@ def worker_heartbeat():
     worker.last_seen = _now()
     worker.reported_status = str(data.get("status", "idle"))[:20]
     worker.current_job_id = data.get("current_job") or None
+    stats = data.get("system_stats")
+    if isinstance(stats, dict):
+        worker.system_stats = stats
     db.session.commit()
     return jsonify({"enabled": worker.enabled, "known": True, "max_jobs": worker.max_jobs})
 
@@ -368,6 +371,35 @@ def _requeue_worker_shards(worker_id):
         shard.last_update = _now()
 
 
+def _worker_jobs(worker_id):
+    shards = (
+        EvaluationShard.query
+        .filter_by(worker_id=worker_id, status="running")
+        .order_by(EvaluationShard.last_update.desc())
+        .all()
+    )
+    evaluation_ids = {shard.evaluation_id for shard in shards}
+    evaluations = {
+        ev.id: ev
+        for ev in PlayerEvaluation.query.filter(PlayerEvaluation.id.in_(evaluation_ids)).all()
+    } if evaluation_ids else {}
+    jobs = []
+    for shard in shards:
+        evaluation = evaluations.get(shard.evaluation_id)
+        jobs.append({
+            "shard_id": shard.id,
+            "evaluation_id": shard.evaluation_id,
+            "shard_index": shard.shard_index,
+            "status": shard.status,
+            "done_units": shard.done_units,
+            "total_units": shard.total_units,
+            "username": evaluation.username if evaluation else None,
+            "level_id": (evaluation.level_id or "farp") if evaluation else None,
+            "last_update": shard.last_update.isoformat() if shard.last_update else None,
+        })
+    return jobs
+
+
 @workers_bp.get("/workers/<worker_id>")
 def get_worker(worker_id):
     _require_api_key()
@@ -375,7 +407,9 @@ def get_worker(worker_id):
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
-    return jsonify(worker.to_dict())
+    payload = worker.to_dict()
+    payload["jobs"] = _worker_jobs(worker_id)
+    return jsonify(payload)
 
 
 @workers_bp.post("/workers/<worker_id>/settings")

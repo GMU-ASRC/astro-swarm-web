@@ -377,6 +377,7 @@ class Worker(db.Model):
     max_jobs = db.Column(db.Integer, default=1)
     reported_status = db.Column(db.String(20), default="idle")
     current_job_id = db.Column(db.String(64), nullable=True)
+    system_stats = db.Column(db.JSON, nullable=True)
     last_seen = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -413,6 +414,7 @@ class Worker(db.Model):
             "status": self.status(),
             "online": self.is_online(),
             "current_job_id": self.current_job_id,
+            "system_stats": self.system_stats or {},
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

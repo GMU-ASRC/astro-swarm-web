@@ -7,6 +7,11 @@ import uuid
 
 import requests
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 import godot_release
 import runner
 
@@ -99,6 +104,30 @@ def claim(slots):
     return resp.json()
 
 
+def collect_system_stats():
+    if psutil is None:
+        return {}
+    try:
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage("/")
+        stats = {
+            "cpu_percent": round(psutil.cpu_percent(interval=None), 1),
+            "cpu_count": psutil.cpu_count(logical=True),
+            "memory_percent": round(memory.percent, 1),
+            "memory_used_mb": round(memory.used / (1024 * 1024)),
+            "memory_total_mb": round(memory.total / (1024 * 1024)),
+            "disk_percent": round(disk.percent, 1),
+            "disk_used_gb": round(disk.used / (1024 ** 3), 1),
+            "disk_total_gb": round(disk.total / (1024 ** 3), 1),
+        }
+        if hasattr(os, "getloadavg"):
+            stats["load_avg_1m"] = round(os.getloadavg()[0], 2)
+        return stats
+    except Exception as exc:
+        logger.warning("could not collect system stats: %s", exc)
+        return {}
+
+
 def heartbeat():
     with _state_lock:
         active = list(_active.values())
@@ -108,6 +137,7 @@ def heartbeat():
         "worker_id": WORKER_ID,
         "status": status,
         "current_job": current_job,
+        "system_stats": collect_system_stats(),
     })
 
 

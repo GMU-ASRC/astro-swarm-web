@@ -103,6 +103,8 @@
 	function when(iso: string | null): string {
 		return iso ? new Date(iso).toLocaleString() : '—';
 	}
+
+	const hasStats = $derived(worker?.system_stats && Object.keys(worker.system_stats).length > 0);
 </script>
 
 <p><a href="/admin/workers">← All workers</a></p>
@@ -164,16 +166,58 @@
 			<tbody>
 				<tr><th>Connection</th><td>{worker.enabled ? 'Enabled' : 'Disconnected by admin'}</td></tr>
 				<tr><th>Online</th><td>{worker.online ? 'Yes' : 'No'}</td></tr>
-				<tr><th>Current job</th><td>
-					{#if worker.current_job_id}
-						<a href={`/admin/evaluations/${worker.current_job_id}`}>{worker.current_job_id}</a>
-					{:else}
-						—
-					{/if}
-				</td></tr>
 				<tr><th>Last seen</th><td>{when(worker.last_seen)}</td></tr>
 				<tr><th>First seen</th><td>{when(worker.created_at)}</td></tr>
 			</tbody>
 		</table>
 	</div>
+
+	<h2>System</h2>
+	{#if hasStats}
+		<div class="stat-grid">
+			<div class="stat">
+				<div class="label">CPU</div>
+				<div class="value">{worker.system_stats.cpu_percent ?? '—'}%{#if worker.system_stats.cpu_count} · {worker.system_stats.cpu_count} cores{/if}</div>
+			</div>
+			<div class="stat">
+				<div class="label">Memory</div>
+				<div class="value">{worker.system_stats.memory_percent ?? '—'}%{#if worker.system_stats.memory_total_mb} · {worker.system_stats.memory_used_mb} / {worker.system_stats.memory_total_mb} MB{/if}</div>
+			</div>
+			<div class="stat">
+				<div class="label">Disk</div>
+				<div class="value">{worker.system_stats.disk_percent ?? '—'}%{#if worker.system_stats.disk_total_gb} · {worker.system_stats.disk_used_gb} / {worker.system_stats.disk_total_gb} GB{/if}</div>
+			</div>
+			<div class="stat">
+				<div class="label">Load (1m)</div>
+				<div class="value">{worker.system_stats.load_avg_1m ?? '—'}</div>
+			</div>
+		</div>
+	{:else}
+		<p class="meta">No system stats reported yet. The worker needs psutil installed and a recent heartbeat.</p>
+	{/if}
+
+	<h2>Active jobs ({worker.jobs?.length ?? 0})</h2>
+	{#if worker.jobs && worker.jobs.length > 0}
+		<div class="admin-table-wrap">
+			<table>
+				<thead>
+					<tr><th>Evaluation</th><th>Player</th><th>Level</th><th>Shard</th><th>Progress</th><th>Updated</th></tr>
+				</thead>
+				<tbody>
+					{#each worker.jobs as job}
+						<tr>
+							<td><a href={`/admin/evaluations/${job.evaluation_id}`}>{job.evaluation_id}</a></td>
+							<td>{job.username ?? '—'}</td>
+							<td>{job.level_id ?? '—'}</td>
+							<td>#{job.shard_index}</td>
+							<td>{job.done_units} / {job.total_units}</td>
+							<td>{when(job.last_update)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	{:else}
+		<p class="meta">This worker is not running any jobs right now.</p>
+	{/if}
 {/if}
