@@ -9,10 +9,21 @@ from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import charts
-from app_settings import get_enemy_start, set_enemy_start
+from app_settings import (
+    get_enemy_start,
+    get_level_enabled,
+    get_levels,
+    get_sweep_max,
+    get_sweep_trial_seeds,
+    get_sweep_trials,
+    set_enemy_start,
+    set_level_enabled,
+    set_sweep_params,
+)
 from config import Config
 from database import db
-from models import PlayerEvaluation
+from models import EvaluationShard, PlayerEvaluation
+from routers.workers import create_shards
 from schemas import EvaluationSubmit
 
 evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations")
@@ -36,13 +47,19 @@ def _submission_key(algorithm, placements, trials):
 
 def _find_matching_done(level_id, algorithm, placements, trials):
     key = _submission_key(algorithm, placements, trials)
+    sweep_max = get_sweep_max()
     candidates = (
         PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
         .filter_by(status="done", level_id=level_id)
         .all()
     )
     for candidate in candidates:
-        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials) == key:
+        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials) != key:
+            continue
+        # Only reuse a result that was produced under the current ring-sweep size,
+        # so changing n/n2 in settings forces a fresh run instead of stale reuse.
+        results = candidate.results if isinstance(candidate.results, dict) else {}
+        if len(results.get("sweep", [])) == sweep_max:
             return candidate
     return None
 
@@ -76,6 +93,9 @@ def submit_evaluation():
     except Exception as exc:
         raise BadRequest(str(exc))
 
+    if not get_level_enabled(parsed.level_id):
+        raise BadRequest("Level is disabled")
+
     evaluation = PlayerEvaluation(
         player_id=parsed.player_id,
         username=parsed.username,
@@ -97,6 +117,8 @@ def submit_evaluation():
         db.session.commit()
         return jsonify(evaluation.to_dict()), 202
 
+    db.session.flush()
+    create_shards(evaluation)
     db.session.commit()
 
     return jsonify(evaluation.to_dict()), 202
@@ -109,8 +131,8 @@ def settings():
     return jsonify({
         "seed": seed,
         "placement_trials": 100,
-        "sweep_max": Config.EVAL_SWEEP_MAX,
-        "sweep_trials": Config.EVAL_SWEEP_TRIALS,
+        "sweep_max": get_sweep_max(),
+        "sweep_trials": get_sweep_trials(),
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
@@ -118,11 +140,13 @@ def settings():
         "arena_height": Config.EVAL_ARENA_HEIGHT,
         "planet_x": Config.EVAL_ARENA_WIDTH / 2,
         "planet_y": Config.EVAL_ARENA_HEIGHT / 2,
+        "sweep_trial_seeds": get_sweep_trial_seeds(),
+        "levels": get_levels(),
         "derived_seeds": [
             {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
             {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
-            {"name": "Sweep ring orientations (per n)", "formula": "seed + 100000 + n", "value": f"{seed + 100000} + n"},
-            {"name": "Sweep match RNG (per n)", "formula": "seed + 1000000 + n", "value": f"{seed + 1000000} + n"},
+            {"name": "Sweep ring orientations (per n, trial)", "formula": "sweep_seed[trial] + n", "value": f"({seed} + 100000 + trial * 1000000) + n"},
+            {"name": "Sweep match RNG (per n, trial)", "formula": "sweep_seed[trial] + 500000 + n", "value": f"({seed} + 100000 + trial * 1000000) + 500000 + n"},
         ],
     })
 
@@ -137,10 +161,24 @@ def update_settings():
             set_enemy_start(float(data["enemy_start_x"]), float(data["enemy_start_y"]))
         except (TypeError, ValueError, KeyError):
             raise BadRequest("enemy_start_x and enemy_start_y must both be numbers")
+    if "sweep_max" in data or "sweep_trials" in data:
+        try:
+            set_sweep_params(
+                sweep_max=data.get("sweep_max"),
+                sweep_trials=data.get("sweep_trials"),
+            )
+        except (TypeError, ValueError):
+            raise BadRequest("sweep_max and sweep_trials must be integers")
+    if "level_id" in data and "enabled" in data:
+        set_level_enabled(str(data["level_id"]), bool(data["enabled"]))
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
+        "sweep_max": get_sweep_max(),
+        "sweep_trials": get_sweep_trials(),
+        "sweep_trial_seeds": get_sweep_trial_seeds(),
+        "levels": get_levels(),
     })
 
 
@@ -198,6 +236,9 @@ def cancel_evaluation_route(eval_id: str):
     evaluation.error = "cancelled"
     evaluation.worker_id = None
     evaluation.completed_at = datetime.now(timezone.utc)
+    EvaluationShard.query.filter_by(evaluation_id=eval_id).filter(
+        EvaluationShard.status.in_(("queued", "running"))
+    ).update({"status": "cancelled"}, synchronize_session=False)
     db.session.commit()
     return jsonify(evaluation.to_dict()), 202
 
@@ -216,6 +257,7 @@ def resimulate_evaluation(eval_id: str):
     evaluation.progress = 0.0
     evaluation.error = None
     evaluation.worker_id = None
+    create_shards(evaluation)
     db.session.commit()
 
     return jsonify(evaluation.to_dict()), 202
@@ -235,9 +277,9 @@ def chart(eval_id: str, kind: str):
     elif kind == "bar":
         png = charts.render_bar_png(outcomes, *meta)
     elif kind == "sweep":
-        png = charts.render_sweep_png(results.get("sweep", []), *meta)
-    elif kind == "sweep-rates":
-        png = charts.render_sweep_rates_png(evaluation.sweep_index(), *meta)
+        png = charts.render_detection_rate_png(evaluation.sweep_index(), *meta)
+    elif kind == "capture":
+        png = charts.render_capture_rate_png(evaluation.sweep_index(), *meta)
     elif kind == "times":
         png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:

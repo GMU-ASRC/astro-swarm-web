@@ -4,7 +4,7 @@
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, sweepConfig, sweepRatesConfig, timesConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, detectionRateConfig, captureRateConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	interface PageData {
@@ -35,7 +35,6 @@
 
 	let detectionTimes = $derived(ev.results?.detection_times ?? []);
 	let captureTimes = $derived(ev.results?.capture_times ?? []);
-	let sweep = $derived(ev.results?.sweep ?? []);
 
 	let selectedTrial: number | null = $state(null);
 	let selectedReplay: Replay | null = $state(null);
@@ -69,7 +68,7 @@
 		}
 	});
 
-	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number }[]>([]);
+	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number }[]>([]);
 	let selectedN: number | null = $state(null);
 	let selectedSweepReplay: Replay | null = $state(null);
 	let loadedSweep = false;
@@ -179,11 +178,9 @@
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
-				{#if sweep.length > 0}
-					<ChartCard config={sweepConfig(sweep)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
-				{/if}
 				{#if sweepRuns.length > 0}
-					<ChartCard config={sweepRatesConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-rates.png`)} />
+					<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
+					<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
 				{/if}
 				{#if detectionTimes.length > 0}
 					<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />

@@ -32,7 +32,7 @@ API-key gated management panel (client-side session stored in `localStorage`) wi
 
 ### Evaluation Workers
 
-Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. A worker (`web/worker/`) downloads the Godot dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release on startup and unzips it — so nothing needs to be bundled into the image. It then registers with the server, polls for queued evaluations, claims one at a time, runs the build locally (splitting the work into `WORKER_MAX_JOBS` parallel processes — a per-worker setting, editable on each worker's admin page), streams progress back, and posts the merged results/replays. Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight job is requeued for another worker), and jobs from workers that go silent are automatically requeued. To add compute, run a worker on another machine (its own data volume gives it a stable, distinct id) pointed at the server's public URL with the matching `API_SECRET_KEY`.
+Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. Each submitted evaluation is split by the server into many small **work shards** (a slice of placement trials plus a slice of the ring sweep). A worker (`web/worker/`) downloads the Godot dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release on startup and unzips it — so nothing needs to be bundled into the image. It then registers with the server and repeatedly claims as many queued shards as it has free capacity (`WORKER_MAX_JOBS` minus the shards it is already running — a per-worker setting, editable on each worker's admin page), running each as one Godot process. This balances a single evaluation across every connected worker in proportion to each worker's capacity, so two workers finish one job roughly twice as fast. The server merges the shard results once they are all in. Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight shards are requeued for other workers), and shards from workers that go silent are automatically requeued — a finished shard is never re-run. To add compute, run a worker on another machine (its own data volume gives it a stable, distinct id) pointed at the server's public URL with the matching `API_SECRET_KEY`.
 
 ### Downloads (`/downloads`)
 Links to the latest AstroSwarm game releases fetched live from the GitHub Releases API.
@@ -82,7 +82,7 @@ Internal preview page for component and layout development.
 | `GET` | `/api/evaluations/<id>/replay/<trial>` | Replay frames for one placement trial |
 | `GET` | `/api/evaluations/<id>/sweep-replays` | Ring-sweep replay index (n, outcome, detection/capture time) |
 | `GET` | `/api/evaluations/<id>/sweep-replay/<n>` | Replay frames for one ring-sweep run |
-| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep`, `sweep-rates`, `times`) |
+| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep` detection rate, `capture` capture rate, `times`) |
 | `GET` | `/api/evaluations/<id>/export` | Download a ZIP of the entry and per-run JSON |
 | `POST` | `/api/evaluations/<id>/resimulate` | Re-run an evaluation on the current build (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/cancel` | Cancel a queued or running evaluation (`X-API-Key` required) |
@@ -99,10 +99,11 @@ Internal preview page for component and layout development.
 | `POST` | `/api/workers/<id>/disconnect` | Stop a worker taking jobs; requeue its current job (`X-API-Key` required) |
 | `DELETE` | `/api/workers/<id>` | Remove a worker record (`X-API-Key` required) |
 | `POST` | `/api/worker/register` | Worker announces itself (used by workers) |
-| `POST` | `/api/worker/claim` | Claim the next queued evaluation (used by workers) |
-| `POST` | `/api/worker/jobs/<id>/progress` | Report progress; response signals cancellation (used by workers) |
-| `POST` | `/api/worker/jobs/<id>/result` | Submit merged results/replays (used by workers) |
-| `POST` | `/api/worker/jobs/<id>/fail` | Report a failed job (used by workers) |
+| `POST` | `/api/worker/heartbeat` | Keep-alive and status report (used by workers) |
+| `POST` | `/api/worker/claim` | Claim up to `slots` queued work shards (used by workers) |
+| `POST` | `/api/worker/shards/<id>/progress` | Report shard progress; response signals cancellation (used by workers) |
+| `POST` | `/api/worker/shards/<id>/result` | Submit a shard's results/replays; the server merges when all shards are done (used by workers) |
+| `POST` | `/api/worker/shards/<id>/fail` | Report a failed shard (used by workers) |
 
 ### Leaderboard
 

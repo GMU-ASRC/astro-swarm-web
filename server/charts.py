@@ -81,50 +81,47 @@ def render_line_png(outcomes, username, level_id, eval_id, date_label):
     return _save(fig)
 
 
-def render_sweep_png(sweep, username, level_id, eval_id, date_label):
-    points = sorted(sweep, key=lambda point: point.get("n", 0))
-    xs = [point.get("n", 0) for point in points]
-    ys = [point.get("success_rate", 0.0) for point in points]
-
-    fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, ys, color="#1f77b4", linewidth=2)
-    ax.set_title("Detection Rate vs Number of Defenders")
-    ax.set_xlabel("Defenders in ring (n)")
-    ax.set_ylabel("Detection Rate (%)")
-    ax.set_ylim(0, 100)
-    if xs:
-        ax.set_xlim(min(xs), max(xs))
-    ax.grid(True, color="#e5e7eb")
-    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
-    return _save(fig)
+def _sweep_rate(point, rate_key, time_key):
+    value = point.get(rate_key)
+    if value is not None:
+        return value
+    time_value = point.get(time_key, -1)
+    return 100.0 if time_value is not None and time_value >= 0 else 0.0
 
 
-def render_sweep_rates_png(rows, username, level_id, eval_id, date_label):
+def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta):
     points = sorted(rows, key=lambda point: point.get("n", 0))
     xs = [point.get("n", 0) for point in points]
-
-    def _rate(point, key):
-        value = point.get(key, -1)
-        return 100.0 if value is not None and value >= 0 else 0.0
-
-    detection = [_rate(point, "detection_time") for point in points]
-    capture = [_rate(point, "capture_time") for point in points]
+    ys = [_sweep_rate(point, rate_key, time_key) for point in points]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, detection, color="#2563eb", linewidth=2, label="Detection rate")
-    ax.plot(xs, capture, color="#dc2626", linewidth=2, label="Capture rate")
-    ax.set_title("Detection and Capture Rate vs Number of Defenders")
+    ax.plot(xs, ys, color=color, linewidth=2)
+    ax.set_title(title)
     ax.set_xlabel("Defenders in ring (n)")
-    ax.set_ylabel("Rate (%)")
+    ax.set_ylabel(ylabel)
     ax.set_ylim(0, 100)
     if xs:
         ax.set_xlim(min(xs), max(xs))
     ax.grid(True, color="#e5e7eb")
-    ax.legend()
-    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
+    fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     return _save(fig)
+
+
+def render_detection_rate_png(rows, username, level_id, eval_id, date_label):
+    return _render_sweep_rate_png(
+        rows, "detection_rate", "detection_time", "#2563eb",
+        "Detection Success Rate vs Number of Defenders", "Detection success rate (%)",
+        (username, level_id, eval_id, date_label),
+    )
+
+
+def render_capture_rate_png(rows, username, level_id, eval_id, date_label):
+    return _render_sweep_rate_png(
+        rows, "capture_rate", "capture_time", "#dc2626",
+        "Capture Success Rate vs Number of Defenders", "Capture success rate (%)",
+        (username, level_id, eval_id, date_label),
+    )
 
 
 def render_times_png(detection_times, capture_times, username, level_id, eval_id, date_label):

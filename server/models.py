@@ -299,6 +299,8 @@ class PlayerEvaluation(db.Model):
                 "outcome": run.get("outcome"),
                 "detection_time": run.get("detection_time", -1),
                 "capture_time": run.get("capture_time", -1),
+                "detection_rate": run.get("detection_rate"),
+                "capture_rate": run.get("capture_rate"),
             }
             for run in replays.get("sweep_runs", [])
         ]
@@ -325,6 +327,35 @@ class PlayerEvaluation(db.Model):
         return None
 
 
+class EvaluationShard(db.Model):
+    __tablename__ = "evaluation_shards"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    evaluation_id = db.Column(db.String, index=True, nullable=False)
+    shard_index = db.Column(db.Integer, default=0)
+
+    trial_start = db.Column(db.Integer, default=0)
+    trial_count = db.Column(db.Integer, default=0)
+    n_start = db.Column(db.Integer, default=1)
+    n_count = db.Column(db.Integer, default=0)
+    total_units = db.Column(db.Integer, default=1)
+
+    status = db.Column(db.String(12), default="queued", index=True)
+    done_units = db.Column(db.Integer, default=0)
+    worker_id = db.Column(db.String(64), nullable=True)
+    result = db.Column(db.JSON, nullable=True)
+    error = db.Column(db.String(400), nullable=True)
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    last_update = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 class AppSetting(db.Model):
     __tablename__ = "app_settings"
 
@@ -333,6 +364,7 @@ class AppSetting(db.Model):
 
 
 WORKER_ONLINE_SECONDS = 30
+SHARD_STALE_SECONDS = 45
 
 
 class Worker(db.Model):

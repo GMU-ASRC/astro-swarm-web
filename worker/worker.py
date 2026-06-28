@@ -1,6 +1,7 @@
 import logging
 import os
 import socket
+import threading
 import time
 import uuid
 
@@ -22,10 +23,13 @@ SETTINGS = {
     "godot_pck": None,
     "fixed_fps": os.environ.get("EVAL_FIXED_FPS", "60"),
     "timeout_seconds": int(os.environ.get("EVAL_TIMEOUT_SECONDS", "1800")),
-    "max_jobs": max(1, int(os.environ.get("WORKER_MAX_JOBS", "4"))),
 }
 
 HEADERS = {"X-API-Key": API_SECRET_KEY}
+
+_state_lock = threading.Lock()
+_active = {}
+_current_max_jobs = max(1, int(os.environ.get("WORKER_MAX_JOBS", "4")))
 
 
 def _load_worker_id():
@@ -53,6 +57,21 @@ def _post(path, payload, timeout=120):
     return requests.post(f"{SERVER_URL}{path}", json=payload, headers=HEADERS, timeout=timeout)
 
 
+def _safe_post(path, payload, timeout=30):
+    try:
+        return _post(path, payload, timeout=timeout)
+    except requests.RequestException as exc:
+        logger.warning("post %s error: %s", path, exc)
+        return None
+
+
+def _set_max_jobs(value):
+    global _current_max_jobs
+    if value:
+        with _state_lock:
+            _current_max_jobs = max(1, int(value))
+
+
 def register():
     while True:
         try:
@@ -60,10 +79,11 @@ def register():
                 "worker_id": WORKER_ID,
                 "name": WORKER_NAME,
                 "hostname": socket.gethostname(),
-                "max_jobs": SETTINGS["max_jobs"],
+                "max_jobs": _current_max_jobs,
             }, timeout=30)
             if resp.ok:
-                logger.info("registered as %s (%s), max_jobs=%d", WORKER_NAME, WORKER_ID, SETTINGS["max_jobs"])
+                _set_max_jobs(resp.json().get("max_jobs"))
+                logger.info("registered as %s (%s), max_jobs=%d", WORKER_NAME, WORKER_ID, _current_max_jobs)
                 return
             logger.warning("register failed: %s %s", resp.status_code, resp.text[:200])
         except requests.RequestException as exc:
@@ -71,23 +91,24 @@ def register():
         time.sleep(POLL_SECONDS)
 
 
-def claim():
-    resp = _post("/api/worker/claim", {"worker_id": WORKER_ID}, timeout=30)
+def claim(slots):
+    resp = _post("/api/worker/claim", {"worker_id": WORKER_ID, "slots": slots}, timeout=30)
     if not resp.ok:
         logger.warning("claim failed: %s %s", resp.status_code, resp.text[:200])
         return None
     return resp.json()
 
 
-def heartbeat(status, current_job=None):
-    try:
-        _post("/api/worker/heartbeat", {
-            "worker_id": WORKER_ID,
-            "status": status,
-            "current_job": current_job,
-        }, timeout=30)
-    except requests.RequestException:
-        pass
+def heartbeat():
+    with _state_lock:
+        active = list(_active.values())
+    status = "busy" if active else "idle"
+    current_job = active[0] if active else None
+    _safe_post("/api/worker/heartbeat", {
+        "worker_id": WORKER_ID,
+        "status": status,
+        "current_job": current_job,
+    })
 
 
 def godot_ready():
@@ -95,55 +116,53 @@ def godot_ready():
     return bool(binary) and os.path.isfile(binary)
 
 
-def run_job(job, max_jobs):
-    job_id = job.get("id")
-    settings = dict(SETTINGS)
-    settings["max_jobs"] = max(1, int(max_jobs or SETTINGS["max_jobs"]))
-    logger.info("job %s: claimed (trials=%s, defenders=%s, max_jobs=%d)", job_id, job.get("trials"), len(job.get("placements", [])), settings["max_jobs"])
+def run_shard(shard):
+    shard_id = shard.get("shard_id")
+    eval_id = shard.get("evaluation_id")
 
-    def report_progress(fraction):
-        try:
-            resp = _post(f"/api/worker/jobs/{job_id}/progress", {
-                "worker_id": WORKER_ID,
-                "progress": fraction,
-            }, timeout=30)
-            if resp.ok:
-                return bool(resp.json().get("cancel"))
-        except requests.RequestException as exc:
-            logger.warning("job %s: progress post error: %s", job_id, exc)
+    def report_progress(done_units):
+        resp = _safe_post(f"/api/worker/shards/{shard_id}/progress", {
+            "worker_id": WORKER_ID,
+            "done": done_units,
+        })
+        if resp is not None and resp.ok:
+            return bool(resp.json().get("cancel"))
         return False
 
     try:
-        result = runner.run_benchmark(job, settings, report_progress, logger)
+        result = runner.run_shard(shard, SETTINGS, report_progress, logger)
     except runner.CancelledError:
-        logger.info("job %s: cancelled", job_id)
-        _safe_post(f"/api/worker/jobs/{job_id}/fail", {"worker_id": WORKER_ID, "error": "cancelled"})
+        logger.info("shard %s (job %s): cancelled", shard_id, eval_id)
         return
     except Exception as exc:
-        logger.error("job %s: failed: %s", job_id, exc)
-        _safe_post(f"/api/worker/jobs/{job_id}/fail", {"worker_id": WORKER_ID, "error": str(exc)[:400]})
+        logger.error("shard %s (job %s): failed: %s", shard_id, eval_id, exc)
+        _safe_post(f"/api/worker/shards/{shard_id}/fail", {"worker_id": WORKER_ID, "error": str(exc)[:400]})
         return
 
-    try:
-        resp = _post(f"/api/worker/jobs/{job_id}/result", {
-            "worker_id": WORKER_ID,
-            "results": result["results"],
-            "replays": result["replays"],
-        }, timeout=300)
-        if resp.ok:
-            rate = result["results"].get("success_rate")
-            logger.info("job %s: done (success_rate=%s)", job_id, rate)
-        else:
-            logger.error("job %s: result post failed: %s %s", job_id, resp.status_code, resp.text[:200])
-    except requests.RequestException as exc:
-        logger.error("job %s: result post error: %s", job_id, exc)
+    resp = _safe_post(f"/api/worker/shards/{shard_id}/result", {
+        "worker_id": WORKER_ID,
+        "result": result,
+    }, timeout=300)
+    if resp is not None and resp.ok:
+        logger.info("shard %s (job %s): done", shard_id, eval_id)
+    elif resp is not None:
+        logger.error("shard %s: result post failed: %s %s", shard_id, resp.status_code, resp.text[:200])
 
 
-def _safe_post(path, payload):
-    try:
-        _post(path, payload, timeout=30)
-    except requests.RequestException as exc:
-        logger.warning("post %s error: %s", path, exc)
+def _spawn(shard):
+    shard_id = shard.get("shard_id")
+
+    def worker_thread():
+        try:
+            run_shard(shard)
+        finally:
+            with _state_lock:
+                _active.pop(shard_id, None)
+
+    thread = threading.Thread(target=worker_thread, daemon=True)
+    with _state_lock:
+        _active[shard_id] = shard.get("evaluation_id")
+    thread.start()
 
 
 def main():
@@ -152,7 +171,7 @@ def main():
     while True:
         try:
             if not godot_ready():
-                heartbeat("preparing")
+                heartbeat()
                 try:
                     binary, pck = godot_release.ensure_server_build()
                     SETTINGS["godot_bin"] = binary
@@ -161,22 +180,28 @@ def main():
                     logger.warning("could not prepare server build: %s", exc)
                     time.sleep(POLL_SECONDS)
                     continue
-            response = claim()
-            if response is None:
-                time.sleep(POLL_SECONDS)
-                continue
-            if response.get("known") is False:
-                logger.info("server does not know this worker; re-registering")
-                register()
-                continue
-            if not response.get("enabled", True):
-                time.sleep(POLL_SECONDS)
-                continue
-            job = response.get("job")
-            if job:
-                run_job(job, response.get("max_jobs"))
-            else:
-                time.sleep(POLL_SECONDS)
+
+            with _state_lock:
+                free = _current_max_jobs - len(_active)
+            if free > 0:
+                response = claim(free)
+                if response is None:
+                    time.sleep(POLL_SECONDS)
+                    continue
+                if response.get("known") is False:
+                    logger.info("server does not know this worker; re-registering")
+                    register()
+                    continue
+                _set_max_jobs(response.get("max_jobs"))
+                if not response.get("enabled", True):
+                    heartbeat()
+                    time.sleep(POLL_SECONDS)
+                    continue
+                for shard in response.get("shards", []):
+                    _spawn(shard)
+
+            heartbeat()
+            time.sleep(POLL_SECONDS)
         except requests.RequestException as exc:
             logger.warning("loop error: %s", exc)
             time.sleep(POLL_SECONDS)

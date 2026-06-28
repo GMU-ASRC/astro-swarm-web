@@ -28,6 +28,7 @@ services:
       PORT: ${PORT:-5050}
       CLIENT_DIR: /app/client
       API_SECRET_KEY: ${API_SECRET_KEY}
+      EVAL_SHARD_COUNT: ${EVAL_SHARD_COUNT:-32}
     ports:
       - "${PORT:-5050}:${PORT:-5050}"
     depends_on:

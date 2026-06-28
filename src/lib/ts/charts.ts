@@ -70,9 +70,32 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 	};
 }
 
-export function sweepConfig(sweep: { n: number; success_rate: number }[]): ChartConfiguration {
-	const points = [...sweep].sort((a, b) => a.n - b.n);
-	const options = baseOptions('Detection Rate vs Number of Defenders', 'Detection Rate (%)', 'Defenders in ring (n)');
+type SweepRow = {
+	n: number;
+	outcome?: string;
+	detection_time?: number;
+	capture_time?: number;
+	detection_rate?: number;
+	capture_rate?: number;
+};
+
+function sweepRateConfig(
+	rows: SweepRow[],
+	rateKey: 'detection_rate' | 'capture_rate',
+	timeKey: 'detection_time' | 'capture_time',
+	title: string,
+	yTitle: string,
+	color: string
+): ChartConfiguration {
+	const points = [...rows].sort((a, b) => a.n - b.n);
+	const rate = (row: SweepRow) => {
+		const averaged = row[rateKey];
+		if (averaged != null) return averaged;
+		const time = row[timeKey];
+		return time != null && time >= 0 ? 100 : 0;
+	};
+
+	const options = baseOptions(title, yTitle, 'Defenders in ring (n)');
 	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
 
 	return {
@@ -80,52 +103,33 @@ export function sweepConfig(sweep: { n: number; success_rate: number }[]): Chart
 		data: {
 			labels: points.map((point) => point.n),
 			datasets: [
-				{ label: 'Detection rate', data: points.map((point) => point.success_rate), borderColor: '#2563eb', backgroundColor: '#2563eb', pointRadius: 0, borderWidth: 2 }
+				{ label: yTitle, data: points.map(rate), borderColor: color, backgroundColor: color, pointRadius: 0, borderWidth: 2 }
 			]
 		},
 		options
 	};
 }
 
-export function sweepRatesConfig(
-	rows: { n: number; outcome?: string; detection_time?: number; capture_time?: number }[]
-): ChartConfiguration {
-	const points = [...rows].sort((a, b) => a.n - b.n);
-	const rate = (value: number | undefined) => (value != null && value >= 0 ? 100 : 0);
-
-	const options = baseOptions(
-		'Detection and Capture Rate vs Number of Defenders',
-		'Rate (%)',
-		'Defenders in ring (n)',
-		true
+export function detectionRateConfig(rows: SweepRow[]): ChartConfiguration {
+	return sweepRateConfig(
+		rows,
+		'detection_rate',
+		'detection_time',
+		'Detection Success Rate vs Number of Defenders',
+		'Detection success rate (%)',
+		'#2563eb'
 	);
-	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
+}
 
-	return {
-		type: 'line',
-		data: {
-			labels: points.map((point) => point.n),
-			datasets: [
-				{
-					label: 'Detection rate',
-					data: points.map((point) => rate(point.detection_time)),
-					borderColor: '#2563eb',
-					backgroundColor: '#2563eb',
-					pointRadius: 0,
-					borderWidth: 2
-				},
-				{
-					label: 'Capture rate',
-					data: points.map((point) => rate(point.capture_time)),
-					borderColor: '#dc2626',
-					backgroundColor: '#dc2626',
-					pointRadius: 0,
-					borderWidth: 2
-				}
-			]
-		},
-		options
-	};
+export function captureRateConfig(rows: SweepRow[]): ChartConfiguration {
+	return sweepRateConfig(
+		rows,
+		'capture_rate',
+		'capture_time',
+		'Capture Success Rate vs Number of Defenders',
+		'Capture success rate (%)',
+		'#dc2626'
+	);
 }
 
 export function timesConfig(detection: number[], capture: number[]): ChartConfiguration {
