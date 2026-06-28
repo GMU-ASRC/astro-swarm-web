@@ -24,7 +24,7 @@ A standalone service that runs FARP benchmark jobs for the AstroSwarm web server
 | `GODOT_DIR` | Where the downloaded build is unzipped | `/data/server_build` |
 | `GODOT_SERVER_BIN` | Optional path to a provided binary; set to skip the download | _(unset)_ |
 | `GODOT_PCK` | Path to the exported `.pck` (only when providing a binary that needs a separate pack) | _(unset)_ |
-| `EVAL_TIMEOUT_SECONDS` | Max wall-clock time per job | `1800` |
+| `EVAL_TIMEOUT_SECONDS` | Max wall-clock time per shard before it is killed | `3600` |
 | `EVAL_FIXED_FPS` | Fixed physics step for the benchmark | `60` |
 | `WORKER_POLL_SECONDS` | Idle poll interval | `3` |
 | `WORKER_ID_FILE` | Where the worker id is stored | `/data/worker_id` |

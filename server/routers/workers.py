@@ -33,6 +33,43 @@ def _chunks(total, parts):
     return ranges
 
 
+def _weighted_sweep_chunks(total, parts):
+    # Split the ring sweep n=1..total into contiguous ranges of roughly equal
+    # cost. Per-match work grows with n (more defenders), so an equal-width
+    # split makes high-n shards far heavier than low-n ones; here we balance by
+    # sum-of-n instead, isolating the heaviest n-values into smaller shards.
+    if parts <= 0:
+        return []
+    if total <= 0:
+        return [(0, 0) for _ in range(parts)]
+    total_weight = total * (total + 1) / 2.0
+    ranges = []
+    assigned = 0
+    for part in range(parts):
+        remaining_parts = parts - part
+        remaining_n = total - assigned
+        if remaining_n <= remaining_parts:
+            count = 1 if remaining_n > 0 else 0
+        else:
+            target = total_weight * (part + 1) / parts
+            max_take = remaining_n - (remaining_parts - 1)
+            count = 0
+            cum = assigned * (assigned + 1) / 2.0
+            while count < max_take:
+                next_n = assigned + count + 1
+                if cum + next_n > target and count >= 1:
+                    break
+                cum += next_n
+                count += 1
+            count = max(1, count)
+        ranges.append((assigned, count))
+        assigned += count
+    if assigned < total:
+        start, count = ranges[-1]
+        ranges[-1] = (start, count + (total - assigned))
+    return ranges
+
+
 def create_shards(evaluation):
     # Split an evaluation into small work units (a trial-range plus a ring-sweep
     # n-range) so any number of workers can each claim and run a portion of it.
@@ -42,10 +79,12 @@ def create_shards(evaluation):
     sweep_max = get_sweep_max()
     sweep_trials = get_sweep_trials()
     total_work = max(1, trials + sweep_max * sweep_trials)
-    parts = max(1, min(Config.EVAL_SHARD_COUNT, total_work))
+    # Use at least one shard per ring-sweep n-value when possible, so a single
+    # heavy high-n value is never bundled with others into one over-long shard.
+    parts = max(1, min(max(Config.EVAL_SHARD_COUNT, sweep_max), total_work))
 
     trial_ranges = _chunks(trials, parts)
-    sweep_ranges = _chunks(sweep_max, parts)
+    sweep_ranges = _weighted_sweep_chunks(sweep_max, parts)
 
     created = 0
     for index in range(parts):

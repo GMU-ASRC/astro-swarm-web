@@ -27,7 +27,7 @@ SETTINGS = {
     "godot_bin": None,
     "godot_pck": None,
     "fixed_fps": os.environ.get("EVAL_FIXED_FPS", "60"),
-    "timeout_seconds": int(os.environ.get("EVAL_TIMEOUT_SECONDS", "1800")),
+    "timeout_seconds": int(os.environ.get("EVAL_TIMEOUT_SECONDS", "3600")),
 }
 
 HEADERS = {"X-API-Key": API_SECRET_KEY}
