@@ -189,7 +189,13 @@
 					<tr>
 						<td>{row.username}</td>
 						<td>{row.level_id || 'farp'}</td>
-						<td><span class="pill">{row.status.toUpperCase()}</span></td>
+						<td>
+							<span class="pill">{row.status.toUpperCase()}</span>
+							{#if row.status === 'queued' || row.status === 'running'}
+								<div class="meta">{Math.round((row.progress ?? 0) * 100)}%</div>
+								{#if row.stage}<div class="meta">{row.stage}</div>{/if}
+							{/if}
+						</td>
 						<td>{row.success_rate != null ? `${row.success_rate}%` : '—'}</td>
 						<td>{new Date(row.created_at).toLocaleString()}</td>
 						<td>

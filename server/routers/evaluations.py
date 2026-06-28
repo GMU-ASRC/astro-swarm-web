@@ -235,6 +235,7 @@ def cancel_evaluation_route(eval_id: str):
     evaluation.status = "cancelled"
     evaluation.error = "cancelled"
     evaluation.worker_id = None
+    evaluation.stage = None
     evaluation.completed_at = datetime.now(timezone.utc)
     EvaluationShard.query.filter_by(evaluation_id=eval_id).filter(
         EvaluationShard.status.in_(("queued", "running"))

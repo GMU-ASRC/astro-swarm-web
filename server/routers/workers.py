@@ -150,6 +150,7 @@ def _finalize_if_complete(evaluation_id):
         evaluation.error = failed.error or "worker error"
         evaluation.completed_at = _now()
         evaluation.worker_id = None
+        evaluation.stage = None
         EvaluationShard.query.filter_by(evaluation_id=evaluation_id).delete(synchronize_session=False)
         return
 
@@ -162,6 +163,7 @@ def _finalize_if_complete(evaluation_id):
     evaluation.error = None
     evaluation.completed_at = _now()
     evaluation.worker_id = None
+    evaluation.stage = None
     EvaluationShard.query.filter_by(evaluation_id=evaluation_id).delete(synchronize_session=False)
 
 
@@ -288,6 +290,11 @@ def shard_progress(shard_id):
         except (TypeError, ValueError):
             pass
         shard.last_update = _now()
+        stage = data.get("stage")
+        if stage:
+            evaluation = db.session.get(PlayerEvaluation, shard.evaluation_id)
+            if evaluation is not None:
+                evaluation.stage = str(stage)[:200]
         _update_progress(shard.evaluation_id)
     db.session.commit()
     return jsonify({"cancel": not owns})

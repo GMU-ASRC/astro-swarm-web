@@ -224,7 +224,8 @@
 	{:else if ev.status === 'cancelled'}
 		<p>This evaluation was cancelled. Re-simulate it to run the benchmark again.</p>
 	{:else if ev.status === 'queued' || ev.status === 'running'}
-		<p>Benchmark still running ({Math.round((ev.progress ?? 0) * 100)}%). Results appear when the headless run finishes.</p>
+		<p>Benchmark {ev.status === 'queued' ? 'queued' : 'running'} ({Math.round((ev.progress ?? 0) * 100)}%). Results appear when the headless run finishes.</p>
+		{#if ev.stage}<p class="meta">{ev.stage}</p>{/if}
 	{:else if outcomes.length === 0}
 		<p>No benchmark data available.</p>
 	{:else}

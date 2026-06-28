@@ -96,6 +96,7 @@ def _ensure_columns():
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS video_filename varchar(255)",
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS frame_count integer DEFAULT 0",
         "ALTER TABLE workers ADD COLUMN IF NOT EXISTS system_stats json",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS stage varchar(200)",
     ]
     for statement in statements:
         try:

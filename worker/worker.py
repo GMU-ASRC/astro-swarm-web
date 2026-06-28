@@ -150,11 +150,11 @@ def run_shard(shard):
     shard_id = shard.get("shard_id")
     eval_id = shard.get("evaluation_id")
 
-    def report_progress(done_units):
-        resp = _safe_post(f"/api/worker/shards/{shard_id}/progress", {
-            "worker_id": WORKER_ID,
-            "done": done_units,
-        })
+    def report_progress(done_units, stage=None):
+        payload = {"worker_id": WORKER_ID, "done": done_units}
+        if stage:
+            payload["stage"] = stage
+        resp = _safe_post(f"/api/worker/shards/{shard_id}/progress", payload)
         if resp is not None and resp.ok:
             return bool(resp.json().get("cancel"))
         return False

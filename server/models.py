@@ -174,6 +174,7 @@ class PlayerEvaluation(db.Model):
 
     status = db.Column(db.String(12), default="queued")
     progress = db.Column(db.Float, default=0.0)
+    stage = db.Column(db.String(200), nullable=True)
     worker_id = db.Column(db.String(64), nullable=True)
     n_max = db.Column(db.Integer, default=40)
     trials = db.Column(db.Integer, default=100)
@@ -203,6 +204,7 @@ class PlayerEvaluation(db.Model):
             "placements": self.placements or [],
             "status": self.status,
             "progress": self.progress or 0.0,
+            "stage": self.stage,
             "trials": self.trials,
             "results": self._results_dict(),
             "error": self.error,
@@ -218,6 +220,7 @@ class PlayerEvaluation(db.Model):
             "level_id": self.level_id or "farp",
             "status": self.status,
             "progress": self.progress or 0.0,
+            "stage": self.stage,
             "trials": self.trials,
             "success_rate": self._results_dict().get("success_rate"),
             "created_at": self.created_at.isoformat(),

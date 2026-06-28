@@ -12,12 +12,19 @@ class CancelledError(Exception):
     pass
 
 
-def _progress_done(line):
-    try:
-        done, _total = line.split()[1].split("/")
-        return int(done)
-    except (IndexError, ValueError):
-        return None
+def _progress_info(line):
+    # Parse "PROGRESS <done>/<total> stage=<text>" into (done, stage).
+    done = None
+    stage = None
+    parts = line.split(None, 2)
+    if len(parts) >= 2:
+        try:
+            done = int(parts[1].split("/")[0])
+        except (IndexError, ValueError):
+            done = None
+    if len(parts) >= 3 and parts[2].startswith("stage="):
+        stage = parts[2][len("stage="):].strip()
+    return done, stage
 
 
 def run_shard(shard, settings, report_progress, logger):
@@ -41,6 +48,7 @@ def run_shard(shard, settings, report_progress, logger):
     main_pack = settings.get("godot_pck")
     fixed_fps = str(settings.get("fixed_fps", 60))
     timeout = int(settings.get("timeout_seconds", 1800))
+    cancel_poll = max(1, int(settings.get("cancel_poll_seconds", 2)))
 
     seed = int(config.get("seed", 987654321))
     sweep_max = int(config.get("sweep_max", 100))
@@ -85,7 +93,20 @@ def run_shard(shard, settings, report_progress, logger):
         watchdog.start()
         tail = []
         last_report = 0.0
-        cancelled = False
+        state = {"done": 0, "stage": None, "cancelled": False}
+        poll_stop = threading.Event()
+
+        # Poll for cancellation on a timer so the job stops even when godot emits
+        # no progress lines for a while (e.g. during a single long match).
+        def poll_cancel():
+            while not poll_stop.wait(cancel_poll):
+                if report_progress(state["done"], state["stage"]):
+                    state["cancelled"] = True
+                    proc.kill()
+                    return
+
+        poller = threading.Thread(target=poll_cancel, daemon=True)
+        poller.start()
         try:
             for line in proc.stdout:
                 line = line.strip()
@@ -95,19 +116,24 @@ def run_shard(shard, settings, report_progress, logger):
                 if len(tail) > 10:
                     tail.pop(0)
                 if line.startswith("PROGRESS"):
-                    count = _progress_done(line)
-                    now = time.time()
-                    if count is not None and now - last_report >= 1.0:
-                        last_report = now
-                        if report_progress(count):
-                            cancelled = True
-                            proc.kill()
-                            break
+                    count, stage = _progress_info(line)
+                    if count is not None:
+                        state["done"] = count
+                        if stage:
+                            state["stage"] = stage
+                        now = time.time()
+                        if now - last_report >= 1.0:
+                            last_report = now
+                            if report_progress(count, stage):
+                                state["cancelled"] = True
+                                proc.kill()
+                                break
             proc.wait()
         finally:
+            poll_stop.set()
             watchdog.cancel()
 
-        if cancelled:
+        if state["cancelled"]:
             raise CancelledError()
 
         if not os.path.isfile(output_path):
