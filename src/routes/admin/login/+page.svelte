@@ -9,10 +9,11 @@
 	async function login(event: SubmitEvent) {
 		event.preventDefault();
 		const formData = new FormData(event.currentTarget as HTMLFormElement);
-		const apiKey = (formData.get('apiKey') as string)?.trim();
+		const username = (formData.get('username') as string)?.trim();
+		const password = (formData.get('password') as string) ?? '';
 
-		if (!apiKey) {
-			error = 'API key is required';
+		if (!username || !password) {
+			error = 'Username and password are required';
 			return;
 		}
 
@@ -20,17 +21,23 @@
 		error = '';
 
 		try {
-			const res = await fetch(apiUrl('/api/evaluations/test-auth'), {
-				method: 'DELETE',
-				headers: { 'X-API-Key': apiKey }
+			const res = await fetch(apiUrl('/api/admin/login'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ username, password })
 			});
 
-			if (res.status === 401 || res.status === 403) {
-				error = 'Invalid API Key';
+			if (res.status === 401) {
+				error = 'Invalid username or password';
+				return;
+			}
+			if (!res.ok) {
+				error = `Login failed (${res.status})`;
 				return;
 			}
 
-			localStorage.setItem(sessionKey, apiKey);
+			const data = await res.json();
+			localStorage.setItem(sessionKey, data.token);
 			await goto('/admin');
 		} catch (err) {
 			error = 'Failed to connect to backend API';
@@ -56,14 +63,28 @@
 
 		<h1 class="text-lg text-center text-[#18181b] mb-6">Sign in</h1>
 
-		<label for="apiKey" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
-			Master key
+		<label for="username" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
+			Username
+		</label>
+		<input
+			type="text"
+			id="username"
+			name="username"
+			autocomplete="username"
+			placeholder="Enter username"
+			required
+			class="w-full px-3.5 py-2.5 mb-4 bg-white border border-[#d4d4d8] text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#18181b]"
+		/>
+
+		<label for="password" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
+			Password
 		</label>
 		<input
 			type="password"
-			id="apiKey"
-			name="apiKey"
-			placeholder="Enter API key"
+			id="password"
+			name="password"
+			autocomplete="current-password"
+			placeholder="Enter password"
 			required
 			class="w-full px-3.5 py-2.5 mb-5 bg-white border border-[#d4d4d8] text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#18181b]"
 		/>

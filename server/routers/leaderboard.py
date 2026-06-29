@@ -6,6 +6,7 @@ import zipfile
 from flask import Blueprint, request, jsonify, send_file
 from werkzeug.exceptions import Unauthorized, BadRequest
 
+from auth import require_admin
 from database import db
 from models import LeaderboardEntry
 from config import Config
@@ -90,8 +91,7 @@ def export_leaderboard_entry(entry_id):
 
 @leaderboard_bp.route("/<entry_id>", methods=["DELETE"])
 def delete_leaderboard_entry(entry_id):
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
     entry = LeaderboardEntry.query.get(entry_id)
     if not entry:
         raise BadRequest("Entry not found")

@@ -8,6 +8,7 @@ from flask import Blueprint, Response, jsonify, request, send_file
 from sqlalchemy.orm import defer
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
+from auth import require_admin
 import charts
 from app_settings import (
     get_enemy_start,
@@ -81,8 +82,7 @@ def list_evaluations():
 
 @evaluations_bp.post("")
 def submit_evaluation():
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
 
     data = request.get_json(silent=True)
     if not data:
@@ -153,8 +153,7 @@ def settings():
 
 @evaluations_bp.put("/settings")
 def update_settings():
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
     data = request.get_json(silent=True) or {}
     if "enemy_start_x" in data or "enemy_start_y" in data:
         try:
@@ -212,8 +211,7 @@ def get_evaluation(eval_id: str):
 
 @evaluations_bp.delete("/<eval_id>")
 def delete_evaluation(eval_id: str):
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
     evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
@@ -224,8 +222,7 @@ def delete_evaluation(eval_id: str):
 
 @evaluations_bp.post("/<eval_id>/cancel")
 def cancel_evaluation_route(eval_id: str):
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
     evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
@@ -246,8 +243,7 @@ def cancel_evaluation_route(eval_id: str):
 
 @evaluations_bp.post("/<eval_id>/resimulate")
 def resimulate_evaluation(eval_id: str):
-    if request.headers.get("X-API-Key") != Config.API_SECRET_KEY:
-        raise Unauthorized("Invalid API key")
+    require_admin()
     evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")

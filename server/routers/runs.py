@@ -9,6 +9,7 @@ import zipfile
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request, send_file
+from auth import require_admin
 from models import SimRun
 from database import db
 from godot_format import extract_metadata
@@ -249,6 +250,7 @@ def get_config(run_id: str):
 
 @runs_bp.delete("/<run_id>")
 def delete_run(run_id: str):
+    require_admin()
     run = SimRun.query.get_or_404(run_id, description="Run not found.")
 
     upload_dir = current_app.config["UPLOAD_DIR"]

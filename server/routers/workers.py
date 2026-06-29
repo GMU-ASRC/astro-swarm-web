@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import merge
+from auth import require_admin
 from app_settings import get_enemy_start, get_sweep_max, get_sweep_trials
 from config import Config
 from database import db
@@ -402,7 +403,7 @@ def shard_fail(shard_id):
 
 @workers_bp.get("/workers")
 def list_workers():
-    _require_api_key()
+    require_admin()
     _reap_stale()
     workers = Worker.query.order_by(Worker.created_at.asc()).all()
     return jsonify([worker.to_dict() for worker in workers])
@@ -448,7 +449,7 @@ def _worker_jobs(worker_id):
 
 @workers_bp.get("/workers/<worker_id>")
 def get_worker(worker_id):
-    _require_api_key()
+    require_admin()
     _reap_stale()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
@@ -460,7 +461,7 @@ def get_worker(worker_id):
 
 @workers_bp.post("/workers/<worker_id>/settings")
 def update_worker_settings(worker_id):
-    _require_api_key()
+    require_admin()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
@@ -481,7 +482,7 @@ def update_worker_settings(worker_id):
 
 @workers_bp.post("/workers/<worker_id>/connect")
 def connect_worker(worker_id):
-    _require_api_key()
+    require_admin()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
@@ -492,7 +493,7 @@ def connect_worker(worker_id):
 
 @workers_bp.post("/workers/<worker_id>/disconnect")
 def disconnect_worker(worker_id):
-    _require_api_key()
+    require_admin()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
@@ -506,7 +507,7 @@ def disconnect_worker(worker_id):
 
 @workers_bp.delete("/workers/<worker_id>")
 def delete_worker(worker_id):
-    _require_api_key()
+    require_admin()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")

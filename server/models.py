@@ -6,7 +6,11 @@ import zlib
 from collections import OrderedDict
 from datetime import datetime, timezone
 
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from database import db
+
+ADMIN_SESSION_TTL_SECONDS = 7 * 24 * 3600
 
 
 _REPLAYS_CACHE = OrderedDict()
@@ -444,3 +448,46 @@ class LeaderboardEntry(db.Model):
             "algorithm": self.algorithm or [],
             "created_at": self.created_at.isoformat(),
         }
+
+
+class AdminUser(db.Model):
+    __tablename__ = "admin_users"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    last_login = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+
+
+class AdminSession(db.Model):
+    __tablename__ = "admin_sessions"
+
+    token = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.String, nullable=False, index=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_seen = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )

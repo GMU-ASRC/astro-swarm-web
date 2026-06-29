@@ -20,6 +20,34 @@
 		};
 	});
 
+	async function refresh() {
+		try {
+			const res = await fetch(apiUrl('/api/evaluations'));
+			if (res.ok) evaluations = await res.json();
+		} catch {
+			// keep last known data on transient errors
+		}
+	}
+
+	const hasActive = $derived(
+		evaluations.some((e: any) => e.status === 'running' || e.status === 'queued')
+	);
+
+	// Poll for live progress while any evaluation is queued/running.
+	$effect(() => {
+		if (!hasActive) return;
+		const timer = setInterval(refresh, 3000);
+		return () => clearInterval(timer);
+	});
+
+	function pct(value: number | null | undefined): number {
+		return Math.max(0, Math.min(100, Math.round((value ?? 0) * 100)));
+	}
+
+	function when(iso: string | null): string {
+		return iso ? new Date(iso).toLocaleString() : '—';
+	}
+
 	let searchQuery = $state('');
 	let statusFilter = $state('all');
 	let levelFilter = $state('all');
@@ -174,30 +202,43 @@
 		<thead>
 			<tr>
 				<th>Username</th>
+				<th>ID</th>
 				<th>Level</th>
 				<th>Status</th>
+				<th>Progress</th>
+				<th>Trials</th>
 				<th>Rate</th>
-				<th>Date</th>
+				<th>Created</th>
+				<th>Completed</th>
 				<th>Actions</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="6">Loading evaluations...</td></tr>
+				<tr><td colspan="10">Loading evaluations...</td></tr>
 			{:else}
 				{#each pagedEvaluations as row}
 					<tr>
 						<td>{row.username}</td>
+						<td><code class="eval-id" title={row.id}>{row.id.slice(0, 8)}</code></td>
 						<td>{row.level_id || 'farp'}</td>
-						<td>
-							<span class="pill">{row.status.toUpperCase()}</span>
-							{#if row.status === 'queued' || row.status === 'running'}
-								<div class="meta">{Math.round((row.progress ?? 0) * 100)}%</div>
-								{#if row.stage}<div class="meta">{row.stage}</div>{/if}
+						<td><span class="pill status-{row.status}">{row.status.toUpperCase()}</span></td>
+						<td class="progress-cell">
+							{#if row.status === 'running' || row.status === 'queued'}
+								<div class="progress-track" title={`${pct(row.progress)}%`}>
+									<div class="progress-fill" style={`width:${pct(row.progress)}%`}></div>
+								</div>
+								<div class="meta">{pct(row.progress)}%{#if row.stage} · {row.stage}{/if}</div>
+							{:else if row.status === 'done'}
+								<div class="progress-track"><div class="progress-fill done" style="width:100%"></div></div>
+							{:else}
+								—
 							{/if}
 						</td>
+						<td>{row.trials ?? '—'}</td>
 						<td>{row.success_rate != null ? `${row.success_rate}%` : '—'}</td>
-						<td>{new Date(row.created_at).toLocaleString()}</td>
+						<td>{when(row.created_at)}</td>
+						<td>{when(row.completed_at)}</td>
 						<td>
 							<div class="actions">
 								<a class="admin-btn" href={`/admin/evaluations/${row.id}`}>View</a>
@@ -209,7 +250,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6">No evaluations found.</td></tr>
+					<tr><td colspan="10">No evaluations found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
@@ -217,3 +258,28 @@
 </div>
 
 <Pagination bind:page total={filtered.length} {pageSize} />
+
+<style>
+	.eval-id {
+		font-size: 0.78em;
+		color: #6b7280;
+	}
+	.progress-cell {
+		min-width: 12rem;
+	}
+	.progress-track {
+		height: 8px;
+		width: 100%;
+		background: #e4e4e7;
+		border: 1px solid #d4d4d8;
+		overflow: hidden;
+	}
+	.progress-fill {
+		height: 100%;
+		background: #2563eb;
+		transition: width 0.4s ease;
+	}
+	.progress-fill.done {
+		background: #15803d;
+	}
+</style>

@@ -10,6 +10,7 @@ from sqlalchemy import text
 from config import Config
 from database import db
 from models import PlayerEvaluation
+from routers.admin import admin_bp
 from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
@@ -107,6 +108,27 @@ def _ensure_columns():
             logger.warning("Migration skipped (%s): %s", statement, exc)
 
 
+def _ensure_admin_user():
+    # Seed an initial admin login if none exist. Defaults to username "admin"
+    # with the shared API key as the password, both overridable via env. The
+    # operator should sign in and change the password / add users.
+    try:
+        from models import AdminUser
+
+        if AdminUser.query.count() > 0:
+            return
+        username = os.environ.get("ADMIN_USERNAME", "admin")
+        password = os.environ.get("ADMIN_PASSWORD") or Config.API_SECRET_KEY
+        user = AdminUser(username=username)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        logger.info("Created initial admin user '%s'", username)
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("Could not create initial admin user: %s", exc)
+
+
 def _recover_shards_on_restart():
     # Jobs are split into shards that run on external worker nodes. On a server
     # restart, return any in-flight shards to the queue (completed shards keep
@@ -151,10 +173,12 @@ def create_app():
     app.register_blueprint(version_bp)
     app.register_blueprint(evaluations_bp)
     app.register_blueprint(workers_bp)
+    app.register_blueprint(admin_bp)
 
     with app.app_context():
         db.create_all()
         _ensure_columns()
+        _ensure_admin_user()
         _recover_shards_on_restart()
         db.engine.dispose()
 
