@@ -25,8 +25,20 @@
 		};
 	});
 
-	const levels = [{ id: 'farp', label: 'FARP', enabled: true }];
-	let selectedLevel = $state('farp');
+	const levels = [
+		{ id: 'farp1', label: 'LVL 1 · DEFENSE', enabled: true },
+		{ id: 'farp2', label: 'LVL 2 · DEFENSE', enabled: true },
+		{ id: 'farp3', label: 'LVL 3 · EVASION', enabled: true },
+		{ id: 'farp4', label: 'LVL 4 · EVASION', enabled: true }
+	];
+	const attackLevels = ['farp3', 'farp4'];
+	let selectedLevel = $state('farp1');
+	let isAttack = $derived(attackLevels.includes(selectedLevel));
+	let rateLabel = $derived(isAttack ? 'evasion rate' : 'detection rate');
+
+	function canonLevel(id: string): string {
+		return id === 'farp' || !id ? 'farp1' : id;
+	}
 	let searchQuery = $state('');
 	let sortOrder = $state('date_desc');
 	let minRate = $state(0);
@@ -34,8 +46,9 @@
 	let endDate = $state('');
 
 	let shown = $derived(players.filter((p) => {
-		if ((p.level_id ?? 'farp') !== selectedLevel) return false;
-		
+		if (canonLevel(p.level_id) !== selectedLevel) return false;
+		if (p.status === 'cancelled') return false;
+
 		if (searchQuery.trim() !== '') {
 			const q = searchQuery.toLowerCase();
 			if (!p.username.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false;
@@ -147,7 +160,7 @@
 			</div>
 
 			<div>
-				<h3 class="font-game text-sky-400 text-sm tracking-widest mb-3">MIN DETECTION RATE</h3>
+				<h3 class="font-game text-sky-400 text-sm tracking-widest mb-3">MIN {rateLabel.toUpperCase()}</h3>
 				<div class="flex items-center gap-3">
 					<input
 						type="range"
@@ -185,8 +198,8 @@
 				>
 					<option value="date_desc">Date (Newest)</option>
 					<option value="date_asc">Date (Oldest)</option>
-					<option value="rate_desc">Detection Rate (High to Low)</option>
-					<option value="rate_asc">Detection Rate (Low to High)</option>
+					<option value="rate_desc">Success Rate (High to Low)</option>
+					<option value="rate_asc">Success Rate (Low to High)</option>
 				</select>
 			</div>
 		</aside>
@@ -222,12 +235,15 @@
 							{#if player.status === 'running' || player.status === 'queued'}
 								Benchmarking · {Math.round((player.progress ?? 0) * 100)}%
 							{:else if player.success_rate !== null && player.success_rate !== undefined}
-								FARP · {player.success_rate}% detection rate · {player.trials} trials
+								{player.success_rate}% {rateLabel} · {player.trials} trials
 							{:else}
-								FARP · {player.trials} trials
+								{player.trials} trials
 							{/if}
 						</div>
-						<div class="mt-1 text-[11px] text-text-muted/70">{when(player.created_at)}</div>
+						<div class="mt-1 flex items-center justify-between text-[11px] text-text-muted/70">
+							<span>{when(player.created_at)}</span>
+							<span class="font-mono">{player.game_version ?? 'v0.0.4'}</span>
+						</div>
 					</a>
 				{/each}
 			</div>

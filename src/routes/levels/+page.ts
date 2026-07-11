@@ -8,7 +8,7 @@ export const prerender = false;
 export const load: PageLoad = ({ fetch }) => {
 	const playersPromise = (async () => {
 		try {
-			const res = await fetch(apiUrl('/api/evaluations'));
+			const res = await fetch(apiUrl('/api/evaluations?exclude_cancelled=1'));
 			if (res.ok) {
 				return { players: (await res.json()) as PlayerListItem[], apiError: false };
 			}

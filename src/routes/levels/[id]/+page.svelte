@@ -22,6 +22,8 @@
 
 	let outcomes = $derived(ev.results?.outcomes ?? []);
 	let successRate = $derived(ev.results?.success_rate ?? 0);
+	let isAttack = $derived(ev.is_attack ?? ((ev.level_number ?? 1) >= 3));
+	let rateLabel = $derived(isAttack ? 'EVASION RATE' : 'DETECTION RATE');
 
 	let counts = $derived.by(() => {
 		const c = { win: 0, lose: 0, timeout: 0 };
@@ -135,7 +137,7 @@
 			{ev.username}
 		</h1>
 		<p class="font-sim text-sm text-text-muted">
-			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.placements?.length ?? 0} defenders · {ev.trials} trials · evaluated {dateLabel}
+			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.defender_count ?? ev.placements?.length ?? 0} defenders · {ev.trials} trials · {ev.game_version ?? 'v0.0.4'} · evaluated {dateLabel}
 		</p>
 	</div>
 
@@ -146,31 +148,34 @@
 			<div class="p-6 border-2 border-red-500/30 bg-red-500/10 text-red-200 text-center">
 				Evaluation failed{ev.error ? `: ${ev.error}` : '.'}
 			</div>
-		{:else if pending}
-			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5">
+		{:else}
+			{#if pending}
+			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 mb-6">
 				<p class="text-text-muted text-center mb-4">
-					Benchmark running. Check back shortly — results appear when the headless run finishes.
+					Benchmark running — showing partial results ({percent}% complete). Full data appears when the headless run finishes.
 				</p>
 				<div class="h-3 w-full bg-sky-500/10 border border-sky-500/30 overflow-hidden">
 					<div class="h-full bg-sky-400 transition-all duration-500" style={`width: ${percent}%`}></div>
 				</div>
 				<p class="font-sim text-xs text-sky-300 text-center mt-2 tracking-wider">{percent}%</p>
 			</div>
-		{:else if outcomes.length === 0}
-			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted text-center">
-				No benchmark data available.
-			</div>
-		{:else}
+			{/if}
+			{#if outcomes.length > 0}
 			<div class="mb-8 flex flex-wrap gap-6 items-end">
 				<div>
 					<div class="font-sim text-[clamp(2.2rem,6vw,3.6rem)] text-green-300 leading-none" style="text-shadow: 0 0 24px rgba(74,222,128,0.35)">
 						{successRate}%
 					</div>
-					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">DETECTION RATE</div>
+					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">{rateLabel}</div>
 				</div>
 				<div class="flex gap-4 text-sm">
-					<span class="text-green-300">{counts.win} intercepts</span>
-					<span class="text-red-300">{counts.lose} planet hits</span>
+					{#if isAttack}
+						<span class="text-green-300">{counts.win} breaches</span>
+						<span class="text-red-300">{counts.lose} intercepted</span>
+					{:else}
+						<span class="text-green-300">{counts.win} intercepts</span>
+						<span class="text-red-300">{counts.lose} planet hits</span>
+					{/if}
 					{#if counts.timeout > 0}<span class="text-amber-300">{counts.timeout} timeouts</span>{/if}
 				</div>
 			</div>
@@ -238,11 +243,16 @@
 			{/if}
 
 			<div class="mt-10">
-				<h2 class="font-sim text-xl text-star-white mb-4">Defender Algorithm</h2>
+				<h2 class="font-sim text-xl text-star-white mb-4">{isAttack ? 'Evader Algorithm' : 'Defender Algorithm'}</h2>
 				<div class="p-5 border-2 border-sky-500/20 bg-page-bg/60 overflow-x-auto">
 					<AlgorithmView scripts={ev.algorithm} />
 				</div>
 			</div>
+			{:else if !pending}
+			<div class="p-6 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted text-center">
+				No benchmark data available.
+			</div>
+			{/if}
 		{/if}
 	</div>
 </div>

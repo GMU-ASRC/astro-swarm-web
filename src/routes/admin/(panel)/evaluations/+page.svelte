@@ -204,6 +204,8 @@
 				<th>Username</th>
 				<th>ID</th>
 				<th>Level</th>
+				<th>Defenders</th>
+				<th>Version</th>
 				<th>Status</th>
 				<th>Progress</th>
 				<th>Trials</th>
@@ -215,13 +217,15 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="10">Loading evaluations...</td></tr>
+				<tr><td colspan="12">Loading evaluations...</td></tr>
 			{:else}
 				{#each pagedEvaluations as row}
 					<tr>
 						<td>{row.username}</td>
 						<td><code class="eval-id" title={row.id}>{row.id.slice(0, 8)}</code></td>
 						<td>{row.level_id || 'farp'}</td>
+						<td>{row.defender_count ?? '—'}</td>
+						<td>{row.game_version ?? 'v0.0.4'}</td>
 						<td><span class="pill status-{row.status}">{row.status.toUpperCase()}</span></td>
 						<td class="progress-cell">
 							{#if row.status === 'running' || row.status === 'queued'}
@@ -250,7 +254,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="10">No evaluations found.</td></tr>
+					<tr><td colspan="12">No evaluations found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
