@@ -186,6 +186,11 @@ class PlayerEvaluation(db.Model):
     replays = db.Column(db.JSON, default=dict)
     error = db.Column(db.String(400), nullable=True)
 
+    game_version = db.Column(db.String(20), default="v0.0.4")
+    defender_count = db.Column(db.Integer, default=0)
+    xp_awarded = db.Column(db.Integer, nullable=True)
+    collisions = db.Column(db.Boolean, default=False)
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -198,35 +203,61 @@ class PlayerEvaluation(db.Model):
             return {}
         return results
 
+    def level_number(self):
+        lid = (self.level_id or "farp").lower()
+        digits = "".join(ch for ch in lid if ch.isdigit())
+        if digits:
+            return int(digits)
+        return 1
+
+    def is_attack_level(self):
+        return self.level_number() >= 3
+
     def to_dict(self):
+        results = self._results_dict()
         return {
             "id": self.id,
             "player_id": self.player_id,
             "username": self.username,
             "level_id": self.level_id or "farp",
+            "level_number": self.level_number(),
+            "is_attack": self.is_attack_level(),
+            "game_version": self.game_version or "v0.0.4",
+            "defender_count": self.defender_count or 0,
             "algorithm": self.algorithm or [],
             "placements": self.placements or [],
             "status": self.status,
             "progress": self.progress or 0.0,
             "stage": self.stage,
             "trials": self.trials,
-            "results": self._results_dict(),
+            "results": results,
+            "attacker_rate": results.get("attacker_rate"),
+            "defender_rate": results.get("defender_rate"),
+            "xp_awarded": self.xp_awarded,
             "error": self.error,
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
     def to_list_dict(self):
+        results = self._results_dict()
         return {
             "id": self.id,
             "player_id": self.player_id,
             "username": self.username,
             "level_id": self.level_id or "farp",
+            "level_number": self.level_number(),
+            "is_attack": self.is_attack_level(),
+            "game_version": self.game_version or "v0.0.4",
+            "defender_count": self.defender_count or 0,
             "status": self.status,
             "progress": self.progress or 0.0,
             "stage": self.stage,
             "trials": self.trials,
-            "success_rate": self._results_dict().get("success_rate"),
+            "success_rate": results.get("success_rate"),
+            "attacker_rate": results.get("attacker_rate"),
+            "defender_rate": results.get("defender_rate"),
+            "xp_awarded": self.xp_awarded,
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
@@ -239,7 +270,7 @@ class PlayerEvaluation(db.Model):
 
     def _cache_version(self):
         stamp = self.completed_at or self.created_at
-        return "%s:%s" % (stamp.isoformat() if stamp else "", self.status)
+        return "%s:%s:%s" % (stamp.isoformat() if stamp else "", self.status, self.progress or 0.0)
 
     def _cached_replays(self):
         key = (self.id, self._cache_version())

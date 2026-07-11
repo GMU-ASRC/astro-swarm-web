@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, Response, jsonify, request, send_file
 from sqlalchemy.orm import defer
-from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
+from werkzeug.exceptions import BadRequest, Conflict, NotFound, Unauthorized
 
 from auth import require_admin
 import charts
+import merge
 from app_settings import (
     get_enemy_start,
     get_level_enabled,
@@ -17,6 +18,7 @@ from app_settings import (
     get_sweep_max,
     get_sweep_trial_seeds,
     get_sweep_trials,
+    level_ids_for,
     set_enemy_start,
     set_level_enabled,
     set_sweep_params,
@@ -26,6 +28,8 @@ from database import db
 from models import EvaluationShard, PlayerEvaluation
 from routers.workers import create_shards
 from schemas import EvaluationSubmit
+
+MAX_XP_PER_LEVEL_UNIT = 100
 
 evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations")
 
@@ -44,6 +48,31 @@ def _submission_key(algorithm, placements, trials):
         sort_keys=True,
         separators=(",", ":"),
     )
+
+
+def _dedup_key(algorithm, placements):
+    return json.dumps(
+        {"a": algorithm or [], "p": placements or []},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _find_player_duplicate(player_id, level_id, algorithm, placements):
+    key = _dedup_key(algorithm, placements)
+    candidates = (
+        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
+        .filter(
+            PlayerEvaluation.player_id == player_id,
+            PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
+            PlayerEvaluation.status != "cancelled",
+        )
+        .all()
+    )
+    for candidate in candidates:
+        if _dedup_key(candidate.algorithm, candidate.placements) == key:
+            return candidate
+    return None
 
 
 def _find_matching_done(level_id, algorithm, placements, trials):
@@ -67,17 +96,156 @@ def _find_matching_done(level_id, algorithm, placements, trials):
 
 @evaluations_bp.get("")
 def list_evaluations():
+    query = PlayerEvaluation.query.options(
+        defer(PlayerEvaluation.replays),
+        defer(PlayerEvaluation.algorithm),
+        defer(PlayerEvaluation.placements),
+    )
+
+    level_id = (request.args.get("level_id") or "").strip()
+    if level_id:
+        query = query.filter(PlayerEvaluation.level_id.in_(level_ids_for(level_id)))
+
+    if request.args.get("exclude_cancelled") in ("1", "true", "yes"):
+        query = query.filter(PlayerEvaluation.status != "cancelled")
+
+    player_id = (request.args.get("player_id") or "").strip()
+    if player_id:
+        query = query.filter(PlayerEvaluation.player_id == player_id)
+
+    evaluations = query.order_by(PlayerEvaluation.created_at.desc()).limit(500).all()
+    return jsonify([item.to_list_dict() for item in evaluations])
+
+
+def _aggregate_players():
     evaluations = (
         PlayerEvaluation.query.options(
             defer(PlayerEvaluation.replays),
             defer(PlayerEvaluation.algorithm),
             defer(PlayerEvaluation.placements),
         )
-        .order_by(PlayerEvaluation.created_at.desc())
-        .limit(200)
+        .filter(PlayerEvaluation.status != "cancelled")
         .all()
     )
-    return jsonify([item.to_list_dict() for item in evaluations])
+    players = {}
+    for e in evaluations:
+        p = players.get(e.player_id)
+        if p is None:
+            p = {
+                "player_id": e.player_id,
+                "username": e.username,
+                "total_xp": 0,
+                "entries": 0,
+                "success_sum": 0.0,
+                "success_count": 0,
+                "levels": {},
+                "last": e.created_at,
+            }
+            players[e.player_id] = p
+        if e.created_at is not None and (p["last"] is None or e.created_at >= p["last"]):
+            p["username"] = e.username
+            p["last"] = e.created_at
+        p["total_xp"] += e.xp_awarded or 0
+        p["entries"] += 1
+        results = e.results if isinstance(e.results, dict) else {}
+        rate = results.get("success_rate")
+        level_num = e.level_number()
+        lv = p["levels"].get(level_num)
+        if lv is None:
+            lv = {"success_sum": 0.0, "count": 0, "xp": 0}
+            p["levels"][level_num] = lv
+        lv["xp"] += e.xp_awarded or 0
+        if rate is not None and e.status == "done":
+            p["success_sum"] += float(rate)
+            p["success_count"] += 1
+            lv["success_sum"] += float(rate)
+            lv["count"] += 1
+    for p in players.values():
+        p["overall_success"] = (
+            round(p["success_sum"] / p["success_count"], 1) if p["success_count"] else None
+        )
+        for lv in p["levels"].values():
+            lv["success_rate"] = round(lv["success_sum"] / lv["count"], 1) if lv["count"] else None
+    return players
+
+
+def _sorted_by_xp(players):
+    return sorted(
+        players.values(),
+        key=lambda p: (p["total_xp"], p["overall_success"] or 0.0),
+        reverse=True,
+    )
+
+
+@evaluations_bp.get("/players")
+def players_leaderboard():
+    players = _aggregate_players()
+    rows = _sorted_by_xp(players)
+    return jsonify([
+        {
+            "player_id": p["player_id"],
+            "username": p["username"],
+            "total_xp": p["total_xp"],
+            "entries": p["entries"],
+            "overall_success": p["overall_success"],
+            "rank": index + 1,
+        }
+        for index, p in enumerate(rows)
+    ])
+
+
+@evaluations_bp.get("/players/<player_id>")
+def player_profile(player_id: str):
+    players = _aggregate_players()
+    me = players.get(player_id)
+    if me is None:
+        raise NotFound("Player not found")
+
+    ranked = _sorted_by_xp(players)
+    overall_rank = next((i + 1 for i, p in enumerate(ranked) if p["player_id"] == player_id), None)
+
+    levels_out = []
+    for level_num in sorted(me["levels"].keys()):
+        contenders = [
+            p for p in players.values()
+            if level_num in p["levels"] and p["levels"][level_num]["success_rate"] is not None
+        ]
+        contenders.sort(key=lambda p: p["levels"][level_num]["success_rate"], reverse=True)
+        rank = next((i + 1 for i, p in enumerate(contenders) if p["player_id"] == player_id), None)
+        lv = me["levels"][level_num]
+        levels_out.append({
+            "level_number": level_num,
+            "success_rate": lv["success_rate"],
+            "xp": lv["xp"],
+            "rank": rank,
+            "players": len(contenders),
+        })
+
+    entries = (
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+        )
+        .filter(
+            PlayerEvaluation.player_id == player_id,
+            PlayerEvaluation.status != "cancelled",
+        )
+        .order_by(PlayerEvaluation.created_at.desc())
+        .all()
+    )
+
+    return jsonify({
+        "player_id": player_id,
+        "username": me["username"],
+        "total_xp": me["total_xp"],
+        "overall_success": me["overall_success"],
+        "overall_rank": overall_rank,
+        "total_players": len(ranked),
+        "entries": me["entries"],
+        "levels": levels_out,
+        "recent_entries": [e.to_list_dict() for e in entries],
+    })
 
 
 @evaluations_bp.post("")
@@ -96,6 +264,12 @@ def submit_evaluation():
     if not get_level_enabled(parsed.level_id):
         raise BadRequest("Level is disabled")
 
+    duplicate = _find_player_duplicate(
+        parsed.player_id, parsed.level_id, parsed.algorithm, parsed.placements
+    )
+    if duplicate is not None:
+        raise Conflict("You have already submitted this algorithm and placement for this level")
+
     evaluation = PlayerEvaluation(
         player_id=parsed.player_id,
         username=parsed.username,
@@ -104,6 +278,9 @@ def submit_evaluation():
         placements=parsed.placements,
         trials=parsed.trials,
         status="queued",
+        game_version=parsed.game_version,
+        defender_count=len(parsed.placements or []),
+        collisions=parsed.collisions,
     )
     db.session.add(evaluation)
 
@@ -207,6 +384,69 @@ def get_evaluation(eval_id: str):
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     return jsonify(evaluation.to_dict())
+
+
+def _success_fraction(evaluation):
+    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    rate = results.get("success_rate")
+    if rate is None:
+        return 0.0
+    return max(0.0, min(1.0, float(rate) / 100.0))
+
+
+@evaluations_bp.post("/<eval_id>/claim-xp")
+def claim_xp(eval_id: str):
+    require_admin()
+    evaluation = db.session.get(PlayerEvaluation, eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    if evaluation.status != "done":
+        raise BadRequest("Evaluation is not finished yet")
+
+    max_xp = MAX_XP_PER_LEVEL_UNIT * evaluation.level_number()
+
+    if evaluation.xp_awarded is not None:
+        return jsonify({
+            "xp": evaluation.xp_awarded,
+            "already_claimed": True,
+            "max_xp": max_xp,
+            "success_rate": round(_success_fraction(evaluation) * 100.0, 1),
+        })
+
+    others = (
+        PlayerEvaluation.query.filter(
+            PlayerEvaluation.player_id == evaluation.player_id,
+            PlayerEvaluation.status != "cancelled",
+            PlayerEvaluation.id != evaluation.id,
+        )
+        .all()
+    )
+    level_num = evaluation.level_number()
+    prior = [
+        e for e in others
+        if e.level_number() == level_num and e.xp_awarded is not None
+    ]
+
+    rate = _success_fraction(evaluation)
+    if not prior:
+        xp = round(rate * max_xp)
+    else:
+        earned = sum(e.xp_awarded or 0 for e in prior)
+        best = max((_success_fraction(e) for e in prior), default=0.0)
+        if rate > best:
+            xp = round((max_xp - earned) * 1.5 * (rate - best))
+            xp = max(0, min(xp, max_xp - earned))
+        else:
+            xp = 0
+
+    evaluation.xp_awarded = xp
+    db.session.commit()
+    return jsonify({
+        "xp": xp,
+        "already_claimed": False,
+        "max_xp": max_xp,
+        "success_rate": round(rate * 100.0, 1),
+    })
 
 
 @evaluations_bp.delete("/<eval_id>")

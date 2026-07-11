@@ -156,8 +156,39 @@ def _shard_payload(evaluation, shard):
             "match_seconds": Config.EVAL_MATCH_CAP_SECONDS,
             "enemy_x": enemy_x,
             "enemy_y": enemy_y,
+            "level_id": evaluation.level_id or "farp",
+            "collisions": bool(evaluation.collisions),
         },
     }
+
+
+def _annotate_rates(results, evaluation):
+    if not isinstance(results, dict):
+        return
+    rate = results.get("success_rate")
+    if rate is None:
+        return
+    rate = float(rate)
+    if evaluation.is_attack_level():
+        results["attacker_rate"] = round(rate, 1)
+        results["defender_rate"] = round(100.0 - rate, 1)
+    else:
+        results["defender_rate"] = round(rate, 1)
+        results["attacker_rate"] = round(100.0 - rate, 1)
+
+
+def _store_partial_results(evaluation_id):
+    evaluation = db.session.get(PlayerEvaluation, evaluation_id)
+    if evaluation is None or evaluation.status != "running":
+        return
+    shards = EvaluationShard.query.filter_by(evaluation_id=evaluation_id).all()
+    done = [s.result for s in sorted(shards, key=lambda s: s.shard_index) if s.status == "done" and s.result]
+    if not done:
+        return
+    results, replays = merge.merge_shards(done)
+    _annotate_rates(results, evaluation)
+    evaluation.results = results
+    evaluation.replays = replays
 
 
 def _update_progress(evaluation_id):
@@ -196,6 +227,7 @@ def _finalize_if_complete(evaluation_id):
 
     parts = [s.result for s in sorted(shards, key=lambda s: s.shard_index)]
     results, replays = merge.merge_shards(parts)
+    _annotate_rates(results, evaluation)
     evaluation.results = results
     evaluation.replays = replays
     evaluation.status = "done"
@@ -365,6 +397,7 @@ def shard_result(shard_id):
         shard.last_update = _now()
         if evaluation is not None:
             _finalize_if_complete(shard.evaluation_id)
+            _store_partial_results(shard.evaluation_id)
     db.session.commit()
     return jsonify({"ok": True})
 

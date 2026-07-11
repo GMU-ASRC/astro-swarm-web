@@ -45,14 +45,19 @@ class EvaluationSubmit:
     algorithm: list = field(default_factory=list)
     placements: list = field(default_factory=list)
     trials: int = 100
+    game_version: str = "v0.0.4"
+    collisions: bool = False
 
     def __post_init__(self):
+        self.collisions = bool(self.collisions)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
             raise ValueError("username must be between 1 and 30 characters")
         if not isinstance(self.level_id, str) or not (1 <= len(self.level_id) <= 40):
             raise ValueError("level_id must be between 1 and 40 characters")
+        if not isinstance(self.game_version, str) or len(self.game_version) > 20:
+            raise ValueError("game_version must be a string up to 20 characters")
         if not isinstance(self.algorithm, list):
             raise ValueError("algorithm must be a list")
         if not isinstance(self.placements, list):

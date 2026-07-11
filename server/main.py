@@ -26,7 +26,7 @@ PAGE_META = {
     "": ("AstroSwarm", SITE_DESCRIPTION),
     "previews": ("Previews — AstroSwarm", "Screenshots and preview footage from AstroSwarm."),
     "downloads": ("Downloads — AstroSwarm", "Download the latest AstroSwarm builds."),
-    "leaderboard": ("Leaderboard — AstroSwarm", "Fastest FARP defender algorithms in AstroSwarm."),
+    "leaderboard": ("XP Leaderboard — AstroSwarm", "Top commanders ranked by XP earned across every AstroSwarm level."),
     "levels": ("Levels — AstroSwarm", "Per-level benchmark data for player algorithms in AstroSwarm."),
     "simulator": ("Simulator — AstroSwarm", "Shared swarm-behaviour simulations from the AstroSwarm sandbox."),
 }
@@ -98,6 +98,10 @@ def _ensure_columns():
         "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS frame_count integer DEFAULT 0",
         "ALTER TABLE workers ADD COLUMN IF NOT EXISTS system_stats json",
         "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS stage varchar(200)",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS game_version varchar(20) DEFAULT 'v0.0.4'",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS defender_count integer DEFAULT 0",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS xp_awarded integer",
+        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS collisions boolean DEFAULT false",
     ]
     for statement in statements:
         try:

@@ -12,8 +12,19 @@ SWEEP_SEED_STRIDE = 1000000
 SWEEP_MATCH_OFFSET = 500000
 
 LEVELS = [
-    {"id": "farp", "name": "Level One (FARP)"},
+    {"id": "farp1", "name": "Level 1 - Defense (Place)"},
+    {"id": "farp2", "name": "Level 2 - Defense (Random)"},
+    {"id": "farp3", "name": "Level 3 - Evasion (Ring)"},
+    {"id": "farp4", "name": "Level 4 - Evasion (Random)"},
 ]
+
+LEVEL_ALIASES = {
+    "farp1": ["farp1", "farp"],
+}
+
+
+def level_ids_for(level_id):
+    return LEVEL_ALIASES.get(level_id, [level_id])
 
 
 def _get(key):

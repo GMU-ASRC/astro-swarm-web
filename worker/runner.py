@@ -56,6 +56,8 @@ def run_shard(shard, settings, report_progress, logger):
     match_seconds = int(config.get("match_seconds", 240))
     enemy_x = float(config.get("enemy_x", 1920))
     enemy_y = float(config.get("enemy_y", 40))
+    level_id = str(config.get("level_id", "farp"))
+    collisions = 1 if config.get("collisions") else 0
 
     with tempfile.TemporaryDirectory() as tmp:
         algorithm_path = os.path.join(tmp, "algorithm.json")
@@ -86,6 +88,8 @@ def run_shard(shard, settings, report_progress, logger):
             f"--n-count={n_count}",
             f"--enemy-x={enemy_x}",
             f"--enemy-y={enemy_y}",
+            f"--level-id={level_id}",
+            f"--collisions={collisions}",
         ]
 
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
