@@ -12,6 +12,14 @@
 	let saving = $state(false);
 	let message = $state('');
 
+	const levelNum = $derived.by(() => {
+		const m = (data.levelSlug ?? '').match(/\d+/);
+		return m ? parseInt(m[0], 10) : 1;
+	});
+	const levelId = $derived(`farp${levelNum}`);
+	const levelInfo = $derived((settings?.levels ?? []).find((l: any) => l.id === levelId) ?? null);
+	const isAttack = $derived(levelNum >= 3);
+
 	let seedPage = $state(1);
 	const seedPageSize = 20;
 	const seeds = $derived(settings?.sweep_trial_seeds ?? []);
@@ -60,6 +68,7 @@
 				if (updated.sweep_max != null) settings.sweep_max = updated.sweep_max;
 				if (updated.sweep_trials != null) settings.sweep_trials = updated.sweep_trials;
 				if (updated.sweep_trial_seeds != null) settings.sweep_trial_seeds = updated.sweep_trial_seeds;
+				if (updated.levels != null) settings.levels = updated.levels;
 			}
 			message = successMessage;
 		} catch (err) {
@@ -76,11 +85,19 @@
 	function saveSweep() {
 		save({ sweep_max: sweepMax, sweep_trials: sweepTrials }, `Saved ring sweep settings.`);
 	}
+
+	function toggleLevel(enabled: boolean) {
+		save({ level_id: levelId, enabled }, `Saved level settings.`);
+	}
 </script>
 
 <p><a href="/admin/settings">← Settings</a></p>
-<h1>FARP benchmark settings</h1>
-<p class="meta">Every entry is benchmarked with these static values so that different entries are tested under identical conditions.</p>
+<h1>Level {levelNum} benchmark settings</h1>
+<p class="meta">
+	{levelInfo?.name ?? levelId} — {isAttack
+		? 'evasion level (the submitted algorithm drives the evader against fixed-algorithm defenders).'
+		: 'defense level (the submitted algorithm drives the defenders against the incoming evader).'}
+</p>
 
 {#if loading}
 	<p>Loading settings...</p>
@@ -88,6 +105,22 @@
 	<p>Could not load settings.</p>
 {:else}
 	{#if message}<div class="message">{message}</div>{/if}
+
+	<h2>Level status</h2>
+	<p class="meta">A disabled level rejects new benchmark submissions.</p>
+	<div class="actions">
+		<label class="toggle">
+			<input
+				type="checkbox"
+				checked={levelInfo?.enabled ?? true}
+				onchange={(e) => toggleLevel(e.currentTarget.checked)}
+				disabled={saving}
+			/>
+			<span>{(levelInfo?.enabled ?? true) ? 'Enabled' : 'Disabled'}</span>
+		</label>
+	</div>
+
+	<p class="meta">The benchmark parameters below are shared across all levels so every entry is tested under identical conditions.</p>
 
 	<h2>Enemy start coordinate</h2>
 	<p class="meta">Where the enemy ship starts for all ring sweep runs. The placement runs use their own seeded per-trial enemy spawns.</p>
@@ -97,7 +130,6 @@
 		<div class="stat"><div class="label">Valid X range</div><div>0 – {settings.arena_width}</div></div>
 		<div class="stat"><div class="label">Valid Y range</div><div>0 – {settings.arena_height}</div></div>
 	</div>
-	<p class="meta">The enemy spawns at this point and flies straight toward the target center. Pick a point near an arena edge for a realistic approach.</p>
 	<div class="actions">
 		<label for="enemyX">X</label>
 		<input id="enemyX" type="number" step="1" min="0" max={settings.arena_width} bind:value={enemyX} style="width:6rem" />

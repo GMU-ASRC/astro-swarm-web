@@ -46,6 +46,11 @@
 	function toggleLevel(levelId: string, enabled: boolean) {
 		save({ level_id: levelId, enabled }, `Saved level settings.`);
 	}
+
+	function levelSlug(levelId: string): string {
+		const m = (levelId ?? '').match(/\d+/);
+		return `level-${m ? m[0] : '1'}`;
+	}
 </script>
 
 <h1>Settings</h1>
@@ -75,12 +80,10 @@
 					<span>{level.enabled ? 'Enabled' : 'Disabled'}</span>
 				</label>
 			</div>
-			{#if level.id === 'farp'}
-				<p class="meta">
-					Enemy start, ring sweep, per-trial seeds and other benchmark parameters live on the
-					<a href="/admin/settings/farp">FARP benchmark settings</a> page.
-				</p>
-			{/if}
+			<p class="meta">
+				Enemy start, ring sweep, per-trial seeds and other benchmark parameters live on the
+				<a href={`/admin/settings/${levelSlug(level.id)}`}>{level.name} settings</a> page.
+			</p>
 		</div>
 	{/each}
 {/if}
