@@ -6,6 +6,7 @@ import time
 from flask import Flask, Response, abort, g, jsonify, request, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import text
+from werkzeug.exceptions import HTTPException
 
 from config import Config
 from database import db
@@ -178,6 +179,12 @@ def create_app():
     app.register_blueprint(evaluations_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(admin_bp)
+
+    @app.errorhandler(HTTPException)
+    def json_error(exc):
+        # API clients (the game included) parse every response as JSON, so keep
+        # errors machine-readable instead of Werkzeug's default HTML page.
+        return jsonify({"error": exc.description, "status": exc.code}), exc.code
 
     with app.app_context():
         db.create_all()

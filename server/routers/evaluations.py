@@ -1,5 +1,6 @@
 import io
 import json
+import random
 import re
 import zipfile
 from datetime import datetime, timezone
@@ -12,12 +13,15 @@ from auth import require_admin
 import charts
 import merge
 from app_settings import (
+    PILOT_LEVELS,
     get_enemy_start,
     get_level_enabled,
     get_levels,
     get_sweep_max,
     get_sweep_trial_seeds,
     get_sweep_trials,
+    is_benchmark_level,
+    is_pilot_level,
     level_ids_for,
     set_enemy_start,
     set_level_enabled,
@@ -27,9 +31,10 @@ from config import Config
 from database import db
 from models import EvaluationShard, PlayerEvaluation
 from routers.workers import create_shards
-from schemas import EvaluationSubmit
+from schemas import MAX_RUN_FPS, MAX_RUN_SECONDS, EvaluationSubmit, RunSubmit
 
 MAX_XP_PER_LEVEL_UNIT = 100
+PILOT_LEVEL_MAX_XP = 1000
 
 evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations")
 
@@ -115,6 +120,37 @@ def list_evaluations():
 
     evaluations = query.order_by(PlayerEvaluation.created_at.desc()).limit(500).all()
     return jsonify([item.to_list_dict() for item in evaluations])
+
+
+@evaluations_bp.get("/best")
+def best_evaluation():
+    level_id = (request.args.get("level_id") or "farp2").strip()
+    candidates = PlayerEvaluation.query.filter(
+        PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
+        PlayerEvaluation.status == "done",
+    ).all()
+    scored = []
+    for item in candidates:
+        results = item.results if isinstance(item.results, dict) else {}
+        rate = results.get("success_rate")
+        if rate is None:
+            continue
+        scored.append((item, float(rate)))
+    if not scored:
+        raise NotFound("No submitted algorithm for this level yet")
+
+    best_rate = max(rate for _, rate in scored)
+    leaders = [item for item, rate in scored if rate == best_rate]
+    winner = random.choice(leaders)
+    return jsonify({
+        "id": winner.id,
+        "level_id": winner.level_id,
+        "username": winner.username,
+        "player_id": winner.player_id,
+        "success_rate": round(best_rate, 1),
+        "algorithm": winner.algorithm or [],
+        "placements": winner.placements or [],
+    })
 
 
 def _aggregate_players():
@@ -261,6 +297,9 @@ def submit_evaluation():
     except Exception as exc:
         raise BadRequest(str(exc))
 
+    if not is_benchmark_level(parsed.level_id):
+        raise BadRequest("Level is not benchmarked")
+
     if not get_level_enabled(parsed.level_id):
         raise BadRequest("Level is disabled")
 
@@ -301,6 +340,55 @@ def submit_evaluation():
     return jsonify(evaluation.to_dict()), 202
 
 
+@evaluations_bp.post("/run")
+def submit_run():
+    require_admin()
+
+    data = request.get_json(silent=True)
+    if not data:
+        raise BadRequest("Invalid JSON data")
+
+    try:
+        parsed = RunSubmit(**data)
+    except Exception as exc:
+        raise BadRequest(str(exc))
+
+    if not is_pilot_level(parsed.level_id):
+        raise BadRequest("Level does not accept piloted runs")
+
+    if not get_level_enabled(parsed.level_id):
+        raise BadRequest("Level is disabled")
+
+    evaluation = PlayerEvaluation(
+        player_id=parsed.player_id,
+        username=parsed.username,
+        level_id=parsed.level_id,
+        algorithm=parsed.algorithm,
+        placements=parsed.placements,
+        trials=1,
+        status="queued",
+        game_version=parsed.game_version,
+        defender_count=len(parsed.placements or []),
+        replays={"pending_run": parsed.run},
+    )
+    db.session.add(evaluation)
+    db.session.flush()
+
+    db.session.add(EvaluationShard(
+        evaluation_id=evaluation.id,
+        shard_index=0,
+        trial_start=0,
+        trial_count=1,
+        n_start=1,
+        n_count=0,
+        total_units=1,
+        status="queued",
+    ))
+    db.session.commit()
+
+    return jsonify(evaluation.to_dict()), 202
+
+
 @evaluations_bp.get("/settings")
 def settings():
     seed = Config.EVAL_SEED
@@ -319,6 +407,11 @@ def settings():
         "planet_y": Config.EVAL_ARENA_HEIGHT / 2,
         "sweep_trial_seeds": get_sweep_trial_seeds(),
         "levels": get_levels(),
+        "pilot_level_ids": [level["id"] for level in PILOT_LEVELS],
+        "pilot_time_limit_seconds": MAX_RUN_SECONDS,
+        "pilot_max_fps": MAX_RUN_FPS,
+        "pilot_max_xp": PILOT_LEVEL_MAX_XP,
+        "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
         "derived_seeds": [
             {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
             {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
@@ -403,7 +496,10 @@ def claim_xp(eval_id: str):
     if evaluation.status != "done":
         raise BadRequest("Evaluation is not finished yet")
 
-    max_xp = MAX_XP_PER_LEVEL_UNIT * evaluation.level_number()
+    if is_pilot_level(evaluation.level_id):
+        max_xp = PILOT_LEVEL_MAX_XP
+    else:
+        max_xp = MAX_XP_PER_LEVEL_UNIT * evaluation.level_number()
 
     if evaluation.xp_awarded is not None:
         return jsonify({

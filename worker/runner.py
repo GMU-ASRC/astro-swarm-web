@@ -28,6 +28,7 @@ def _progress_info(line):
 
 
 def run_shard(shard, settings, report_progress, logger):
+    run = shard.get("run")
     algorithm = shard.get("algorithm", [])
     placements = shard.get("placements", [])
     trials = int(shard.get("trials", 100))
@@ -54,6 +55,7 @@ def run_shard(shard, settings, report_progress, logger):
     sweep_max = int(config.get("sweep_max", 100))
     sweep_trials = int(config.get("sweep_trials", 1))
     match_seconds = int(config.get("match_seconds", 240))
+    goal_tail_seconds = float(config.get("goal_tail_seconds", 3))
     enemy_x = float(config.get("enemy_x", 1920))
     enemy_y = float(config.get("enemy_y", 40))
     level_id = str(config.get("level_id", "farp"))
@@ -71,9 +73,17 @@ def run_shard(shard, settings, report_progress, logger):
         cmd = [godot_bin, "--headless", "--fixed-fps", fixed_fps]
         if main_pack:
             cmd += ["--main-pack", main_pack]
+        cmd += ["--", "--bench"]
+
+        # A piloted run is already simulated in the game client; the level-3
+        # benchmarker only renders the recorded trajectory into a replay.
+        if run:
+            run_path = os.path.join(tmp, "run.json")
+            with open(run_path, "w") as f:
+                json.dump({"run": run}, f)
+            cmd.append(f"--run={run_path}")
+
         cmd += [
-            "--",
-            "--bench",
             f"--algorithm={algorithm_path}",
             f"--placements={placements_path}",
             f"--out={output_path}",
@@ -82,6 +92,7 @@ def run_shard(shard, settings, report_progress, logger):
             f"--n-max={sweep_max}",
             f"--sweep-trials={sweep_trials}",
             f"--match-seconds={match_seconds}",
+            f"--goal-tail-seconds={goal_tail_seconds}",
             f"--trial-start={trial_start}",
             f"--trial-count={trial_count}",
             f"--n-start={n_start}",
@@ -152,7 +163,7 @@ def run_shard(shard, settings, report_progress, logger):
 
 def _pack_result(payload):
     replays = payload.get("replays", {})
-    meta = {key: replays.get(key) for key in ("fps", "defenders", "view", "fov", "planet", "arena")}
+    meta = {key: replays.get(key) for key in ("fps", "defenders", "view", "fov", "speed", "planet", "arena")}
 
     runs = replays.get("runs", [])
     sweep_runs = replays.get("sweep_runs", [])

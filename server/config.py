@@ -18,6 +18,7 @@ class Config:
     EVAL_SWEEP_MAX = int(os.environ.get("EVAL_SWEEP_MAX", "100"))
     EVAL_SWEEP_TRIALS = int(os.environ.get("EVAL_SWEEP_TRIALS", "1"))
     EVAL_MATCH_CAP_SECONDS = int(os.environ.get("EVAL_MATCH_CAP_SECONDS", "240"))
+    EVAL_GOAL_TAIL_SECONDS = float(os.environ.get("EVAL_GOAL_TAIL_SECONDS", "3"))
     EVAL_MAX_JOBS = max(1, min(20, int(os.environ.get("EVAL_MAX_JOBS", "20"))))
     EVAL_SHARD_COUNT = max(1, int(os.environ.get("EVAL_SHARD_COUNT", "32")))
     EVAL_ENEMY_X = float(os.environ.get("EVAL_ENEMY_X", "1920"))

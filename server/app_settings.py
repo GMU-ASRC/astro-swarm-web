@@ -13,9 +13,13 @@ SWEEP_MATCH_OFFSET = 500000
 
 LEVELS = [
     {"id": "farp1", "name": "Level 1 - Defense (Place)"},
-    {"id": "farp2", "name": "Level 2 - Defense (Random)"},
-    {"id": "farp3", "name": "Level 3 - Evasion (Ring)"},
-    {"id": "farp4", "name": "Level 4 - Evasion (Random)"},
+    {"id": "farp2", "name": "Level 2 - Defense (Ring)"},
+]
+
+# Levels whose entries are player-piloted runs: the worker renders the recorded
+# run into a replay instead of simulating anything.
+PILOT_LEVELS = [
+    {"id": "farp3", "name": "Level 3 - Evasion (Pilot)"},
 ]
 
 LEVEL_ALIASES = {
@@ -25,6 +29,14 @@ LEVEL_ALIASES = {
 
 def level_ids_for(level_id):
     return LEVEL_ALIASES.get(level_id, [level_id])
+
+
+def is_benchmark_level(level_id):
+    return any(level["id"] == level_id for level in LEVELS)
+
+
+def is_pilot_level(level_id):
+    return any(level["id"] == level_id for level in PILOT_LEVELS)
 
 
 def _get(key):
@@ -116,5 +128,5 @@ def set_level_enabled(level_id, enabled):
 def get_levels():
     return [
         {"id": level["id"], "name": level["name"], "enabled": get_level_enabled(level["id"])}
-        for level in LEVELS
+        for level in LEVELS + PILOT_LEVELS
     ]

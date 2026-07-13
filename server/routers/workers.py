@@ -136,6 +136,13 @@ def _reap_stale(worker_ids=None):
         db.session.commit()
 
 
+def _pending_run(evaluation):
+    replays = evaluation.replays or {}
+    if isinstance(replays, dict):
+        return replays.get("pending_run")
+    return None
+
+
 def _shard_payload(evaluation, shard):
     enemy_x, enemy_y = get_enemy_start()
     return {
@@ -143,6 +150,7 @@ def _shard_payload(evaluation, shard):
         "evaluation_id": evaluation.id,
         "algorithm": evaluation.algorithm or [],
         "placements": evaluation.placements or [],
+        "run": _pending_run(evaluation),
         "trials": evaluation.trials,
         "trial_start": shard.trial_start,
         "trial_count": shard.trial_count,
@@ -154,6 +162,7 @@ def _shard_payload(evaluation, shard):
             "sweep_max": get_sweep_max(),
             "sweep_trials": get_sweep_trials(),
             "match_seconds": Config.EVAL_MATCH_CAP_SECONDS,
+            "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
             "enemy_x": enemy_x,
             "enemy_y": enemy_y,
             "level_id": evaluation.level_id or "farp",
