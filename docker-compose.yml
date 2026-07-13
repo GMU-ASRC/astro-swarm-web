@@ -43,28 +43,28 @@ services:
       retries: 5
       start_period: 20s
 
-  # worker:
-  #   build:
-  #     context: .
-  #     dockerfile: worker/Dockerfile
-  #   restart: unless-stopped
-  #   environment:
-  #     SERVER_URL: ${WORKER_SERVER_URL:-http://server:5050}
-  #     API_SECRET_KEY: ${API_SECRET_KEY}
-  #     WORKER_NAME: ${WORKER_NAME:-worker}
-  #     WORKER_MAX_JOBS: ${WORKER_MAX_JOBS:-4}
-  #     # The worker downloads this release's AstroSwarm_Linux_Server.zip on startup.
-  #     GODOT_RELEASE_TAG: ${GODOT_RELEASE_TAG:-latest}
-  #     # Optional: point at a mounted binary to skip the download.
-  #     GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-}
-  #     GODOT_PCK: ${GODOT_PCK:-}
-  #     EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
-  #     EVAL_FIXED_FPS: ${EVAL_FIXED_FPS:-60}
-  #   depends_on:
-  #     server:
-  #       condition: service_healthy
-  #   volumes:
-  #     - worker_data:/data
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      SERVER_URL: ${WORKER_SERVER_URL:-http://server:5050}
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      WORKER_NAME: ${WORKER_NAME:-worker}
+      WORKER_MAX_JOBS: ${WORKER_MAX_JOBS:-4}
+      # The worker downloads this release's AstroSwarm_Linux_Server.zip on startup.
+      GODOT_RELEASE_TAG: ${GODOT_RELEASE_TAG:-latest}
+      # Optional: point at a mounted binary to skip the download.
+      GODOT_SERVER_BIN: ${GODOT_SERVER_BIN:-}
+      GODOT_PCK: ${GODOT_PCK:-}
+      EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-1800}
+      EVAL_FIXED_FPS: ${EVAL_FIXED_FPS:-60}
+    depends_on:
+      server:
+        condition: service_healthy
+    volumes:
+      - worker_data:/data
     # deploy:
     #   resources:
     #     reservations:
