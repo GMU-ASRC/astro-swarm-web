@@ -1,12 +1,17 @@
 # AstroSwarm Evaluation Worker
 
-A standalone service that runs FARP benchmark jobs for the AstroSwarm web server. Workers pull queued evaluations from the server, run the Godot dedicated server locally, and post the merged results and replays back. Run as many workers as you like, on as many machines as you like, all pointed at the same server.
+A standalone service that runs FARP jobs for the AstroSwarm web server. Workers pull queued entries from the server, run the Godot dedicated server locally, and post the results and replays back. Run as many workers as you like, on as many machines as you like, all pointed at the same server.
+
+There are two kinds of job, and the worker treats them the same way — it just passes different arguments to Godot, which dispatches to that level's benchmarker:
+
+- **Benchmark shards** (levels 1 and 2) simulate a slice of the placement trials plus a slice of the ring sweep.
+- **Render shards** (level 3) carry a piloted run that the player already flew in the game client. Nothing is simulated: the worker writes the recorded trajectory to a file, passes it as `--run=`, and the level-3 benchmarker renders it into a replay.
 
 ## How it works
 
 1. On every startup the worker freshly downloads the dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release (`GODOT_RELEASE_TAG`, default `latest`) and unzips it into `GODOT_DIR`, replacing any previous build. Set `GODOT_SERVER_BIN` to a provided binary to skip this.
 2. It generates a stable id (persisted to `WORKER_ID_FILE`) and registers with the server.
-3. The server splits each evaluation into many small work shards. The worker polls `/api/worker/claim` for as many shards as it has free capacity (`WORKER_MAX_JOBS` minus the shards it is already running) and runs each as one Godot process. Multiple workers therefore share a single evaluation in proportion to their capacity.
+3. The server splits each evaluation into many small work shards (a piloted run is a single render shard). The worker polls `/api/worker/claim` for as many shards as it has free capacity (`WORKER_MAX_JOBS` minus the shards it is already running) and runs each as one Godot process. Multiple workers therefore share a single evaluation in proportion to their capacity.
 4. It streams each shard's progress to the server (which also signals cancellation), then posts the shard result. The server merges the shards once all are done.
 5. The admin Workers page shows it live and can set its name/max parallel jobs or connect/disconnect/remove it.
 
