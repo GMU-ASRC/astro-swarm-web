@@ -28,13 +28,11 @@
 	const levels = [
 		{ id: 'farp1', label: 'LVL 1 · DEFENSE', enabled: true },
 		{ id: 'farp2', label: 'LVL 2 · DEFENSE', enabled: true },
-		{ id: 'farp3', label: 'LVL 3 · EVASION', enabled: true },
-		{ id: 'farp4', label: 'LVL 4 · EVASION', enabled: true }
+		{ id: 'farp3', label: 'LVL 3 · PILOT', enabled: true }
 	];
-	const attackLevels = ['farp3', 'farp4'];
 	let selectedLevel = $state('farp1');
-	let isAttack = $derived(attackLevels.includes(selectedLevel));
-	let rateLabel = $derived(isAttack ? 'evasion rate' : 'detection rate');
+	let isPilot = $derived(selectedLevel === 'farp3');
+	let rateLabel = $derived(isPilot ? 'goal reached' : 'capture rate');
 
 	function canonLevel(id: string): string {
 		return id === 'farp' || !id ? 'farp1' : id;
@@ -143,6 +141,13 @@
 				{level.label}
 			</button>
 		{/each}
+		<p class="w-full text-xs text-text-muted mt-2">
+			{#if isPilot}
+				Level 3 entries are piloted runs against the best submitted Level 2 algorithm — each one is a recorded flight, not a benchmark.
+			{:else}
+				Every completed submission is benchmarked headlessly over many trials.
+			{/if}
+		</p>
 	</div>
 
 
@@ -233,7 +238,9 @@
 						<div class="mt-3 text-xs text-text-muted">
 							<div class="mb-1 text-[10px] text-text-muted/60 font-mono break-all">{player.id}</div>
 							{#if player.status === 'running' || player.status === 'queued'}
-								Benchmarking · {Math.round((player.progress ?? 0) * 100)}%
+								{isPilot ? 'Rendering' : 'Benchmarking'} · {Math.round((player.progress ?? 0) * 100)}%
+							{:else if isPilot}
+								{player.success_rate ? 'Planet reached' : 'No goal'} · piloted run
 							{:else if player.success_rate !== null && player.success_rate !== undefined}
 								{player.success_rate}% {rateLabel} · {player.trials} trials
 							{:else}

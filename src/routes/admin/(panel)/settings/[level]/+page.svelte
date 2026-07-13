@@ -18,7 +18,7 @@
 	});
 	const levelId = $derived(`farp${levelNum}`);
 	const levelInfo = $derived((settings?.levels ?? []).find((l: any) => l.id === levelId) ?? null);
-	const isAttack = $derived(levelNum >= 3);
+	const isPilot = $derived((settings?.pilot_level_ids ?? []).includes(levelId));
 
 	let seedPage = $state(1);
 	const seedPageSize = 20;
@@ -92,10 +92,10 @@
 </script>
 
 <p><a href="/admin/settings">← Settings</a></p>
-<h1>Level {levelNum} benchmark settings</h1>
+<h1>Level {levelNum} {isPilot ? 'render settings' : 'benchmark settings'}</h1>
 <p class="meta">
-	{levelInfo?.name ?? levelId} — {isAttack
-		? 'evasion level (the submitted algorithm drives the evader against fixed-algorithm defenders).'
+	{levelInfo?.name ?? levelId} — {isPilot
+		? 'pilot level: the player flies the evader themselves against the best submitted level 2 algorithm. Nothing is simulated for this level, so there are no benchmark parameters to tune.'
 		: 'defense level (the submitted algorithm drives the defenders against the incoming evader).'}
 </p>
 
@@ -107,7 +107,7 @@
 	{#if message}<div class="message">{message}</div>{/if}
 
 	<h2>Level status</h2>
-	<p class="meta">A disabled level rejects new benchmark submissions.</p>
+	<p class="meta">A disabled level rejects new submissions.</p>
 	<div class="actions">
 		<label class="toggle">
 			<input
@@ -120,7 +120,31 @@
 		</label>
 	</div>
 
-	<p class="meta">The benchmark parameters below are shared across all levels so every entry is tested under identical conditions.</p>
+	{#if isPilot}
+		<h2>How a level {levelNum} entry is processed</h2>
+		<p class="meta">
+			A submitted run was already flown in the game client, so nothing is simulated for this level.
+			The server queues a single <strong>render shard</strong>; a worker claims it and hands the recorded
+			trajectory to the game's level {levelNum} benchmarker, which turns it into a watchable replay.
+			Detection, capture and T_goal come from the run itself.
+		</p>
+		<div class="stat-grid">
+			<div class="stat"><div class="label">Simulated trials</div><div>None</div></div>
+			<div class="stat"><div class="label">Ring sweep</div><div>None</div></div>
+			<div class="stat"><div class="label">Work per entry</div><div>1 render shard</div></div>
+			<div class="stat"><div class="label">Opponent</div><div>Best submitted farp2 algorithm</div></div>
+		</div>
+
+		<h2>Run limits</h2>
+		<p class="meta">Enforced when a run is submitted — a run past these limits is rejected, so nobody can upload an hour-long flight.</p>
+		<div class="stat-grid">
+			<div class="stat"><div class="label">Time limit</div><div>{settings.pilot_time_limit_seconds}s</div></div>
+			<div class="stat"><div class="label">Max record rate</div><div>{settings.pilot_max_fps} fps</div></div>
+			<div class="stat"><div class="label">XP for reaching the goal</div><div>{settings.pilot_max_xp}</div></div>
+			<div class="stat"><div class="label">Arena size</div><div>{settings.arena_width} × {settings.arena_height}</div></div>
+		</div>
+	{:else}
+	<p class="meta">The benchmark parameters below are shared across all benchmarked levels so every entry is tested under identical conditions.</p>
 
 	<h2>Enemy start coordinate</h2>
 	<p class="meta">Where the enemy ship starts for all ring sweep runs. The placement runs use their own seeded per-trial enemy spawns.</p>
@@ -179,6 +203,7 @@
 				<tr><th>Sweep range (n)</th><td>1 to {settings.sweep_max}</td></tr>
 				<tr><th>Trials per sweep n</th><td>{settings.sweep_trials}</td></tr>
 				<tr><th>Match time cap</th><td>{settings.match_cap_seconds}s</td></tr>
+				<tr><th>Extra time after T_goal</th><td>{settings.goal_tail_seconds}s</td></tr>
 				<tr><th>Sweep enemy start</th><td>({settings.enemy_start_x}, {settings.enemy_start_y})</td></tr>
 			</tbody>
 		</table>
@@ -205,4 +230,5 @@
 			</tbody>
 		</table>
 	</div>
+	{/if}
 {/if}

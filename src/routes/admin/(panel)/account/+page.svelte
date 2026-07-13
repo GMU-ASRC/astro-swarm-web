@@ -2,7 +2,7 @@
 	import { apiUrl } from '$lib/ts/api';
 
 	let { data } = $props();
-	const headers = { 'X-API-Key': data.adminKey, 'Content-Type': 'application/json' };
+	const headers = $derived({ 'X-API-Key': data.adminKey, 'Content-Type': 'application/json' });
 
 	let me = $state<any>(null);
 	let users = $state<any[]>([]);

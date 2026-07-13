@@ -7,7 +7,7 @@
 	let workers = $state<any[]>([]);
 	let loading = $state(true);
 
-	const headers = { 'X-API-Key': data.adminKey };
+	const headers = $derived({ 'X-API-Key': data.adminKey });
 
 	async function refresh() {
 		try {

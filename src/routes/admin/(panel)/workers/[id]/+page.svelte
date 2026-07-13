@@ -6,7 +6,7 @@
 	let { data } = $props();
 
 	const workerId = $derived($page.params.id);
-	const headers = { 'X-API-Key': data.adminKey };
+	const headers = $derived({ 'X-API-Key': data.adminKey });
 
 	let worker = $state<any>(null);
 	let loading = $state(true);

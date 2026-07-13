@@ -6,6 +6,7 @@
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, detectionRateConfig, captureRateConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
+	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 
 	interface PageData {
 		evaluation: PlayerEvaluation;
@@ -22,8 +23,7 @@
 
 	let outcomes = $derived(ev.results?.outcomes ?? []);
 	let successRate = $derived(ev.results?.success_rate ?? 0);
-	let isAttack = $derived(ev.is_attack ?? ((ev.level_number ?? 1) >= 3));
-	let rateLabel = $derived(isAttack ? 'EVASION RATE' : 'DETECTION RATE');
+	let isPilot = $derived((ev.level_number ?? 1) === 3);
 
 	let counts = $derived.by(() => {
 		const c = { win: 0, lose: 0, timeout: 0 };
@@ -37,6 +37,29 @@
 
 	let detectionTimes = $derived(ev.results?.detection_times ?? []);
 	let captureTimes = $derived(ev.results?.capture_times ?? []);
+	let goalTimes = $derived(ev.results?.goal_times ?? []);
+	let detectionRate = $derived(ev.results?.detection_rate ?? rateOf(detectionTimes));
+	let captureRate = $derived(ev.results?.capture_rate ?? rateOf(captureTimes));
+	let meanGoalTime = $derived(mean(goalTimes));
+
+	let defenderRows = $derived(configRows(defenderConfig(ev.algorithm)));
+	let evaderRows = $derived(configRows(isPilot ? PILOT_EVADER_CONFIG : EVADER_CONFIG));
+	let pilotOutcome = $derived(outcomes[0] ?? 'timeout');
+	let pilotDetect = $derived(detectionTimes[0] ?? -1);
+	let pilotCapture = $derived(captureTimes[0] ?? -1);
+	let pilotGoal = $derived(goalTimes[0] ?? -1);
+
+	function rateOf(times: number[]): number {
+		if (times.length === 0) return 0;
+		const hits = times.filter((t) => t >= 0).length;
+		return Math.round((1000 * hits) / times.length) / 10;
+	}
+
+	function mean(times: number[]): number | null {
+		const hits = times.filter((t) => t >= 0);
+		if (hits.length === 0) return null;
+		return Math.round((10 * hits.reduce((a, b) => a + b, 0)) / hits.length) / 10;
+	}
 
 	let selectedTrial: number | null = $state(null);
 	let selectedReplay: Replay | null = $state(null);
@@ -161,25 +184,96 @@
 			</div>
 			{/if}
 			{#if outcomes.length > 0}
+			{#if isPilot}
+			<div class="mb-8 flex flex-wrap gap-6 items-end">
+				<div>
+					<div class="font-sim text-[clamp(1.8rem,5vw,3rem)] leading-none {pilotOutcome === 'win' ? 'text-green-300' : 'text-red-300'}" style="text-shadow: 0 0 24px rgba(74,222,128,0.25)">
+						{pilotOutcome === 'win' ? 'PLANET REACHED' : pilotOutcome === 'lose' ? 'CAUGHT' : 'OUT OF TIME'}
+					</div>
+					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">PILOTED RUN</div>
+				</div>
+			</div>
+
+			<div class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-sky-300">{fmtTime(pilotDetect)}</div>
+					<div class="text-[11px] text-text-muted mt-1">Detected — a defender first saw the pilot</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-green-300">{fmtTime(pilotCapture)}</div>
+					<div class="text-[11px] text-text-muted mt-1">Captured — a defender touched the pilot</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-red-300">{fmtTime(pilotGoal)}</div>
+					<div class="text-[11px] text-text-muted mt-1">Reached planet — the pilot got to the goal</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-star-white">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
+					<div class="text-[11px] text-text-muted mt-1">Defenders faced</div>
+				</div>
+			</div>
+			{:else}
 			<div class="mb-8 flex flex-wrap gap-6 items-end">
 				<div>
 					<div class="font-sim text-[clamp(2.2rem,6vw,3.6rem)] text-green-300 leading-none" style="text-shadow: 0 0 24px rgba(74,222,128,0.35)">
 						{successRate}%
 					</div>
-					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">{rateLabel}</div>
+					<div class="text-xs text-text-muted mt-1 tracking-wider font-sim">SUCCESS RATE</div>
 				</div>
 				<div class="flex gap-4 text-sm">
-					{#if isAttack}
-						<span class="text-green-300">{counts.win} breaches</span>
-						<span class="text-red-300">{counts.lose} intercepted</span>
-					{:else}
-						<span class="text-green-300">{counts.win} intercepts</span>
-						<span class="text-red-300">{counts.lose} planet hits</span>
-					{/if}
+					<span class="text-green-300">{counts.win} captured</span>
+					<span class="text-red-300">{counts.lose} reached the planet</span>
 					{#if counts.timeout > 0}<span class="text-amber-300">{counts.timeout} timeouts</span>{/if}
 				</div>
 			</div>
 
+			<div class="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-sky-300">{detectionRate}%</div>
+					<div class="text-[11px] text-text-muted mt-1">Detection rate — a defender saw the evader</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-green-300">{captureRate}%</div>
+					<div class="text-[11px] text-text-muted mt-1">Capture rate — a defender touched the evader</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-red-300">{meanGoalTime != null ? `${meanGoalTime}s` : '—'}</div>
+					<div class="text-[11px] text-text-muted mt-1">Mean time for the evader to reach the planet</div>
+				</div>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
+					<div class="font-sim text-2xl text-star-white">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
+					<div class="text-[11px] text-text-muted mt-1">Defenders placed</div>
+				</div>
+			</div>
+			{/if}
+
+			<div class="mb-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div class="p-5 border-2 border-sky-500/20 bg-page-bg/60">
+					<h2 class="font-sim text-sm text-sky-300 mb-3 tracking-wider">DEFENDER CONFIG</h2>
+					<dl class="grid grid-cols-2 gap-y-2 text-sm">
+						{#each defenderRows as row}
+							<dt class="text-text-muted">{row.label}</dt>
+							<dd class="text-star-white text-right font-sim">{row.value}</dd>
+						{/each}
+					</dl>
+				</div>
+				<div class="p-5 border-2 border-red-500/20 bg-page-bg/60">
+					<h2 class="font-sim text-sm text-red-300 mb-3 tracking-wider">EVADER CONFIG</h2>
+					<dl class="grid grid-cols-2 gap-y-2 text-sm">
+						{#each evaderRows as row}
+							<dt class="text-text-muted">{row.label}</dt>
+							<dd class="text-star-white text-right font-sim">{row.value}</dd>
+						{/each}
+					</dl>
+					<p class="text-[11px] text-text-muted mt-3">
+						{isPilot
+							? 'The evader is flown by the player from a chosen point on the outer ring.'
+							: 'The evader drives straight at the planet from a random point on the outer ring.'}
+					</p>
+				</div>
+			</div>
+
+			{#if !isPilot}
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
@@ -209,12 +303,24 @@
 				{#if selectedReplay}
 					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 						<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-							TRIAL {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedReplay.detection_time)} · CAPTURED {fmtTime(selectedReplay.capture_time)}
+							TRIAL {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedReplay.detection_time)} · CAPTURED {fmtTime(selectedReplay.capture_time)} · REACHED PLANET {fmtTime(selectedReplay.goal_time)}
 						</div>
 						<FarpReplay replay={selectedReplay} />
 					</div>
 				{/if}
 			</div>
+			{:else if selectedReplay}
+			<div class="mt-10">
+				<h2 class="font-sim text-xl text-star-white mb-2">Recorded Flight</h2>
+				<p class="text-xs text-text-muted mb-4">The player's own flight, rendered from the movement recorded in game.</p>
+				<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
+					<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
+						{selectedReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedReplay.detection_time)} · CAPTURED {fmtTime(selectedReplay.capture_time)} · REACHED PLANET {fmtTime(selectedReplay.goal_time)}
+					</div>
+					<FarpReplay replay={selectedReplay} />
+				</div>
+			</div>
+			{/if}
 
 			{#if sweepRuns.length > 0}
 				<div class="mt-10">
@@ -234,7 +340,7 @@
 					{#if selectedSweepReplay}
 						<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 							<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-								N = {selectedN} DEFENDERS · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)}
+								N = {selectedN} DEFENDERS · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)} · REACHED PLANET {fmtTime(selectedSweepReplay.goal_time)}
 							</div>
 							<FarpReplay replay={selectedSweepReplay} />
 						</div>
@@ -243,7 +349,7 @@
 			{/if}
 
 			<div class="mt-10">
-				<h2 class="font-sim text-xl text-star-white mb-4">{isAttack ? 'Evader Algorithm' : 'Defender Algorithm'}</h2>
+				<h2 class="font-sim text-xl text-star-white mb-4">{isPilot ? 'Opponent Algorithm' : 'Defender Algorithm'}</h2>
 				<div class="p-5 border-2 border-sky-500/20 bg-page-bg/60 overflow-x-auto">
 					<AlgorithmView scripts={ev.algorithm} />
 				</div>

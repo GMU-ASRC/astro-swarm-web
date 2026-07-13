@@ -1,9 +1,12 @@
 export interface EvalSummary {
 	trials: number;
 	success_rate: number;
+	detection_rate?: number;
+	capture_rate?: number;
 	outcomes: string[];
 	detection_times?: number[];
 	capture_times?: number[];
+	goal_times?: number[];
 	sweep?: { n: number; success_rate: number }[];
 }
 
@@ -26,6 +29,7 @@ export interface PlayerEvaluation {
 	placements: PlacementInfo[];
 	status: string;
 	progress: number;
+	stage?: string | null;
 	trials: number;
 	results: EvalSummary;
 	attacker_rate?: number | null;
@@ -47,6 +51,7 @@ export interface PlayerListItem {
 	defender_count?: number;
 	status: string;
 	progress: number;
+	stage?: string | null;
 	trials: number;
 	success_rate: number | null;
 	attacker_rate?: number | null;
@@ -80,10 +85,12 @@ export interface Replay {
 	outcome: string;
 	detection_time?: number;
 	capture_time?: number;
+	goal_time?: number;
 	fps: number;
 	defenders: number;
 	view: number;
 	fov: number;
+	speed?: number;
 	planet: [number, number, number];
 	arena: [number, number];
 	frames: number[][];
