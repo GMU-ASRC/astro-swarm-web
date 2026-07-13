@@ -27,17 +27,19 @@ Rankings for the Timed Local game mode showing username, completion time, and th
 ### Levels (`/levels`)
 Per-level player entries, in three tabs.
 
-**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly over many trials on the dedicated server and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean T_goal, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
+**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly on the dedicated server against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
 
 Three events are measured, and they mean different things:
 
 | Event | Definition |
 |---|---|
-| **Detection** | The first time any defender sees the evader inside its vision cone. |
-| **Capture** | The first time any defender physically touches (collides with) the evader. |
-| **T_goal** | The time the evader reaches the centre planet. |
+| **Detected** | The first time any defender sees the evader inside its vision cone. |
+| **Captured** | The first time any defender physically touches (collides with) the evader. |
+| **Reached planet** | The time the evader reaches the centre planet (`T_goal` in the admin panel). |
 
-**Level 3** entries are *piloted runs*, not benchmarks: the player flies the evader themselves against the best submitted Level 2 algorithm, capped at three minutes. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its T_detect / T_capture / T_goal times, the recorded flight, and the opponent's algorithm.
+**Level 3** entries are *piloted runs*, not benchmarks: the player flies the evader themselves against the best submitted Level 2 algorithm — and that entry's defender placements — capped at three minutes. Any run can be submitted, caught or clean. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its detected / captured / reached-planet times, the recorded flight, and the opponent's algorithm.
+
+The per-level admin settings page (`/admin/settings/level-3`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
 
 ### Admin CMS (`/admin`)
 API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, re-running it with the current Godot build to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you set each worker's max parallel jobs or connect/disconnect/remove it.
