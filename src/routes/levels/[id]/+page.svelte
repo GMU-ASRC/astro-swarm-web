@@ -96,7 +96,7 @@
 	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number; trial_count?: number }[]>([]);
 	let sweepTrials = $state<{ trial: number; outcome: string }[]>([]);
 	let selectedN: number | null = $state(null);
-	let selectedTrial: number | null = $state(null);
+	let selectedSweepTrial: number | null = $state(null);
 	let selectedSweepReplay: Replay | null = $state(null);
 	let loadedSweep = false;
 
@@ -113,7 +113,7 @@
 
 	async function loadSweepReplay(n: number) {
 		selectedN = n;
-		selectedTrial = null;
+		selectedSweepTrial = null;
 		sweepTrials = [];
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
@@ -137,7 +137,7 @@
 	}
 
 	async function loadSweepTrialReplay(n: number, trial: number) {
-		selectedTrial = trial;
+		selectedSweepTrial = trial;
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
 			if (!res.ok) return;
@@ -372,7 +372,7 @@
 									type="button"
 									title={`n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`}
 									onclick={() => loadSweepTrialReplay(selectedN as number, trial.trial)}
-									class="w-11 h-11 px-1 border text-[11px] text-white/90 flex items-center justify-center transition-colors {cellColor(trial.outcome)} {selectedTrial === trial.trial ? 'ring-2 ring-sky-300' : ''}"
+									class="w-11 h-11 px-1 border text-[11px] text-white/90 flex items-center justify-center transition-colors {cellColor(trial.outcome)} {selectedSweepTrial === trial.trial ? 'ring-2 ring-sky-300' : ''}"
 									aria-label={`trial ${trial.trial + 1} ${trial.outcome}`}
 								>{trial.trial + 1}</button>
 							{/each}
@@ -381,7 +381,7 @@
 					{#if selectedSweepReplay}
 						<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 							<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-								N = {selectedN} DEFENDERS{selectedTrial !== null ? ` · TRIAL ${selectedTrial + 1}` : ''} · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)} · REACHED PLANET {fmtTime(selectedSweepReplay.goal_time)}
+								N = {selectedN} DEFENDERS{selectedSweepTrial !== null ? ` · TRIAL ${selectedSweepTrial + 1}` : ''} · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)} · REACHED PLANET {fmtTime(selectedSweepReplay.goal_time)}
 							</div>
 							<FarpReplay replay={selectedSweepReplay} />
 						</div>
