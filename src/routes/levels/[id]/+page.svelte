@@ -93,8 +93,10 @@
 		}
 	});
 
-	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number }[]>([]);
+	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number; trial_count?: number }[]>([]);
+	let sweepTrials = $state<{ trial: number; outcome: string }[]>([]);
 	let selectedN: number | null = $state(null);
+	let selectedTrial: number | null = $state(null);
 	let selectedSweepReplay: Replay | null = $state(null);
 	let loadedSweep = false;
 
@@ -111,12 +113,37 @@
 
 	async function loadSweepReplay(n: number) {
 		selectedN = n;
+		selectedTrial = null;
+		sweepTrials = [];
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
 			if (!res.ok) return;
 			selectedSweepReplay = await res.json();
 		} catch (err) {
 			console.error('Error loading sweep replay:', err);
+		}
+		loadSweepTrialIndex(n);
+	}
+
+	async function loadSweepTrialIndex(n: number) {
+		if (!sweepRuns.find((run) => run.n === n)?.trial_count) return;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trials`));
+			if (!res.ok) return;
+			sweepTrials = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep trial index:', err);
+		}
+	}
+
+	async function loadSweepTrialReplay(n: number, trial: number) {
+		selectedTrial = trial;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
+			if (!res.ok) return;
+			selectedSweepReplay = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep trial replay:', err);
 		}
 	}
 
@@ -325,7 +352,7 @@
 			{#if sweepRuns.length > 0}
 				<div class="mt-10">
 					<h2 class="font-sim text-xl text-star-white mb-2">Ring Sweep Runs ({sweepRuns.length})</h2>
-					<p class="text-xs text-text-muted mb-4">One sim per ring size — n defenders placed in a circle around the target at random orientations, against a fixed enemy spawn. Click an n to replay it.</p>
+					<p class="text-xs text-text-muted mb-4">Each ring size is simulated repeatedly — n defenders placed in a circle around the target, the ring rotated to a seeded random angle each trial, against a fixed enemy spawn. Click an n to replay it.</p>
 					<div class="flex flex-wrap gap-2 mb-4" style="max-width: 760px">
 						{#each sweepRuns as run}
 							<button
@@ -337,10 +364,24 @@
 							>{run.n}</button>
 						{/each}
 					</div>
+					{#if sweepTrials.length > 0}
+						<p class="text-xs text-text-muted mb-2">Each n is simulated multiple times with the ring rotated to a different angle. Pick a trial to replay it.</p>
+						<div class="flex flex-wrap gap-2 mb-4" style="max-width: 760px">
+							{#each sweepTrials as trial}
+								<button
+									type="button"
+									title={`n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`}
+									onclick={() => loadSweepTrialReplay(selectedN as number, trial.trial)}
+									class="w-11 h-11 px-1 border text-[11px] text-white/90 flex items-center justify-center transition-colors {cellColor(trial.outcome)} {selectedTrial === trial.trial ? 'ring-2 ring-sky-300' : ''}"
+									aria-label={`trial ${trial.trial + 1} ${trial.outcome}`}
+								>{trial.trial + 1}</button>
+							{/each}
+						</div>
+					{/if}
 					{#if selectedSweepReplay}
 						<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 max-w-[860px]">
 							<div class="text-xs text-text-muted mb-2 font-sim tracking-wider">
-								N = {selectedN} DEFENDERS · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)} · REACHED PLANET {fmtTime(selectedSweepReplay.goal_time)}
+								N = {selectedN} DEFENDERS{selectedTrial !== null ? ` · TRIAL ${selectedTrial + 1}` : ''} · {selectedSweepReplay.outcome.toUpperCase()} · DETECTED {fmtTime(selectedSweepReplay.detection_time)} · CAPTURED {fmtTime(selectedSweepReplay.capture_time)} · REACHED PLANET {fmtTime(selectedSweepReplay.goal_time)}
 							</div>
 							<FarpReplay replay={selectedSweepReplay} />
 						</div>

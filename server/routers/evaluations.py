@@ -14,12 +14,18 @@ import charts
 import merge
 from app_settings import (
     PILOT_LEVELS,
+    SWEEP_MATCH_OFFSET,
+    SWEEP_SEED_OFFSET,
+    SWEEP_SEED_STRIDE,
     get_enemy_start,
     get_level_enabled,
     get_levels,
+    get_seed,
     get_sweep_max,
     get_sweep_trial_seeds,
     get_sweep_trials,
+    regenerate_seed,
+    set_seed,
     is_benchmark_level,
     is_pilot_level,
     level_ids_for,
@@ -389,9 +395,18 @@ def submit_run():
     return jsonify(evaluation.to_dict()), 202
 
 
+def _derived_seeds(seed):
+    return [
+        {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
+        {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
+        {"name": "Sweep ring placement and orientations (per n, trial)", "formula": "sweep_seed[trial] + n", "value": f"({seed} + {SWEEP_SEED_OFFSET} + trial * {SWEEP_SEED_STRIDE}) + n"},
+        {"name": "Sweep match RNG (per n, trial)", "formula": "sweep_seed[trial] + 500000 + n", "value": f"({seed} + {SWEEP_SEED_OFFSET} + trial * {SWEEP_SEED_STRIDE}) + {SWEEP_MATCH_OFFSET} + n"},
+    ]
+
+
 @evaluations_bp.get("/settings")
 def settings():
-    seed = Config.EVAL_SEED
+    seed = get_seed()
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
         "seed": seed,
@@ -412,12 +427,7 @@ def settings():
         "pilot_max_fps": MAX_RUN_FPS,
         "pilot_max_xp": PILOT_LEVEL_MAX_XP,
         "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
-        "derived_seeds": [
-            {"name": "Static enemy spawn locations", "formula": "seed", "value": seed},
-            {"name": "Placement match RNG (per trial)", "formula": "seed + trial_index", "value": f"{seed} + trial_index"},
-            {"name": "Sweep ring orientations (per n, trial)", "formula": "sweep_seed[trial] + n", "value": f"({seed} + 100000 + trial * 1000000) + n"},
-            {"name": "Sweep match RNG (per n, trial)", "formula": "sweep_seed[trial] + 500000 + n", "value": f"({seed} + 100000 + trial * 1000000) + 500000 + n"},
-        ],
+        "derived_seeds": _derived_seeds(seed),
     })
 
 
@@ -438,15 +448,24 @@ def update_settings():
             )
         except (TypeError, ValueError):
             raise BadRequest("sweep_max and sweep_trials must be integers")
+    if data.get("regenerate_seeds"):
+        regenerate_seed()
+    elif "seed" in data:
+        try:
+            set_seed(data["seed"])
+        except (TypeError, ValueError):
+            raise BadRequest("seed must be an integer")
     if "level_id" in data and "enabled" in data:
         set_level_enabled(str(data["level_id"]), bool(data["enabled"]))
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
+        "seed": get_seed(),
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
         "sweep_max": get_sweep_max(),
         "sweep_trials": get_sweep_trials(),
         "sweep_trial_seeds": get_sweep_trial_seeds(),
+        "derived_seeds": _derived_seeds(get_seed()),
         "levels": get_levels(),
     })
 
@@ -695,6 +714,25 @@ def get_sweep_replay(eval_id: str, n: int):
     if evaluation is None:
         raise BadRequest("Evaluation not found")
     replay = evaluation.sweep_replay_for(n)
+    if replay is None:
+        raise BadRequest("Replay not found")
+    return jsonify(replay)
+
+
+@evaluations_bp.get("/<eval_id>/sweep-replay/<int:n>/trials")
+def list_sweep_trial_replays(eval_id: str, n: int):
+    evaluation = _get_eval_light(eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    return jsonify(evaluation.sweep_trial_index(n))
+
+
+@evaluations_bp.get("/<eval_id>/sweep-replay/<int:n>/trial/<int:trial>")
+def get_sweep_trial_replay(eval_id: str, n: int, trial: int):
+    evaluation = _get_eval_light(eval_id)
+    if evaluation is None:
+        raise BadRequest("Evaluation not found")
+    replay = evaluation.sweep_trial_replay_for(n, trial)
     if replay is None:
         raise BadRequest("Replay not found")
     return jsonify(replay)

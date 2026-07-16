@@ -5,7 +5,7 @@ from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import merge
 from auth import require_admin
-from app_settings import get_enemy_start, get_sweep_max, get_sweep_trials
+from app_settings import get_enemy_start, get_seed, get_sweep_max, get_sweep_trials
 from config import Config
 from database import db
 from models import SHARD_STALE_SECONDS, EvaluationShard, PlayerEvaluation, Worker
@@ -158,7 +158,7 @@ def _shard_payload(evaluation, shard):
         "n_count": shard.n_count,
         "total_units": shard.total_units,
         "config": {
-            "seed": Config.EVAL_SEED,
+            "seed": get_seed(),
             "sweep_max": get_sweep_max(),
             "sweep_trials": get_sweep_trials(),
             "match_seconds": Config.EVAL_MATCH_CAP_SECONDS,

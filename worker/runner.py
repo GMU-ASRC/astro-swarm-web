@@ -53,7 +53,7 @@ def run_shard(shard, settings, report_progress, logger):
 
     seed = int(config.get("seed", 987654321))
     sweep_max = int(config.get("sweep_max", 100))
-    sweep_trials = int(config.get("sweep_trials", 1))
+    sweep_trials = int(config.get("sweep_trials", 10))
     match_seconds = int(config.get("match_seconds", 240))
     goal_tail_seconds = float(config.get("goal_tail_seconds", 3))
     enemy_x = float(config.get("enemy_x", 1920))

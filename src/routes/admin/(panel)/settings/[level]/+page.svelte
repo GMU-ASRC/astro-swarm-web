@@ -8,7 +8,8 @@
 	let enemyX = $state(0);
 	let enemyY = $state(0);
 	let sweepMax = $state(100);
-	let sweepTrials = $state(1);
+	let sweepTrials = $state(10);
+	let seed = $state(0);
 	let saving = $state(false);
 	let message = $state('');
 
@@ -36,6 +37,7 @@
 				enemyY = row.enemy_start_y;
 				sweepMax = row.sweep_max;
 				sweepTrials = row.sweep_trials;
+				seed = row.seed;
 			}
 			loading = false;
 		});
@@ -62,12 +64,15 @@
 			enemyY = updated.enemy_start_y;
 			if (updated.sweep_max != null) sweepMax = updated.sweep_max;
 			if (updated.sweep_trials != null) sweepTrials = updated.sweep_trials;
+			if (updated.seed != null) seed = updated.seed;
 			if (settings) {
 				settings.enemy_start_x = updated.enemy_start_x;
 				settings.enemy_start_y = updated.enemy_start_y;
 				if (updated.sweep_max != null) settings.sweep_max = updated.sweep_max;
 				if (updated.sweep_trials != null) settings.sweep_trials = updated.sweep_trials;
 				if (updated.sweep_trial_seeds != null) settings.sweep_trial_seeds = updated.sweep_trial_seeds;
+				if (updated.seed != null) settings.seed = updated.seed;
+				if (updated.derived_seeds != null) settings.derived_seeds = updated.derived_seeds;
 				if (updated.levels != null) settings.levels = updated.levels;
 			}
 			message = successMessage;
@@ -84,6 +89,15 @@
 
 	function saveSweep() {
 		save({ sweep_max: sweepMax, sweep_trials: sweepTrials }, `Saved ring sweep settings.`);
+	}
+
+	function saveSeed() {
+		save({ seed }, `Saved base seed. Existing evaluations were run under the previous seed.`);
+	}
+
+	function regenerateSeeds() {
+		if (!confirm('Draw a new random base seed? Every derived seed changes, so new evaluations are no longer comparable with existing ones unless you re-simulate them.')) return;
+		save({ regenerate_seeds: true }, `Regenerated all seeds.`);
 	}
 
 	function toggleLevel(enabled: boolean) {
@@ -172,11 +186,27 @@
 		<button onclick={saveSweep} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
 	</div>
 
+	<h2>Base seed</h2>
+	<p class="meta">
+		Every other seed is derived from this one: the enemy spawn points, the per-trial ring rotation
+		that decides where the defenders sit, their orientations, and each match's RNG. Set it to a
+		specific value to reproduce a past benchmark, or regenerate to draw a new random one.
+		Regenerating changes every derived seed, so evaluations already in the database were graded
+		under different conditions until they are re-simulated. Takes effect on the next submitted or
+		re-simulated evaluation.
+	</p>
+	<div class="actions">
+		<label for="seed">Seed</label>
+		<input id="seed" type="number" step="1" min="1" max="2147483647" bind:value={seed} style="width:10rem" />
+		<button onclick={saveSeed} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+		<button onclick={regenerateSeeds} disabled={saving}>Regenerate all seeds</button>
+	</div>
+
 	<h2>Per-trial seeds</h2>
 	<p class="meta">
-		Static spaceship placement and orientation seeds — one per trial (n2 = {settings.sweep_trials}).
-		Each of the n2 ring-sweep repeats for a given n uses its own static seed, so the repeats differ
-		but stay reproducible. The orientation for ring size n uses <code>seed + n</code>.
+		Spaceship placement and orientation seeds — one per trial (n2 = {settings.sweep_trials}).
+		Each of the n2 ring-sweep repeats for a given n uses its own seed, so the repeats place the ring
+		at a different rotation but stay reproducible. Ring size n uses <code>seed + n</code>.
 	</p>
 	<div class="admin-table-wrap">
 		<table>

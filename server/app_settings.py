@@ -1,3 +1,5 @@
+import random
+
 from config import Config
 from database import db
 from models import AppSetting
@@ -6,6 +8,10 @@ ENEMY_X_KEY = "enemy_start_x"
 ENEMY_Y_KEY = "enemy_start_y"
 SWEEP_MAX_KEY = "sweep_max"
 SWEEP_TRIALS_KEY = "sweep_trials"
+SEED_KEY = "eval_seed"
+
+SEED_MIN = 1
+SEED_MAX = 2147483647
 
 SWEEP_SEED_OFFSET = 100000
 SWEEP_SEED_STRIDE = 1000000
@@ -102,8 +108,21 @@ def set_sweep_params(sweep_max=None, sweep_trials=None):
     return get_sweep_max(), get_sweep_trials()
 
 
+def get_seed():
+    return _read_int(SEED_KEY, Config.EVAL_SEED, SEED_MIN, SEED_MAX)
+
+
+def set_seed(seed):
+    _set(SEED_KEY, max(SEED_MIN, min(SEED_MAX, int(seed))))
+    return get_seed()
+
+
+def regenerate_seed():
+    return set_seed(random.randint(SEED_MIN, SEED_MAX))
+
+
 def sweep_trial_seed(trial):
-    return Config.EVAL_SEED + SWEEP_SEED_OFFSET + trial * SWEEP_SEED_STRIDE
+    return get_seed() + SWEEP_SEED_OFFSET + trial * SWEEP_SEED_STRIDE
 
 
 def get_sweep_trial_seeds():

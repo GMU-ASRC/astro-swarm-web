@@ -17,8 +17,10 @@
 	let selectedReplay: Replay | null = $state(null);
 	let loadedReplays = false;
 
-	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number }[]>([]);
+	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number; trial_count?: number }[]>([]);
+	let sweepTrials = $state<{ trial: number; outcome: string }[]>([]);
 	let selectedN: number | null = $state(null);
+	let selectedSweepTrial: number | null = $state(null);
 	let selectedSweepReplay: Replay | null = $state(null);
 	let loadedSweep = false;
 
@@ -93,9 +95,35 @@
 		}
 	}
 
+	async function loadSweepTrialIndex(n: number) {
+		if (!ev) return;
+		if (!sweepRuns.find((run) => run.n === n)?.trial_count) return;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trials`));
+			if (!res.ok) return;
+			sweepTrials = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep trial index:', err);
+		}
+	}
+
+	async function loadSweepTrialReplay(n: number, trial: number) {
+		if (!ev) return;
+		selectedSweepTrial = trial;
+		try {
+			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
+			if (!res.ok) return;
+			selectedSweepReplay = await res.json();
+		} catch (err) {
+			console.error('Error loading sweep trial replay:', err);
+		}
+	}
+
 	async function loadSweepReplay(n: number) {
 		if (!ev) return;
 		selectedN = n;
+		selectedSweepTrial = null;
+		sweepTrials = [];
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
 			if (!res.ok) return;
@@ -103,6 +131,7 @@
 		} catch (err) {
 			console.error('Error loading sweep replay:', err);
 		}
+		loadSweepTrialIndex(n);
 	}
 
 	$effect(() => {
@@ -156,8 +185,10 @@
 			selectedTrial = null;
 			loadedSweep = false;
 			sweepRuns = [];
+			sweepTrials = [];
 			selectedSweepReplay = null;
 			selectedN = null;
+			selectedSweepTrial = null;
 			while (true) {
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 				const poll = await fetch(apiUrl(`/api/evaluations/${data.id}`));
@@ -284,7 +315,7 @@
 		{/if}
 
 		<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
-		<p class="meta">One sim per ring size — n defenders placed in a circle around the target at random orientations, against a fixed enemy spawn. Click an n to replay it.</p>
+		<p class="meta">Each ring size is simulated repeatedly — n defenders placed in a circle around the target, the ring rotated to a seeded random angle each trial, against a fixed enemy spawn. Click an n to replay it.</p>
 		{#if sweepRuns.length > 0}
 			<div class="runs-grid">
 				{#each sweepRuns as run}
@@ -297,10 +328,24 @@
 					>{run.n}</button>
 				{/each}
 			</div>
+			{#if sweepTrials.length > 0}
+				<p class="meta">Trials for n = {selectedN} — each one rotates the ring to a different angle. Click a trial to replay it.</p>
+				<div class="runs-grid">
+					{#each sweepTrials as trial}
+						<button
+							type="button"
+							title={`n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`}
+							onclick={() => loadSweepTrialReplay(selectedN as number, trial.trial)}
+							class="{cellClass(trial.outcome)} {selectedSweepTrial === trial.trial ? 'run-selected' : ''}"
+							aria-label={`trial ${trial.trial + 1} ${trial.outcome}`}
+						>{trial.trial + 1}</button>
+					{/each}
+				</div>
+			{/if}
 			{#if selectedSweepReplay}
 				<div>
 					<p class="meta">
-						N = {selectedN} defenders · outcome: {selectedSweepReplay.outcome} · detected:
+						N = {selectedN} defenders{selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · outcome: {selectedSweepReplay.outcome} · detected:
 						{fmtTime(selectedSweepReplay.detection_time)} · captured: {fmtTime(selectedSweepReplay.capture_time)}
 					</p>
 					<FarpReplay replay={selectedSweepReplay} />

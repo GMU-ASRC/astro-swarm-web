@@ -28,10 +28,17 @@ def _get_key_lock(key):
         return lock
 
 
+def _inflate(data):
+    try:
+        return zlib.decompress(data)
+    except zlib.error:
+        return zlib.decompress(data, -zlib.MAX_WBITS)
+
+
 def _unpack_frames(packed):
     if not packed:
         return []
-    raw = zlib.decompress(base64.b64decode(packed))
+    raw = _inflate(base64.b64decode(packed))
     delta_encoded = json.loads(raw)
     if not delta_encoded:
         return []
@@ -342,9 +349,58 @@ class PlayerEvaluation(db.Model):
                 "goal_time": run.get("goal_time", -1),
                 "detection_rate": run.get("detection_rate"),
                 "capture_rate": run.get("capture_rate"),
+                "trial_count": len(run.get("trial_runs", [])),
             }
             for run in replays.get("sweep_runs", [])
         ]
+
+    def _sweep_run_for(self, n: int):
+        for run in self._cached_replays().get("sweep_runs", []):
+            if run.get("n") == n:
+                return run
+        return None
+
+    def sweep_trial_index(self, n: int):
+        run = self._sweep_run_for(n)
+        if run is None:
+            return []
+        return [
+            {
+                "trial": trial.get("trial"),
+                "outcome": trial.get("outcome"),
+                "detection_time": trial.get("detection_time", -1),
+                "capture_time": trial.get("capture_time", -1),
+                "goal_time": trial.get("goal_time", -1),
+            }
+            for trial in run.get("trial_runs", [])
+        ]
+
+    def sweep_trial_replay_for(self, n: int, trial: int):
+        run = self._sweep_run_for(n)
+        if run is None:
+            return None
+        replays = self._cached_replays()
+        for entry in run.get("trial_runs", []):
+            if entry.get("trial") != trial:
+                continue
+            packed = entry.get("frames_packed")
+            frames = _unpack_frames(packed) if packed else entry.get("frames", [])
+            return {
+                "n": run.get("n"),
+                "trial": entry.get("trial"),
+                "outcome": entry.get("outcome"),
+                "detection_time": entry.get("detection_time", -1),
+                "capture_time": entry.get("capture_time", -1),
+                "goal_time": entry.get("goal_time", -1),
+                "fps": replays.get("fps", 12),
+                "defenders": run.get("defenders", 0),
+                "view": replays.get("view", 300),
+                "fov": replays.get("fov", 70),
+                "planet": replays.get("planet"),
+                "arena": replays.get("arena"),
+                "frames": frames,
+            }
+        return None
 
     def sweep_replay_for(self, n: int):
         replays = self._cached_replays()
