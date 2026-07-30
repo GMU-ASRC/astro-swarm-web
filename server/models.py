@@ -518,6 +518,87 @@ class Worker(db.Model):
         }
 
 
+class SurviveMatch(db.Model):
+    __tablename__ = "survive_matches"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.String(36), nullable=False, index=True)
+    username = db.Column(db.String(30), nullable=False)
+    game_version = db.Column(db.String(20), default="v0.0.5")
+
+    outcome = db.Column(db.String(10), default="tie")
+    duration = db.Column(db.Integer, default=0)
+    players = db.Column(db.JSON, default=list)
+
+    apm_bucket_seconds = db.Column(db.Integer, default=5)
+    apm_times = db.Column(db.JSON, default=list)
+    apm_player1 = db.Column(db.JSON, default=list)
+    apm_player2 = db.Column(db.JSON, default=list)
+
+    evaders_spawned = db.Column(db.Integer, default=0)
+    wild_remaining = db.Column(db.Integer, default=0)
+    first_target = db.Column(db.Integer, default=1)
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def _players(self):
+        players = self.players
+        if not isinstance(players, list):
+            return []
+        return players
+
+    def _player(self, slot):
+        for entry in self._players():
+            if int(entry.get("slot", 0)) == slot:
+                return entry
+        return {}
+
+    def player_name(self, slot):
+        return self._player(slot).get("name") or "Player %d" % slot
+
+    def winner_name(self):
+        if self.outcome == "player1":
+            return self.player_name(1)
+        if self.outcome == "player2":
+            return self.player_name(2)
+        return None
+
+    def to_list_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "game_version": self.game_version or "v0.0.5",
+            "outcome": self.outcome or "tie",
+            "winner": self.winner_name(),
+            "duration": self.duration or 0,
+            "player1": self.player_name(1),
+            "player2": self.player_name(2),
+            "evaders_player1": self._player(1).get("evaders_through", 0),
+            "evaders_player2": self._player(2).get("evaders_through", 0),
+            "apm_player1": self._player(1).get("apm_average", 0),
+            "apm_player2": self._player(2).get("apm_average", 0),
+            "created_at": self.created_at.isoformat(),
+        }
+
+    def to_dict(self):
+        data = self.to_list_dict()
+        data.update({
+            "player_id": self.player_id,
+            "players": self._players(),
+            "apm_bucket_seconds": self.apm_bucket_seconds or 5,
+            "apm_times": self.apm_times or [],
+            "apm_series_player1": self.apm_player1 or [],
+            "apm_series_player2": self.apm_player2 or [],
+            "evaders_spawned": self.evaders_spawned or 0,
+            "wild_remaining": self.wild_remaining or 0,
+            "first_target": self.first_target or 1,
+        })
+        return data
+
+
 class LeaderboardEntry(db.Model):
     __tablename__ = "leaderboard_entries"
 

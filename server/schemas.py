@@ -128,3 +128,82 @@ class RunSubmit:
             raise ValueError("run.goal_time must not exceed %d seconds" % MAX_RUN_SECONDS)
         if len(frames) / fps > MAX_RUN_SECONDS + 5:
             raise ValueError("run must not exceed %d seconds" % MAX_RUN_SECONDS)
+
+
+MAX_SURVIVE_SECONDS = 180
+MAX_APM_SAMPLES = 240
+VALID_SURVIVE_OUTCOMES = ("player1", "player2", "tie")
+SURVIVE_PLAYER_FIELDS = (
+    "evaders_through",
+    "defenders_at_end",
+    "herded_total",
+    "freezes_used",
+    "actions",
+    "apm_peak",
+)
+
+
+@dataclass
+class SurviveMatchSubmit:
+    player_id: str
+    username: str
+    outcome: str
+    players: list = field(default_factory=list)
+    duration: int = 0
+    game_version: str = "v0.0.5"
+    apm_bucket_seconds: int = 5
+    apm_times: list = field(default_factory=list)
+    apm_player1: list = field(default_factory=list)
+    apm_player2: list = field(default_factory=list)
+    evaders_spawned: int = 0
+    wild_remaining: int = 0
+    first_target: int = 1
+
+    def __post_init__(self):
+        if not isinstance(self.player_id, str) or len(self.player_id) != 36:
+            raise ValueError("player_id must be exactly 36 characters")
+        if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
+            raise ValueError("username must be between 1 and 30 characters")
+        if not isinstance(self.game_version, str) or len(self.game_version) > 20:
+            raise ValueError("game_version must be a string up to 20 characters")
+        if self.outcome not in VALID_SURVIVE_OUTCOMES:
+            raise ValueError("outcome must be one of %s" % (VALID_SURVIVE_OUTCOMES,))
+
+        self.duration = int(self.duration)
+        if not (0 <= self.duration <= MAX_SURVIVE_SECONDS):
+            raise ValueError("duration must be between 0 and %d seconds" % MAX_SURVIVE_SECONDS)
+
+        if not isinstance(self.players, list) or len(self.players) != 2:
+            raise ValueError("players must hold exactly 2 entries")
+        self.players = [self._clean_player(entry, slot + 1) for slot, entry in enumerate(self.players)]
+
+        self.apm_bucket_seconds = int(self.apm_bucket_seconds)
+        if not (1 <= self.apm_bucket_seconds <= 60):
+            raise ValueError("apm_bucket_seconds must be between 1 and 60")
+
+        self.apm_times = self._clean_series(self.apm_times, "apm_times")
+        self.apm_player1 = self._clean_series(self.apm_player1, "apm_player1")
+        self.apm_player2 = self._clean_series(self.apm_player2, "apm_player2")
+        if len(self.apm_player1) != len(self.apm_times) or len(self.apm_player2) != len(self.apm_times):
+            raise ValueError("apm series must be the same length as apm_times")
+
+        self.evaders_spawned = max(0, int(self.evaders_spawned))
+        self.wild_remaining = max(0, int(self.wild_remaining))
+        self.first_target = 2 if int(self.first_target) == 2 else 1
+
+    def _clean_series(self, values, label):
+        if not isinstance(values, list):
+            raise ValueError("%s must be a list" % label)
+        if len(values) > MAX_APM_SAMPLES:
+            raise ValueError("%s must not exceed %d samples" % (label, MAX_APM_SAMPLES))
+        return [max(0, int(value)) for value in values]
+
+    def _clean_player(self, entry, slot):
+        if not isinstance(entry, dict):
+            raise ValueError("each player entry must be an object")
+        name = str(entry.get("name", "")).strip() or "Player %d" % slot
+        cleaned = {"slot": slot, "name": name[:30]}
+        for key in SURVIVE_PLAYER_FIELDS:
+            cleaned[key] = max(0, int(entry.get(key, 0)))
+        cleaned["apm_average"] = max(0.0, round(float(entry.get("apm_average", 0.0)), 1))
+        return cleaned

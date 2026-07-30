@@ -15,6 +15,7 @@ from routers.admin import admin_bp
 from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
+from routers.survive import survive_bp
 from routers.version import version_bp
 from routers.workers import workers_bp
 
@@ -30,6 +31,7 @@ PAGE_META = {
     "leaderboard": ("XP Leaderboard — AstroSwarm", "Top commanders ranked by XP earned across every AstroSwarm level."),
     "levels": ("Levels — AstroSwarm", "Per-level benchmark data for player algorithms in AstroSwarm."),
     "simulator": ("Simulator — AstroSwarm", "Shared swarm-behaviour simulations from the AstroSwarm sandbox."),
+    "survive": ("Survive Matches — AstroSwarm", "Two-player Survive match reports with actions-per-minute telemetry."),
 }
 
 
@@ -177,6 +179,7 @@ def create_app():
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(version_bp)
     app.register_blueprint(evaluations_bp)
+    app.register_blueprint(survive_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(admin_bp)
 
