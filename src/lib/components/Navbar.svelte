@@ -29,6 +29,7 @@
 			{ href: '/downloads', label: 'DOWNLOADS', active: currentPath === '/downloads' },
 			{ href: '/leaderboard', label: 'LEADERBOARD', active: currentPath.startsWith('/leaderboard') },
 			{ href: '/levels', label: 'LEVELS', active: currentPath.startsWith('/levels') },
+			{ href: '/survive', label: 'SURVIVE', active: currentPath.startsWith('/survive') },
 			{ href: '/simulator', label: 'SIMULATOR', active: currentPath.startsWith('/simulator') }
 		] as link}
 			<li>
@@ -61,5 +62,6 @@
 	<li><a href="/downloads" class:active={currentPath === '/downloads'} onclick={closeMenu}>DOWNLOADS</a></li>
 	<li><a href="/leaderboard" class:active={currentPath.startsWith('/leaderboard')} onclick={closeMenu}>LEADERBOARD</a></li>
 	<li><a href="/levels" class:active={currentPath.startsWith('/levels')} onclick={closeMenu}>LEVELS</a></li>
+	<li><a href="/survive" class:active={currentPath.startsWith('/survive')} onclick={closeMenu}>SURVIVE</a></li>
 	<li><a href="/simulator" class:active={currentPath.startsWith('/simulator')} onclick={closeMenu}>SIMULATOR</a></li>
 </ul>
