@@ -41,6 +41,13 @@ Three events are measured, and they mean different things:
 
 The per-level admin settings page (`/admin/settings/level-3`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
 
+### Survive (`/survive`)
+Match reports from the game's two-player Survive mode. Each card shows the two commanders, the winner (or a tie), how many evaders reached each planet, and both average APMs; a sidebar provides a search bar (commander or match ID) and sort order.
+
+Clicking a match opens its detail page: the headline result, a per-player breakdown (evaders through, defenders left at the buzzer, ships herded, freezes used, total actions, average and peak APM), and the **actions-per-minute line chart** with both players plotted against match time. The chart has a "view as table" panel underneath with the raw per-sample values.
+
+An action is a movement input changing state — a key going down or up, or a controller stick crossing into a new direction — plus every power-up activation. Samples are taken every 5 seconds and scaled to a per-minute rate. Matches are submitted automatically by the game when the clock runs out.
+
 ### Admin CMS (`/admin`)
 API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, re-running it with the current Godot build to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you set each worker's max parallel jobs or connect/disconnect/remove it.
 
@@ -104,6 +111,15 @@ Internal preview page for component and layout development.
 | `POST` | `/api/evaluations/<id>/resimulate` | Re-run an evaluation on the current build (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/cancel` | Cancel a queued or running evaluation (`X-API-Key` required) |
 | `DELETE` | `/api/evaluations/<id>` | Delete an evaluation (`X-API-Key` required) |
+
+### Survive
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/survive/matches` | List Survive matches (most recent; `?limit=` and `?player_id=` supported) |
+| `GET` | `/api/survive/matches/<id>` | Get a single match with both APM series |
+| `POST` | `/api/survive/matches` | Submit a finished Survive match (`X-API-Key` required) |
+| `DELETE` | `/api/survive/matches/<id>` | Delete a match (`X-API-Key` required) |
 
 ### Workers
 
