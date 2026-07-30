@@ -54,8 +54,8 @@ export function clockLabel(seconds: number): string {
 export function apmChartConfig(match: SurviveMatch): ChartConfiguration {
 	const labels = match.apm_times.map(clockLabel);
 	const series = [
-		{ name: match.player1, data: match.apm_series_player1 },
-		{ name: match.player2, data: match.apm_series_player2 }
+		{ name: match.player1, data: [...match.apm_series_player1] },
+		{ name: match.player2, data: [...match.apm_series_player2] }
 	];
 
 	return {

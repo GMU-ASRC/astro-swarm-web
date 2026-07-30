@@ -9,8 +9,7 @@
 
 	let { data }: { data: PageData } = $props();
 
-	// svelte-ignore state_referenced_locally
-	let match: SurviveMatch = $state(data.match);
+	let match: SurviveMatch = $derived(data.match);
 
 	let players = $derived(match.players ?? []);
 	let hasSeries = $derived((match.apm_times?.length ?? 0) > 1);
