@@ -11,7 +11,7 @@
 
 <svelte:head>
 	<title>AstroSwarm</title>
-	<meta name="description" content="Design species, program behavior, unleash your swarm. AstroSwarm — a pixel-art tower-defense and swarm simulator built in Godot 4." />
+	<meta name="description" content="Design your fleet, program its behaviour, and send it against the swarm. AstroSwarm is a swarm strategy game built in Godot 4." />
 </svelte:head>
 
 {#if !isAdmin}

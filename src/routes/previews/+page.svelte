@@ -34,98 +34,174 @@
 	}
 
 	function labelFromFilename(filename: string) {
-		return filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').toUpperCase();
+		return filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
 	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-	<title>Previews — AstroSwarm</title>
-	<meta name="description" content="Screenshot previews of AstroSwarm gameplay and simulator." />
+	<title>Screenshots — AstroSwarm</title>
+	<meta name="description" content="Screenshot previews of AstroSwarm gameplay." />
 </svelte:head>
 
-<div class="relative z-1 min-h-screen pt-20">
-	<div class="max-w-275 mx-auto px-8 max-sm:px-5 pt-12 pb-10">
-		<h1 class="font-game text-[clamp(2rem,4vw,3rem)] text-star-white tracking-[0.06em] m-0">
-			SCREENSHOTS
-		</h1>
+<div class="page">
+	<div class="shell shell-wide page-head">
+		<p class="eyebrow">GALLERY</p>
+		<h1 class="page-title">Screenshots</h1>
+		<p class="page-lede">Captures from the game as it takes shape. Click any shot to view it full size.</p>
 	</div>
 
-	<div class="h-px mx-8 max-sm:mx-5" style="background: linear-gradient(to right, rgba(36,89,184,0.4), transparent)"></div>
-
-	{#if images.length === 0}
-		<div class="max-w-275 mx-8 max-sm:mx-5 mt-10 py-16 text-center border-2 border-dashed border-btn-border">
-			<p class="font-game text-base tracking-widest text-text-muted m-0">NO PREVIEWS YET</p>
-		</div>
-	{:else}
-		<div class="max-w-275 mx-auto px-8 max-sm:px-5 pt-10 pb-24 grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] max-sm:grid-cols-2 gap-0.75 max-sm:gap-0.5">
-			{#each images as image, i}
-				<button
-					class="group relative overflow-hidden bg-page-bg border-2 border-btn-border cursor-pointer aspect-video transition-[border-color] duration-150 hover:border-btn-hover-border"
-					onclick={() => openLightbox(i)}
-				>
-					<img
-						src="/previews/{image}"
-						alt={labelFromFilename(image)}
-						loading="lazy"
-						class="w-full h-full object-cover block [image-rendering:pixelated] transition-transform duration-200 group-hover:scale-[1.04]"
-					/>
-					<div class="absolute bottom-0 left-0 right-0 px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-						style="background: linear-gradient(to top, rgba(2,4,9,0.9), transparent)">
-						<span class="font-game text-xs tracking-[0.08em] text-text-muted">
-							{labelFromFilename(image)}
-						</span>
-					</div>
-				</button>
-			{/each}
-		</div>
-	{/if}
+	<div class="shell shell-wide gallery-wrap">
+		{#if images.length === 0}
+			<div class="notice">No screenshots have been published yet.</div>
+		{:else}
+			<div class="gallery">
+				{#each images as image, index}
+					<button class="shot" onclick={() => openLightbox(index)}>
+						<img
+							src="/previews/{image}"
+							alt={labelFromFilename(image)}
+							loading="lazy"
+						/>
+						<span class="shot-label">{labelFromFilename(image)}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
 </div>
 
 {#if activeIndex !== null}
 	<div
-		class="fixed inset-0 z-200 flex items-center justify-center p-8"
-		style="background: rgba(2,4,9,0.94)"
-		onclick={(e) => e.target === e.currentTarget && closeLightbox()}
-		onkeydown={(e) => { if (e.key === 'Escape') closeLightbox(); }}
+		class="lightbox"
+		onclick={(event) => event.target === event.currentTarget && closeLightbox()}
+		onkeydown={(event) => {
+			if (event.key === 'Escape') closeLightbox();
+		}}
 		role="dialog"
 		aria-modal="true"
 		aria-label="Image preview"
 		tabindex="-1"
 	>
-		<div class="relative w-full max-w-[min(1100px,100%)]">
-			<button
-				class="absolute right-0 -top-9 font-game text-[0.85rem] tracking-[0.12em] text-text-muted bg-none border-none cursor-pointer p-0 transition-colors hover:text-accent-cyan"
-				onclick={closeLightbox}
-			>
-				[ CLOSE ]
+		<div class="lightbox-frame">
+			<button class="lightbox-close btn btn-sm btn-ghost" onclick={closeLightbox}>
+				<Icon icon="ph:x-bold" width="14" />
+				Close
 			</button>
 
 			<img
-				class="w-full h-auto block border-2 border-btn-hover-border [image-rendering:pixelated]"
+				class="lightbox-image"
 				src="/previews/{images[activeIndex]}"
 				alt={labelFromFilename(images[activeIndex])}
 			/>
 
-			<p class="font-game text-xs tracking-widest text-text-muted mt-3 text-center">
-				{labelFromFilename(images[activeIndex])} — {activeIndex + 1} / {images.length}
+			<p class="lightbox-caption">
+				{labelFromFilename(images[activeIndex])} — {activeIndex + 1} of {images.length}
 			</p>
 
 			{#if images.length > 1}
-				<button
-					class="lightbox-nav absolute top-1/2 -translate-y-1/2 bg-btn-bg border-2 border-btn-border text-btn-text font-game text-base px-3 py-2 cursor-pointer transition-[background,border-color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border"
-					onclick={goPrev}
-				>
-					<Icon icon="ph:caret-left" width="16" />
+				<button class="lightbox-nav prev btn btn-sm" onclick={goPrev} aria-label="Previous image">
+					<Icon icon="ph:caret-left-bold" width="16" />
 				</button>
-				<button
-					class="lightbox-nav absolute top-1/2 -translate-y-1/2 bg-btn-bg border-2 border-btn-border text-btn-text font-game text-base px-3 py-2 cursor-pointer transition-[background,border-color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border"
-					onclick={goNext}
-				>
-					<Icon icon="ph:caret-right" width="16" />
+				<button class="lightbox-nav next btn btn-sm" onclick={goNext} aria-label="Next image">
+					<Icon icon="ph:caret-right-bold" width="16" />
 				</button>
 			{/if}
 		</div>
 	</div>
 {/if}
+
+<style>
+	.gallery-wrap {
+		padding-bottom: 6rem;
+	}
+
+	.gallery {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	.shot {
+		position: relative;
+		display: block;
+		padding: 0;
+		aspect-ratio: 16 / 9;
+		overflow: hidden;
+		background: var(--color-surface);
+		border: 1px solid var(--color-line);
+		border-radius: var(--radius-panel);
+		cursor: pointer;
+		transition: border-color 0.15s;
+	}
+
+	.shot:hover {
+		border-color: var(--color-line-strong);
+	}
+
+	.shot img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		image-rendering: pixelated;
+	}
+
+	.shot-label {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		padding: 1.5rem 0.85rem 0.6rem;
+		background: linear-gradient(to top, rgba(9, 11, 16, 0.92), transparent);
+		color: var(--color-body);
+		font-size: 0.78rem;
+		text-align: left;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+
+	.shot:hover .shot-label {
+		opacity: 1;
+	}
+
+	.lightbox {
+		position: fixed;
+		inset: 0;
+		z-index: 200;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		background: rgba(9, 11, 16, 0.96);
+	}
+
+	.lightbox-frame {
+		position: relative;
+		width: 100%;
+		max-width: 68rem;
+	}
+
+	.lightbox-close {
+		position: absolute;
+		right: 0;
+		top: -2.75rem;
+	}
+
+	.lightbox-image {
+		display: block;
+		width: 100%;
+		height: auto;
+		border: 1px solid var(--color-line-strong);
+		border-radius: var(--radius-panel);
+		image-rendering: pixelated;
+	}
+
+	.lightbox-caption {
+		margin-top: 0.85rem;
+		text-align: center;
+		font-size: 0.8rem;
+		color: var(--color-faint);
+	}
+</style>

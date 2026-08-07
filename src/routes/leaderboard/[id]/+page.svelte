@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+
 	interface LevelStat {
 		level_number: number;
 		success_rate: number | null;
@@ -36,109 +38,212 @@
 	}
 
 	let { data }: { data: PageData } = $props();
-	let p = $derived(data.profile);
+	let profile = $derived(data.profile);
 
 	function when(iso: string): string {
-		const d = new Date(iso);
-		const mm = String(d.getMonth() + 1).padStart(2, '0');
-		const dd = String(d.getDate()).padStart(2, '0');
-		return `${mm}/${dd}/${d.getFullYear()}`;
+		const date = new Date(iso);
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${month}/${day}/${date.getFullYear()}`;
 	}
 
-	function levelName(n: number): string {
-		if (n >= 3) return `Level ${n} · Evasion`;
-		return `Level ${n} · Defense`;
+	function levelName(levelNumber: number): string {
+		return levelNumber >= 3 ? `Level ${levelNumber} · Evasion` : `Level ${levelNumber} · Defense`;
 	}
 
-	function statusColor(status: string): string {
-		if (status === 'done') return 'text-green-300 border-green-400/40 bg-green-400/10';
-		if (status === 'running' || status === 'queued') return 'text-sky-300 border-sky-400/40 bg-sky-400/10';
-		return 'text-red-300 border-red-400/40 bg-red-400/10';
+	function statusClass(status: string): string {
+		if (status === 'done') return 'badge-win';
+		if (status === 'running' || status === 'queued') return 'badge-brand';
+		return 'badge-loss';
 	}
 </script>
 
 <svelte:head>
-	<title>{p.username} — AstroSwarm</title>
+	<title>{profile.username} — AstroSwarm</title>
 </svelte:head>
 
-<div class="relative z-1 min-h-screen pt-20 font-sim">
-	<div class="max-w-260 mx-auto px-8 max-sm:px-5 pt-12 pb-6">
-		<a href="/leaderboard" class="font-game text-sm text-text-muted hover:text-accent-cyan transition-colors no-underline mb-6 inline-block">
-			← BACK TO LEADERBOARD
+<div class="page">
+	<div class="shell page-head">
+		<a href="/leaderboard" class="back-link">
+			<Icon icon="ph:arrow-left-bold" width="14" />
+			Leaderboard
 		</a>
-		<h1 class="font-game text-[clamp(1.8rem,4vw,3rem)] font-bold text-star-white leading-tight mb-3" style="text-shadow: 0 0 20px rgba(56,189,248,0.4)">
-			{p.username}
-		</h1>
-		<p class="font-sim text-base text-text-muted">
-			Rank #{p.overall_rank ?? '—'} of {p.total_players} · {p.total_xp} XP total
+		<h1 class="page-title name-heading">{profile.username}</h1>
+		<p class="page-lede">
+			Rank #{profile.overall_rank ?? '—'} of {profile.total_players} commanders · {profile.total_xp} XP
+			total
 		</p>
 	</div>
 
-	<div class="max-w-260 mx-auto px-8 max-sm:px-5 py-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-		<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-			<div class="text-[11px] text-text-muted">TOTAL XP</div>
-			<div class="font-game text-2xl text-sky-200">{p.total_xp}</div>
+	<div class="shell profile">
+		<div class="stat-grid">
+			<div class="stat">
+				<div class="stat-value">{profile.total_xp}</div>
+				<div class="stat-label">Total XP</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">
+					{profile.overall_success != null ? `${profile.overall_success}%` : '—'}
+				</div>
+				<div class="stat-label">Overall success</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">#{profile.overall_rank ?? '—'}</div>
+				<div class="stat-label">Overall rank</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">{profile.entries}</div>
+				<div class="stat-label">Entries</div>
+			</div>
 		</div>
-		<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-			<div class="text-[11px] text-text-muted">OVERALL SUCCESS</div>
-			<div class="font-game text-2xl text-star-white">{p.overall_success != null ? `${p.overall_success}%` : '—'}</div>
-		</div>
-		<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-			<div class="text-[11px] text-text-muted">OVERALL RANK</div>
-			<div class="font-game text-2xl text-star-white">#{p.overall_rank ?? '—'}</div>
-		</div>
-		<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5">
-			<div class="text-[11px] text-text-muted">ENTRIES</div>
-			<div class="font-game text-2xl text-star-white">{p.entries}</div>
-		</div>
-	</div>
 
-	<div class="max-w-260 mx-auto px-8 max-sm:px-5 py-6">
-		<h2 class="font-game text-xl text-star-white mb-4">PER-LEVEL STATS</h2>
-		{#if p.levels.length === 0}
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted">No level stats yet.</div>
+		<h2 class="section-title block-heading">Per-level stats</h2>
+		{#if profile.levels.length === 0}
+			<div class="notice">No level stats yet.</div>
 		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{#each p.levels as lv}
-					<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 flex items-center justify-between">
+			<div class="level-grid">
+				{#each profile.levels as level}
+					<div class="card level">
 						<div>
-							<div class="font-game text-star-white">{levelName(lv.level_number)}</div>
-							<div class="text-[11px] text-text-muted">
-								{lv.success_rate != null ? `${lv.success_rate}% ${lv.level_number >= 3 ? 'evasion' : 'detection'}` : 'no data'} · {lv.xp} XP
+							<div class="level-name">{levelName(level.level_number)}</div>
+							<div class="level-detail">
+								{level.success_rate != null
+									? `${level.success_rate}% ${level.level_number >= 3 ? 'evasion' : 'detection'}`
+									: 'no data'} · {level.xp} XP
 							</div>
 						</div>
-						<div class="text-right">
-							<div class="font-game text-lg text-sky-200">#{lv.rank ?? '—'}</div>
-							<div class="text-[11px] text-text-muted">of {lv.players}</div>
+						<div class="level-rank">
+							<div class="level-rank-value">#{level.rank ?? '—'}</div>
+							<div class="level-detail">of {level.players}</div>
 						</div>
 					</div>
 				{/each}
 			</div>
 		{/if}
-	</div>
 
-	<div class="max-w-260 mx-auto px-8 max-sm:px-5 py-6">
-		<h2 class="font-game text-xl text-star-white mb-4">ENTRIES</h2>
-		{#if p.recent_entries.length === 0}
-			<div class="p-4 border-2 border-sky-500/20 bg-sky-500/5 text-text-muted">No entries.</div>
+		<h2 class="section-title block-heading">Entries</h2>
+		{#if profile.recent_entries.length === 0}
+			<div class="notice">No entries.</div>
 		{:else}
-			<div class="flex flex-col gap-2">
-				{#each p.recent_entries as e}
-					<a
-						href={`/levels/${e.id}`}
-						class="flex items-center gap-4 p-4 border-2 border-sky-500/20 bg-sky-500/5 hover:border-sky-400/50 hover:bg-sky-500/10 transition-colors"
-					>
-						<span class="font-game text-sm text-sky-200 w-24">{levelName(e.level_number ?? 1).split(' · ')[0]}</span>
-						<span class="flex-1 text-xs text-text-muted">
-							{e.success_rate != null ? `${e.success_rate}% ${e.is_attack ? 'evasion' : 'detection'}` : 'pending'}
-							· {e.xp_awarded != null ? `${e.xp_awarded} XP` : 'unclaimed'}
+			<div class="entry-list">
+				{#each profile.recent_entries as entry}
+					<a href={`/levels/${entry.id}`} class="card-link entry">
+						<span class="entry-level">
+							{levelName(entry.level_number ?? 1).split(' · ')[0]}
 						</span>
-						<span class="text-[11px] font-mono text-text-muted/70">{e.game_version ?? 'v0.0.4'}</span>
-						<span class="text-[10px] font-game tracking-wider px-2 py-1 border {statusColor(e.status)}">{e.status.toUpperCase()}</span>
-						<span class="text-[11px] text-text-muted/70 w-20 text-right">{when(e.created_at)}</span>
+						<span class="entry-result">
+							{entry.success_rate != null
+								? `${entry.success_rate}% ${entry.is_attack ? 'evasion' : 'detection'}`
+								: 'pending'} · {entry.xp_awarded != null ? `${entry.xp_awarded} XP` : 'unclaimed'}
+						</span>
+						<span class="entry-version">{entry.game_version ?? 'v0.0.4'}</span>
+						<span class="badge {statusClass(entry.status)}">{entry.status}</span>
+						<span class="entry-date">{when(entry.created_at)}</span>
 					</a>
 				{/each}
 			</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	.name-heading {
+		margin-top: 1.25rem;
+	}
+
+	.profile {
+		padding-bottom: 6rem;
+	}
+
+	.stat-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	.block-heading {
+		margin-top: 3rem;
+		margin-bottom: 1rem;
+	}
+
+	.level-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	.level {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1.1rem 1.25rem;
+	}
+
+	.level-name {
+		font-weight: 600;
+		color: var(--color-heading);
+	}
+
+	.level-detail {
+		margin-top: 0.25rem;
+		font-size: 0.78rem;
+		color: var(--color-faint);
+	}
+
+	.level-rank {
+		text-align: right;
+		flex-shrink: 0;
+	}
+
+	.level-rank-value {
+		font-size: 1.2rem;
+		font-weight: 600;
+		color: var(--color-brand-hover);
+	}
+
+	.entry-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.entry {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 0.9rem 1.25rem;
+		font-size: 0.85rem;
+	}
+
+	.entry-level {
+		width: 5rem;
+		flex-shrink: 0;
+		font-weight: 600;
+		color: var(--color-heading);
+	}
+
+	.entry-result {
+		flex: 1;
+		min-width: 0;
+		color: var(--color-dim);
+	}
+
+	.entry-version,
+	.entry-date {
+		flex-shrink: 0;
+		font-size: 0.75rem;
+		color: var(--color-faint);
+	}
+
+	@media (max-width: 720px) {
+		.entry {
+			flex-wrap: wrap;
+			gap: 0.6rem 1rem;
+		}
+
+		.entry-result {
+			flex-basis: 100%;
+		}
+	}
+</style>

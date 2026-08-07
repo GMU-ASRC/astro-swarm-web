@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import Icon from '@iconify/svelte';
 	import type { Replay } from '$lib/ts/evaluation';
 
 	let { replay }: { replay: Replay } = $props();
@@ -261,7 +262,7 @@
 			width={WIDTH}
 			height={HEIGHT}
 			onclick={onCanvasClick}
-			class="w-full bg-[#0a0a12] border border-sky-500/20 cursor-pointer block"
+			class="replay-canvas"
 		></canvas>
 		{#if selectedInfo && tooltipPos}
 			<div class="ship-card" style="left:{tooltipPos.left}%; top:{tooltipPos.top}%">
@@ -283,38 +284,21 @@
 			</div>
 		{/if}
 	</div>
-	<p class="text-[0.68rem] font-sim text-text-muted">Tip: pause, then click a ship to inspect it.</p>
-	<div class="flex items-center gap-2">
-		<button
-			type="button"
-			title="Restart"
-			class="px-2 py-1 border border-sky-500/30 text-sky-200 text-xs font-sim hover:bg-sky-500/10"
-			onclick={restart}
-		>
-			⏮
+	<p class="replay-tip">Tip: pause, then click a ship to inspect it.</p>
+
+	<div class="replay-controls">
+		<button type="button" title="Restart" class="btn btn-sm btn-ghost" onclick={restart}>
+			<Icon icon="ph:skip-back-fill" width="13" />
 		</button>
-		<button
-			type="button"
-			title="Step back"
-			class="px-2 py-1 border border-sky-500/30 text-sky-200 text-xs font-sim hover:bg-sky-500/10"
-			onclick={() => stepBy(-1)}
-		>
-			◀
+		<button type="button" title="Step back" class="btn btn-sm btn-ghost" onclick={() => stepBy(-1)}>
+			<Icon icon="ph:caret-left-bold" width="13" />
 		</button>
-		<button
-			type="button"
-			class="px-3 py-1 border border-sky-500/30 text-sky-200 text-xs font-sim hover:bg-sky-500/10"
-			onclick={() => (playing = !playing)}
-		>
-			{playing ? 'PAUSE' : 'PLAY'}
+		<button type="button" class="btn btn-sm" onclick={() => (playing = !playing)}>
+			<Icon icon={playing ? 'ph:pause-fill' : 'ph:play-fill'} width="13" />
+			{playing ? 'Pause' : 'Play'}
 		</button>
-		<button
-			type="button"
-			title="Step forward"
-			class="px-2 py-1 border border-sky-500/30 text-sky-200 text-xs font-sim hover:bg-sky-500/10"
-			onclick={() => stepBy(1)}
-		>
-			▶
+		<button type="button" title="Step forward" class="btn btn-sm btn-ghost" onclick={() => stepBy(1)}>
+			<Icon icon="ph:caret-right-bold" width="13" />
 		</button>
 		<input
 			type="range"
@@ -322,26 +306,26 @@
 			max={Math.max(0, replay.frames.length - 1)}
 			bind:value={frameIndex}
 			oninput={() => (playing = false)}
-			class="flex-1"
+			class="replay-scrub"
 		/>
-		<span class="text-xs font-sim text-text-muted whitespace-nowrap">
+		<span class="replay-counter">
 			frame {frameIndex + 1}/{replay.frames.length} · {(frameIndex / (replay.fps || 1)).toFixed(1)}s
 		</span>
 	</div>
-	<div class="flex items-center gap-2">
-		<span class="text-xs font-sim text-text-muted">Speed</span>
+
+	<div class="replay-controls">
+		<span class="replay-tip">Speed</span>
 		{#each SPEEDS as s}
 			<button
 				type="button"
-				class="px-2 py-1 border text-xs font-sim hover:bg-sky-500/10 {speed === s
-					? 'border-sky-400 text-sky-100 bg-sky-500/20'
-					: 'border-sky-500/30 text-sky-200'}"
+				class="btn btn-sm"
+				class:btn-ghost={speed !== s}
 				onclick={() => (speed = s)}
 			>
 				{s}x
 			</button>
 		{/each}
-		<label class="flex items-center gap-1 text-xs font-sim text-text-muted ml-2">
+		<label class="replay-loop">
 			<input type="checkbox" bind:checked={loop} />
 			Loop
 		</label>
@@ -354,19 +338,60 @@
 		line-height: 0;
 	}
 
+	.replay-canvas {
+		display: block;
+		width: 100%;
+		background: var(--color-ink);
+		border: 1px solid var(--color-line);
+		border-radius: 4px;
+		cursor: pointer;
+	}
+
+	.replay-tip {
+		font-size: 0.72rem;
+		color: var(--color-faint);
+	}
+
+	.replay-controls {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.replay-scrub {
+		flex: 1;
+		min-width: 4rem;
+		accent-color: var(--color-brand);
+		cursor: pointer;
+	}
+
+	.replay-counter {
+		font-size: 0.72rem;
+		color: var(--color-faint);
+		white-space: nowrap;
+	}
+
+	.replay-loop {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin-left: 0.5rem;
+		font-size: 0.72rem;
+		color: var(--color-faint);
+	}
+
 	.ship-card {
 		position: absolute;
 		transform: translate(-50%, calc(-100% - 14px));
 		min-width: 9.5rem;
 		max-width: 14rem;
-		background: rgba(10, 10, 18, 0.96);
-		border: 1px solid rgba(124, 158, 255, 0.55);
-		border-radius: 2px;
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-line-strong);
+		border-radius: 4px;
 		padding: 0.45rem 0.55rem;
-		color: #e6ecff;
+		color: var(--color-heading);
 		z-index: 5;
 		line-height: 1.3;
-		box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 	}
 
 	.ship-card-head {
@@ -384,17 +409,17 @@
 	}
 
 	.ship-card-title.defender {
-		color: #9cb6ff;
+		color: var(--color-brand-hover);
 	}
 
 	.ship-card-title.enemy {
-		color: #ff8a73;
+		color: var(--color-loss);
 	}
 
 	.ship-card-close {
 		border: none;
 		background: transparent;
-		color: #9aa3c0;
+		color: var(--color-faint);
 		font-size: 0.9rem;
 		line-height: 1;
 		cursor: pointer;
@@ -402,7 +427,7 @@
 	}
 
 	.ship-card-close:hover {
-		color: #fff;
+		color: var(--color-heading);
 	}
 
 	.ship-card-body {
@@ -420,12 +445,12 @@
 	}
 
 	.ship-card-body dt {
-		color: #8b93b2;
+		color: var(--color-faint);
 	}
 
 	.ship-card-body dd {
 		margin: 0;
-		color: #e6ecff;
+		color: var(--color-heading);
 		font-variant-numeric: tabular-nums;
 	}
 </style>

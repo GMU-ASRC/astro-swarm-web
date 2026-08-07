@@ -2,49 +2,88 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 @import '../lib/css/fonts.css';
+@import '../lib/css/ui.css';
 
 @theme {
-	--font-game: 'Silkscreen', monospace;
-	--font-sim: 'Google Sans', 'Segoe UI', sans-serif;
+	--font-display: 'Silkscreen', monospace;
+	--font-body: 'Google Sans', 'Segoe UI', sans-serif;
 
-	--color-space-deep: #020409;
-	--color-accent-blue: #2459b8;
-	--color-accent-cyan: #38bdf8;
-	--color-star-white: #ffffff;
-	--color-text-primary: #e8f0fe;
-	--color-text-muted: #8ba3c9;
-	--color-btn-bg: #29263e;
+	--color-ink: #090b10;
+	--color-surface: #0f131a;
+	--color-surface-raised: #161b24;
+	--color-line: #212734;
+	--color-line-strong: #333c4c;
+
+	--color-heading: #f4f6fa;
+	--color-body: #c6ccd8;
+	--color-dim: #8a93a3;
+	--color-faint: #5f6879;
+
+	--color-brand: #3d7bff;
+	--color-brand-hover: #6d97ff;
+	--color-brand-press: #2c5fd6;
+	--color-brand-tint: #131c2e;
+
+	--color-btn: #29263e;
 	--color-btn-border: #6b679e;
 	--color-btn-text: #d9dcf5;
-	--color-btn-hover-bg: #3a3759;
+	--color-btn-hover: #3a3759;
 	--color-btn-hover-border: #739dff;
-	--color-btn-press-bg: #4d73d9;
-	--color-btn-press-border: #2d4c9e;
-	--color-panel-bg: #21203e;
-	--color-page-bg: #211f32;
+	--color-btn-active: #4d73d9;
+	--color-btn-active-border: #2d4c9e;
+	--color-btn-disabled-text: #6b6b85;
+
+	--color-gold: #e8b339;
+	--color-win: #35c98b;
+	--color-loss: #e8646f;
+	--color-warn: #e0a532;
+
+	--radius-panel: 6px;
 }
 
-html,
-body {
-	background-color: var(--color-space-deep);
-	color: var(--color-text-primary);
+html {
 	scroll-behavior: smooth;
 }
 
+body {
+	background-color: var(--color-ink);
+	color: var(--color-body);
+	font-family: var(--font-body);
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	color: var(--color-heading);
+}
+
 ::selection {
-	background-color: var(--color-accent-blue);
-	color: white;
+	background-color: var(--color-brand);
+	color: #ffffff;
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-brand);
+	outline-offset: 2px;
 }
 
 ::-webkit-scrollbar {
-	width: 6px;
+	width: 10px;
+	height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-	background: var(--color-space-deep);
+	background: var(--color-ink);
 }
 
 ::-webkit-scrollbar-thumb {
-	background: var(--color-accent-blue);
-	border-radius: 3px;
+	background: var(--color-line-strong);
+	border: 3px solid var(--color-ink);
+	border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-faint);
 }

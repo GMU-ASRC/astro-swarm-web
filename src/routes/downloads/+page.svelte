@@ -1,12 +1,35 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
-	import { getPlatform, formatBytes, formatDate, type GithubRelease } from '$lib/ts/github';
+	import {
+		assetForOperatingSystem,
+		detectOperatingSystem,
+		formatBytes,
+		formatDate,
+		getPlatform,
+		latestRelease,
+		platformFor,
+		type GithubRelease,
+		type OperatingSystem
+	} from '$lib/ts/github';
 
-	let { data } = $props();
+	interface PageData {
+		releases: GithubRelease[];
+		error: string | null;
+	}
 
-	const releases = $derived(data.releases as GithubRelease[]);
-	const error = $derived(data.error as string | null);
-	const latest = $derived(releases.find((r) => !r.prerelease) ?? releases[0] ?? null);
+	let { data }: { data: PageData } = $props();
+
+	let operatingSystem = $state<OperatingSystem>('unknown');
+
+	const releases = $derived(data.releases);
+	const latest = $derived(latestRelease(releases));
+	const detectedPlatform = $derived(platformFor(operatingSystem));
+	const detectedAsset = $derived(assetForOperatingSystem(latest, operatingSystem));
+
+	onMount(() => {
+		operatingSystem = detectOperatingSystem();
+	});
 </script>
 
 <svelte:head>
@@ -14,97 +37,99 @@
 	<meta name="description" content="Download the latest release of AstroSwarm." />
 </svelte:head>
 
-<div class="relative z-1 min-h-screen pt-20">
-	<div class="max-w-275 mx-auto px-8 max-sm:px-5 pt-12 pb-10">
-		<h1 class="font-game text-[clamp(2rem,4vw,3rem)] text-star-white tracking-[0.06em] m-0">
-			DOWNLOADS
-		</h1>
+<div class="page">
+	<div class="shell page-head">
+		<p class="eyebrow">GET THE GAME</p>
+		<h1 class="page-title">Downloads</h1>
+		<p class="page-lede">
+			Builds are published straight from the AstroSwarm repository. Grab the latest release for your
+			platform, or pick an older tag from the list below.
+		</p>
 	</div>
 
-	<div class="h-px mx-8 max-sm:mx-5" style="background: linear-gradient(to right, rgba(36,89,184,0.4), transparent)"></div>
-
-	<div class="max-w-275 mx-auto px-8 max-sm:px-5 py-10 pb-24 flex flex-col gap-3">
-
-		{#if error}
-			<div class="border-2 border-btn-border bg-btn-bg px-6 py-10 text-center">
-				<div class="flex justify-center mb-4 opacity-50">
-					<Icon icon="ph:warning" width="40" color="var(--color-text-muted)" />
-				</div>
-				<p class="font-game text-sm tracking-widest text-text-muted m-0">{error}</p>
-			</div>
-
+	<div class="shell downloads">
+		{#if data.error}
+			<div class="notice notice-error">{data.error}</div>
 		{:else if releases.length === 0}
-			<div class="border-2 border-dashed border-btn-border px-6 py-16 text-center">
-				<div class="flex justify-center mb-4 opacity-40">
-					<Icon icon="ph:package" width="48" color="var(--color-text-muted)" />
-				</div>
-				<p class="font-game text-sm tracking-widest text-text-muted m-0">NO RELEASES YET</p>
-				<p class="font-game text-[0.6rem] tracking-widest text-text-muted/40 mt-2 mb-0">CHECK BACK SOON</p>
-			</div>
-
+			<div class="notice">No releases have been published yet. Check back soon.</div>
 		{:else}
-			{#each releases as release (release.id)}
-				<div class="border-2 border-btn-border bg-btn-bg/60 transition-[border-color] duration-150 hover:border-btn-hover-border"
-					class:border-btn-hover-border={release === latest}
-					class:bg-btn-bg={release !== latest}
-				>
-					<div class="px-6 pt-5 pb-4 flex items-start justify-between gap-4 flex-wrap border-b border-btn-border/40">
-						<div class="flex items-center gap-3 flex-wrap">
-							<span class="font-game text-[1rem] text-star-white tracking-[0.04em]">
-								{release.name || release.tag_name}
-							</span>
-							<span class="font-game text-[0.6rem] tracking-[0.08em] px-2 py-0.5 border border-btn-border text-text-muted">
-								{release.tag_name}
-							</span>
-							{#if release.prerelease}
-								<span class="font-game text-[0.55rem] tracking-[0.08em] px-2 py-0.5 border border-accent-cyan/40 text-accent-cyan">
-									PRE-RELEASE
-								</span>
-							{/if}
-							{#if release === latest && !release.prerelease}
-								<span class="font-game text-[0.55rem] tracking-[0.08em] px-2 py-0.5 bg-btn-press-bg border border-btn-hover-border text-star-white">
-									LATEST
-								</span>
-							{/if}
+			{#if latest}
+				<div class="card latest">
+					<div class="latest-head">
+						<div>
+							<p class="latest-label">Latest release</p>
+							<h2 class="latest-name">{latest.name || latest.tag_name}</h2>
+							<p class="latest-meta">
+								{latest.tag_name} · published {formatDate(latest.published_at)}
+							</p>
 						</div>
-						<div class="flex items-center gap-2 text-text-muted/60">
-							<Icon icon="ph:calendar-blank" width="14" color="var(--color-text-muted)" />
-							<span class="font-game text-[0.6rem] tracking-[0.06em]">
-								{formatDate(release.published_at)}
-							</span>
-						</div>
+
+						{#if detectedAsset}
+							<a href={detectedAsset.browser_download_url} class="btn btn-primary btn-lg" download>
+								<Icon icon={detectedPlatform.icon} width="18" />
+								Download for {detectedPlatform.label}
+							</a>
+						{/if}
 					</div>
 
-					{#if release.body?.trim()}
-						<div class="px-6 py-4 border-b border-btn-border/40">
-							<p class="font-game text-[0.6rem] leading-loose tracking-wider text-text-muted m-0 whitespace-pre-wrap line-clamp-4">
-								{release.body.trim()}
-							</p>
-							<a
-								href={release.html_url}
-								target="_blank"
-								rel="noreferrer"
-								class="font-game text-[0.55rem] tracking-[0.08em] text-accent-cyan no-underline hover:text-star-white transition-colors mt-2 inline-block"
-							>
-								VIEW FULL NOTES →
-							</a>
-						</div>
+					{#if detectedAsset}
+						<p class="latest-detected">
+							Detected {detectedPlatform.label} · {detectedAsset.name} ({formatBytes(detectedAsset.size)})
+						</p>
 					{/if}
 
-					{#if release.assets.length > 0}
-						<div class="px-6 py-4 flex flex-wrap gap-2">
-							{#each release.assets as asset (asset.id)}
+					{#if latest.assets.length > 0}
+						<div class="asset-row">
+							{#each latest.assets as asset (asset.id)}
 								{@const platform = getPlatform(asset.name)}
 								<a
 									href={asset.browser_download_url}
-									class="flex items-center gap-2 font-game text-[0.65rem] tracking-[0.06em] py-2.75 px-4.5 bg-btn-bg text-btn-text border-2 border-btn-border no-underline transition-[background,border-color,color] duration-150 hover:bg-btn-hover-bg hover:border-btn-hover-border hover:text-star-white"
+									class="btn btn-sm"
+									class:btn-ghost={asset.id !== detectedAsset?.id}
 									download
 								>
-									<Icon icon={platform.icon} width="16" />
+									<Icon icon={platform.icon} width="15" />
 									{platform.label}
-									<span class="text-text-muted/50 font-game text-[0.5rem]">
-										{formatBytes(asset.size)}
-									</span>
+									<span class="asset-size">{formatBytes(asset.size)}</span>
+								</a>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<h2 class="section-title all-heading">All releases</h2>
+
+			<div class="release-list">
+				{#each releases as release (release.id)}
+					<div class="card release">
+						<div class="release-head">
+							<div class="release-title">
+								<span class="release-name">{release.name || release.tag_name}</span>
+								<span class="badge">{release.tag_name}</span>
+								{#if release.prerelease}
+									<span class="badge badge-warn">Pre-release</span>
+								{:else if release.id === latest?.id}
+									<span class="badge badge-brand">Latest</span>
+								{/if}
+							</div>
+							<span class="release-date">
+								<Icon icon="ph:calendar-blank" width="14" />
+								{formatDate(release.published_at)}
+							</span>
+						</div>
+
+						{#if release.body?.trim()}
+							<p class="release-notes">{release.body.trim()}</p>
+						{/if}
+
+						<div class="asset-row">
+							{#each release.assets as asset (asset.id)}
+								{@const platform = getPlatform(asset.name)}
+								<a href={asset.browser_download_url} class="btn btn-sm btn-ghost" download>
+									<Icon icon={platform.icon} width="15" />
+									{platform.label}
+									<span class="asset-size">{formatBytes(asset.size)}</span>
 								</a>
 							{/each}
 
@@ -112,27 +137,131 @@
 								href={release.html_url}
 								target="_blank"
 								rel="noreferrer"
-								class="flex items-center gap-2 font-game text-[0.65rem] tracking-[0.06em] py-2.75 px-4.5 text-text-muted border-2 border-btn-border/40 no-underline transition-[color,border-color] duration-150 hover:text-accent-cyan hover:border-accent-cyan/40"
+								class="btn btn-sm btn-ghost"
 							>
-								<Icon icon="ph:github-logo" width="16" />
-								VIEW ON GITHUB
+								<Icon icon="ph:github-logo-fill" width="15" />
+								Release notes
 							</a>
 						</div>
-					{:else}
-						<div class="px-6 py-4">
-							<a
-								href={release.html_url}
-								target="_blank"
-								rel="noreferrer"
-								class="flex items-center gap-2 font-game text-[0.65rem] tracking-[0.06em] py-2.75 px-4.5 text-text-muted border-2 border-btn-border/40 no-underline transition-[color,border-color] duration-150 hover:text-accent-cyan hover:border-accent-cyan/40 w-fit"
-							>
-								<Icon icon="ph:github-logo" width="16" />
-								VIEW ON GITHUB
-							</a>
-						</div>
-					{/if}
-				</div>
-			{/each}
+					</div>
+				{/each}
+			</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	.downloads {
+		padding-bottom: 6rem;
+	}
+
+	.latest {
+		padding: 1.75rem;
+		border-color: var(--color-line-strong);
+	}
+
+	.latest-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1.25rem;
+	}
+
+	.latest-label {
+		font-size: 0.7rem;
+		font-weight: 600;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-brand);
+	}
+
+	.latest-name {
+		margin-top: 0.5rem;
+		font-size: 1.5rem;
+		font-weight: 600;
+	}
+
+	.latest-meta {
+		margin-top: 0.35rem;
+		font-size: 0.85rem;
+		color: var(--color-faint);
+	}
+
+	.latest-detected {
+		margin-top: 1rem;
+		font-size: 0.8rem;
+		color: var(--color-faint);
+	}
+
+	.asset-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 1.25rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid var(--color-line);
+	}
+
+	.asset-size {
+		color: var(--color-faint);
+		font-size: 0.75rem;
+	}
+
+	.all-heading {
+		margin-top: 3.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.release-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.release {
+		padding: 1.5rem;
+	}
+
+	.release-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.release-title {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+	}
+
+	.release-name {
+		font-size: 1.05rem;
+		font-weight: 600;
+		color: var(--color-heading);
+	}
+
+	.release-date {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.8rem;
+		color: var(--color-faint);
+	}
+
+	.release-notes {
+		margin-top: 1rem;
+		font-size: 0.875rem;
+		line-height: 1.65;
+		color: var(--color-dim);
+		white-space: pre-wrap;
+		display: -webkit-box;
+		-webkit-line-clamp: 4;
+		line-clamp: 4;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+</style>

@@ -1,5 +1,10 @@
+import { shipAccent, shipSpriteUrl, type ShipVariant } from '$lib/ts/ships';
+
 export const TEAM_BLUE = 0;
 export const TEAM_RED = 1;
+
+const SPRITE_PIXELS = 64;
+const SPRITE_DRAW_SIZE = 34;
 
 export const SPEED = 150.0;
 export const TURN_SPEED = 3.2;
@@ -251,17 +256,39 @@ export class BattleState {
 	}
 }
 
-export function drawBattle(ctx: CanvasRenderingContext2D, state: BattleState) {
+export type ShipSprites = Record<number, HTMLImageElement>;
+
+export function loadShipSprites(): ShipSprites {
+	const load = (variant: ShipVariant) => {
+		const image = new Image();
+		image.src = shipSpriteUrl(variant, SPRITE_PIXELS);
+		return image;
+	};
+	return { [TEAM_BLUE]: load('blue'), [TEAM_RED]: load('red') };
+}
+
+function teamVariant(team: number): ShipVariant {
+	return team === TEAM_BLUE ? 'blue' : 'red';
+}
+
+function isReady(image: HTMLImageElement | undefined): boolean {
+	return !!image && image.complete && image.naturalWidth > 0;
+}
+
+export function drawBattle(ctx: CanvasRenderingContext2D, state: BattleState, sprites: ShipSprites) {
 	ctx.clearRect(0, 0, state.width, state.height);
 
 	for (const p of state.projectiles) {
 		ctx.beginPath();
 		ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-		ctx.fillStyle = p.team === TEAM_BLUE ? '#739dff' : '#ff6b52';
+		ctx.fillStyle = shipAccent(teamVariant(p.team));
 		ctx.fill();
 	}
 
 	for (const s of state.ships) {
+		const accent = shipAccent(teamVariant(s.team));
+		const sprite = sprites[s.team];
+
 		ctx.save();
 		ctx.translate(s.x, s.y);
 		ctx.rotate(s.rot);
@@ -270,20 +297,24 @@ export function drawBattle(ctx: CanvasRenderingContext2D, state: BattleState) {
 		ctx.moveTo(0, 0);
 		ctx.arc(0, 0, VIEW_DISTANCE, -FOV_RAD / 2, FOV_RAD / 2);
 		ctx.lineTo(0, 0);
-		ctx.fillStyle = s.team === TEAM_BLUE ? 'rgba(115, 157, 255, 0.05)' : 'rgba(255, 107, 82, 0.05)';
+		ctx.globalAlpha = 0.06;
+		ctx.fillStyle = accent;
 		ctx.fill();
+		ctx.globalAlpha = 1;
 
-		ctx.beginPath();
-		ctx.moveTo(13, 0);
-		ctx.lineTo(-9, -7);
-		ctx.lineTo(-9, 7);
-		ctx.closePath();
-		
-		ctx.fillStyle = s.team === TEAM_BLUE ? '#739dff' : '#ff6b52';
-		ctx.fill();
-		ctx.lineWidth = 1.5;
-		ctx.strokeStyle = '#0d0d1a';
-		ctx.stroke();
+		if (isReady(sprite)) {
+			ctx.rotate(Math.PI / 2);
+			const half = SPRITE_DRAW_SIZE / 2;
+			ctx.drawImage(sprite, -half, -half, SPRITE_DRAW_SIZE, SPRITE_DRAW_SIZE);
+		} else {
+			ctx.beginPath();
+			ctx.moveTo(13, 0);
+			ctx.lineTo(-9, -7);
+			ctx.lineTo(-9, 7);
+			ctx.closePath();
+			ctx.fillStyle = accent;
+			ctx.fill();
+		}
 
 		ctx.restore();
 	}

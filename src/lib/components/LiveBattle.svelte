@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { BattleState, drawBattle } from '$lib/ts/live_battle';
+	import { BattleState, drawBattle, loadShipSprites } from '$lib/ts/live_battle';
 
 	let canvas: HTMLCanvasElement;
 	let animationId: number;
@@ -16,6 +16,7 @@
 
 	onMount(() => {
 		const ctx = canvas.getContext('2d')!;
+		const sprites = loadShipSprites();
 		let lastTime = performance.now();
 
 		rebuild();
@@ -28,8 +29,9 @@
 			lastTime = now;
 
 			state.update(delta);
-			drawBattle(ctx, state);
-			
+			drawBattle(ctx, state, sprites);
+
+
 			animationId = requestAnimationFrame(loop);
 		}
 

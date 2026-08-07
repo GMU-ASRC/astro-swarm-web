@@ -20,8 +20,8 @@ from routers.version import version_bp
 from routers.workers import workers_bp
 
 SITE_DESCRIPTION = (
-    "Design species, program behavior, unleash your swarm. AstroSwarm — a pixel-art "
-    "tower-defense and swarm simulator built in Godot 4."
+    "Design your fleet, program its behaviour, and send it against the swarm. "
+    "AstroSwarm is a swarm strategy game built in Godot 4."
 )
 
 PAGE_META = {
@@ -29,8 +29,8 @@ PAGE_META = {
     "previews": ("Previews — AstroSwarm", "Screenshots and preview footage from AstroSwarm."),
     "downloads": ("Downloads — AstroSwarm", "Download the latest AstroSwarm builds."),
     "leaderboard": ("XP Leaderboard — AstroSwarm", "Top commanders ranked by XP earned across every AstroSwarm level."),
+    "gamemodes": ("Game Modes — AstroSwarm", "Browse AstroSwarm game modes and the data behind every recorded run."),
     "levels": ("Levels — AstroSwarm", "Per-level benchmark data for player algorithms in AstroSwarm."),
-    "simulator": ("Simulator — AstroSwarm", "Shared swarm-behaviour simulations from the AstroSwarm sandbox."),
     "survive": ("Survive Matches — AstroSwarm", "Two-player Survive match reports with actions-per-minute telemetry."),
 }
 

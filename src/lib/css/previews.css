@@ -1,16 +1,21 @@
+.lightbox-nav {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
 .lightbox-nav.prev {
-	left: -3.75rem;
+	left: -3.5rem;
 }
 
 .lightbox-nav.next {
-	right: -3.75rem;
+	right: -3.5rem;
 }
 
-@media (max-width: 768px) {
-	.lightbox-nav.prev,
-	.lightbox-nav.next {
+@media (max-width: 900px) {
+	.lightbox-nav {
 		top: auto;
-		bottom: -3.5rem;
+		bottom: -3.25rem;
 		transform: none;
 	}
 

@@ -26,20 +26,16 @@ const MAX_SHIFT = 28;
 const EASE = 9;
 
 const STAR_COLORS: [number, number, number][] = [
-	[255, 255, 255],
-	[140, 217, 255],
-	[115, 153, 255],
-	[255, 217, 140],
-	[255, 153, 217],
-	[199, 153, 255],
-	[153, 255, 178],
-	[255, 140, 115],
+	[244, 246, 250],
+	[168, 205, 239],
+	[125, 155, 205],
+	[224, 198, 127],
 ];
 
 const LAYERS: StarLayer[] = [
-	{ count: 70, scale: 0.20, minArm: 0, maxArm: 1, alpha: 0.45, twinkleWeight: 0.25 },
-	{ count: 45, scale: 0.50, minArm: 1, maxArm: 1, alpha: 0.70, twinkleWeight: 0.45 },
-	{ count: 24, scale: 1.00, minArm: 1, maxArm: 2, alpha: 1.00, twinkleWeight: 0.75 },
+	{ count: 80, scale: 0.20, minArm: 0, maxArm: 0, alpha: 0.22, twinkleWeight: 0.15 },
+	{ count: 40, scale: 0.50, minArm: 0, maxArm: 1, alpha: 0.36, twinkleWeight: 0.3 },
+	{ count: 18, scale: 1.0, minArm: 1, maxArm: 1, alpha: 0.5, twinkleWeight: 0.45 },
 ];
 
 function seededRandom(seed: number) {

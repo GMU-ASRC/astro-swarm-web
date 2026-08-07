@@ -1,26 +1,119 @@
+.navbar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	gap: 2.5rem;
+	height: 4rem;
+	padding: 0 2rem;
+	background: var(--color-ink);
+	border-bottom: 1px solid var(--color-line);
+}
+
+.navbar-brand {
+	font-family: var(--font-display);
+	font-size: 1.25rem;
+	letter-spacing: 0.06em;
+	color: var(--color-heading);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.navbar-brand:hover {
+	color: var(--color-brand-hover);
+}
+
+.navbar-links {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.navbar-links a {
+	position: relative;
+	display: block;
+	padding: 0.35rem 0;
+	font-family: var(--font-display);
+	font-size: 0.95rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--color-dim);
+	text-decoration: none;
+	transition: color 0.15s;
+}
+
+.navbar-links a:hover {
+	color: var(--color-heading);
+}
+
+.navbar-links a.active {
+	color: var(--color-heading);
+}
+
+.navbar-links a.active::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: -0.5rem;
+	height: 2px;
+	background: var(--color-brand);
+}
+
+.navbar-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-left: auto;
+}
+
+.navbar-icon-link {
+	display: inline-flex;
+	padding: 0.4rem;
+	border-radius: 4px;
+	color: var(--color-dim);
+	transition:
+		color 0.15s,
+		background 0.15s;
+}
+
+.navbar-icon-link:hover {
+	color: var(--color-heading);
+	background: var(--color-surface-raised);
+}
+
 .navbar-hamburger {
+	display: none;
 	flex-direction: column;
 	justify-content: center;
 	gap: 5px;
 	width: 32px;
 	height: 32px;
+	padding: 0;
 	background: none;
 	border: none;
 	cursor: pointer;
-	padding: 0;
-	z-index: 101;
 }
 
 .navbar-hamburger span {
 	display: block;
 	width: 100%;
 	height: 2px;
-	background: var(--color-text-muted);
-	transition: transform 0.2s, opacity 0.2s, background 0.2s;
+	background: var(--color-dim);
+	transition:
+		transform 0.2s,
+		opacity 0.2s,
+		background 0.2s;
 }
 
 .navbar-hamburger:hover span {
-	background: var(--color-accent-cyan);
+	background: var(--color-heading);
 }
 
 .navbar-hamburger.open span:nth-child(1) {
@@ -39,43 +132,65 @@
 	display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
+	.navbar {
+		padding: 0 1.25rem;
+	}
+
+	.navbar-links {
+		display: none;
+	}
+
+	.navbar-hamburger {
+		display: flex;
+	}
+
 	.navbar-drawer {
 		display: flex;
 		flex-direction: column;
 		position: fixed;
-		top: 64px;
+		top: 4rem;
 		left: 0;
 		right: 0;
-		background: rgba(2, 4, 9, 0.98);
-		border-bottom: 1px solid rgba(36, 89, 184, 0.2);
-		padding: 1.5rem 1.25rem;
-		gap: 1.5rem;
-		list-style: none;
+		z-index: 99;
 		margin: 0;
+		padding: 0.5rem 1.25rem 1.25rem;
+		list-style: none;
+		background: var(--color-ink);
+		border-bottom: 1px solid var(--color-line);
 		transform: translateY(-110%);
 		visibility: hidden;
-		transition: transform 0.25s ease, visibility 0s 0.25s;
-		z-index: 99;
+		transition:
+			transform 0.25s ease,
+			visibility 0s 0.25s;
 	}
 
 	.navbar-drawer.open {
 		transform: translateY(0);
 		visibility: visible;
-		transition: transform 0.25s ease, visibility 0s 0s;
+		transition:
+			transform 0.25s ease,
+			visibility 0s 0s;
 	}
 
 	.navbar-drawer a {
-		font-family: var(--font-game);
-		font-size: 1rem;
-		color: var(--color-text-muted);
+		display: block;
+		padding: 0.85rem 0;
+		font-family: var(--font-display);
+		font-size: 1.05rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-dim);
 		text-decoration: none;
-		letter-spacing: 0.08em;
-		transition: color 0.2s;
+		border-bottom: 1px solid var(--color-line);
+	}
+
+	.navbar-drawer li:last-child a {
+		border-bottom: none;
 	}
 
 	.navbar-drawer a:hover,
 	.navbar-drawer a.active {
-		color: var(--color-accent-cyan);
+		color: var(--color-brand-hover);
 	}
 }

@@ -118,7 +118,7 @@
 {/snippet}
 
 {#if nonEmpty.length === 0}
-	<p class="text-text-muted text-sm">No algorithm data available.</p>
+	<p class="text-dim text-sm">No algorithm data available.</p>
 {:else}
 	<div class="flex flex-wrap gap-5 items-start">
 		{#each nonEmpty as script}
