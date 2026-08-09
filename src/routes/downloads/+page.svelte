@@ -5,10 +5,14 @@
 		assetForOperatingSystem,
 		detectOperatingSystem,
 		formatBytes,
+		formatCount,
 		formatDate,
 		getPlatform,
 		latestRelease,
 		platformFor,
+		playableAssets,
+		releaseDownloads,
+		totalDownloads,
 		type GithubRelease,
 		type OperatingSystem
 	} from '$lib/ts/github';
@@ -26,6 +30,8 @@
 	const latest = $derived(latestRelease(releases));
 	const detectedPlatform = $derived(platformFor(operatingSystem));
 	const detectedAsset = $derived(assetForOperatingSystem(latest, operatingSystem));
+	const latestAssets = $derived(playableAssets(latest));
+	const downloadsAllTime = $derived(totalDownloads(releases));
 
 	onMount(() => {
 		operatingSystem = detectOperatingSystem();
@@ -39,12 +45,17 @@
 
 <div class="page">
 	<div class="shell page-head">
-		<p class="eyebrow">GET THE GAME</p>
 		<h1 class="page-title">Downloads</h1>
 		<p class="page-lede">
 			Builds are published straight from the AstroSwarm repository. Grab the latest release for your
 			platform, or pick an older tag from the list below.
 		</p>
+		{#if downloadsAllTime > 0}
+			<p class="download-total">
+				<Icon icon="ph:download-simple-bold" width="15" />
+				{formatCount(downloadsAllTime)} downloads all time
+			</p>
+		{/if}
 	</div>
 
 	<div class="shell downloads">
@@ -78,14 +89,15 @@
 						</p>
 					{/if}
 
-					{#if latest.assets.length > 0}
+					{#if latestAssets.length > 0}
 						<div class="asset-row">
-							{#each latest.assets as asset (asset.id)}
+							{#each latestAssets as asset (asset.id)}
 								{@const platform = getPlatform(asset.name)}
 								<a
 									href={asset.browser_download_url}
 									class="btn btn-sm"
 									class:btn-ghost={asset.id !== detectedAsset?.id}
+									title={`${asset.name} · ${formatCount(asset.download_count ?? 0)} downloads`}
 									download
 								>
 									<Icon icon={platform.icon} width="15" />
@@ -97,6 +109,46 @@
 					{/if}
 				</div>
 			{/if}
+
+			<h2 class="section-title notes-heading">Before you play</h2>
+			<p class="notes-lede">
+				AstroSwarm builds are not code-signed, so both Windows and macOS flag them on first launch.
+				The steps below let the game through.
+			</p>
+
+			<div class="note-list">
+				<div class="card note" class:note-detected={operatingSystem === 'windows'}>
+					<div class="note-head">
+						<Icon icon="ph:windows-logo-fill" width="18" />
+						<span class="note-title">Windows Defender SmartScreen</span>
+						{#if operatingSystem === 'windows'}
+							<span class="badge badge-brand">Your platform</span>
+						{/if}
+					</div>
+					<p class="note-body">
+						Windows shows a blue "Windows protected your PC" screen when you run the game. Click
+						<strong>More info</strong>, then <strong>Run anyway</strong>. If Defender quarantines the
+						download instead, open <strong>Windows Security &gt; Virus &amp; threat protection &gt;
+						Protection history</strong>, find AstroSwarm, and choose <strong>Allow on device</strong>.
+					</p>
+				</div>
+
+				<div class="card note" class:note-detected={operatingSystem === 'macos'}>
+					<div class="note-head">
+						<Icon icon="ph:apple-logo-fill" width="18" />
+						<span class="note-title">macOS Privacy &amp; Security</span>
+						{#if operatingSystem === 'macos'}
+							<span class="badge badge-brand">Your platform</span>
+						{/if}
+					</div>
+					<p class="note-body">
+						macOS blocks the game with "AstroSwarm cannot be opened because it is from an
+						unidentified developer". Open <strong>System Settings &gt; Privacy &amp; Security</strong>,
+						scroll to the Security section, and click <strong>Open Anyway</strong> next to the
+						AstroSwarm message, then confirm. You only need to do this once per build.
+					</p>
+				</div>
+			</div>
 
 			<h2 class="section-title all-heading">All releases</h2>
 
@@ -113,9 +165,15 @@
 									<span class="badge badge-brand">Latest</span>
 								{/if}
 							</div>
-							<span class="release-date">
-								<Icon icon="ph:calendar-blank" width="14" />
-								{formatDate(release.published_at)}
+							<span class="release-meta">
+								<span class="release-date">
+									<Icon icon="ph:download-simple-bold" width="14" />
+									{formatCount(releaseDownloads(release))} downloads
+								</span>
+								<span class="release-date">
+									<Icon icon="ph:calendar-blank" width="14" />
+									{formatDate(release.published_at)}
+								</span>
 							</span>
 						</div>
 
@@ -124,9 +182,14 @@
 						{/if}
 
 						<div class="asset-row">
-							{#each release.assets as asset (asset.id)}
+							{#each playableAssets(release) as asset (asset.id)}
 								{@const platform = getPlatform(asset.name)}
-								<a href={asset.browser_download_url} class="btn btn-sm btn-ghost" download>
+								<a
+									href={asset.browser_download_url}
+									class="btn btn-sm btn-ghost"
+									title={`${asset.name} · ${formatCount(asset.download_count ?? 0)} downloads`}
+									download
+								>
 									<Icon icon={platform.icon} width="15" />
 									{platform.label}
 									<span class="asset-size">{formatBytes(asset.size)}</span>
@@ -213,6 +276,58 @@
 		margin-bottom: 1rem;
 	}
 
+	.notes-heading {
+		margin-top: 3.5rem;
+	}
+
+	.notes-lede {
+		margin-top: 0.6rem;
+		margin-bottom: 1rem;
+		max-width: 44rem;
+		font-size: 0.875rem;
+		line-height: 1.65;
+		color: var(--color-dim);
+	}
+
+	.note-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+		gap: 0.75rem;
+	}
+
+	.note {
+		padding: 1.35rem;
+	}
+
+	.note-detected {
+		border-color: var(--color-line-strong);
+	}
+
+	.note-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+		color: var(--color-heading);
+	}
+
+	.note-title {
+		font-size: 1rem;
+		font-weight: 600;
+	}
+
+	.note-body {
+		margin-top: 0.85rem;
+		font-size: 0.875rem;
+		line-height: 1.7;
+		color: var(--color-dim);
+	}
+
+	.note-body strong {
+		color: var(--color-heading);
+		font-weight: 600;
+	}
+
 	.release-list {
 		display: flex;
 		flex-direction: column;
@@ -244,11 +359,27 @@
 		color: var(--color-heading);
 	}
 
+	.release-meta {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1rem;
+	}
+
 	.release-date {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
 		font-size: 0.8rem;
+		color: var(--color-faint);
+	}
+
+	.download-total {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+		margin-top: 1rem;
+		font-size: 0.85rem;
 		color: var(--color-faint);
 	}
 

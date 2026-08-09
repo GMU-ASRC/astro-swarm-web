@@ -86,9 +86,34 @@ export function detectOperatingSystem(): OperatingSystem {
 	return 'unknown';
 }
 
+// Matches "server" as a whole word so headless builds are filtered out without
+// catching names that merely contain the letters (for example "observer").
+const SERVER_BUILD = /(^|[^a-z])server([^a-z]|$)/i;
+
+export function isServerBuild(filename: string): boolean {
+	return SERVER_BUILD.test(filename);
+}
+
+export function playableAssets(release: GithubRelease | null): GithubAsset[] {
+	if (!release) return [];
+	return release.assets.filter((asset) => !isServerBuild(asset.name));
+}
+
 export function assetForOperatingSystem(release: GithubRelease | null, os: OperatingSystem): GithubAsset | null {
 	if (!release || os === 'unknown') return null;
-	return release.assets.find((asset) => getPlatform(asset.name).os === os) ?? null;
+	return playableAssets(release).find((asset) => getPlatform(asset.name).os === os) ?? null;
+}
+
+export function releaseDownloads(release: GithubRelease): number {
+	return release.assets.reduce((total, asset) => total + (asset.download_count ?? 0), 0);
+}
+
+export function totalDownloads(releases: GithubRelease[]): number {
+	return releases.reduce((total, release) => total + releaseDownloads(release), 0);
+}
+
+export function formatCount(value: number): string {
+	return value.toLocaleString('en-US');
 }
 
 export function latestRelease(releases: GithubRelease[]): GithubRelease | null {
