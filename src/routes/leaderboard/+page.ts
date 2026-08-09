@@ -10,10 +10,10 @@ export const load: PageLoad = async ({ fetch }) => {
 		if (res.ok) {
 			return { players: await res.json(), apiError: false };
 		}
-		console.error('Failed to fetch XP leaderboard:', await res.text());
+		console.error('Failed to fetch success rate leaderboard:', await res.text());
 		return { players: [], apiError: true };
 	} catch (err) {
-		console.error('Error fetching XP leaderboard:', err);
+		console.error('Error fetching success rate leaderboard:', err);
 		return { players: [], apiError: true };
 	}
 };

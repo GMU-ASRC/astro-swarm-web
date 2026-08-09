@@ -26,6 +26,7 @@
 		username: string;
 		total_xp: number;
 		overall_success: number | null;
+		best_success: number | null;
 		overall_rank: number | null;
 		total_players: number;
 		entries: number;
@@ -70,22 +71,24 @@
 		</a>
 		<h1 class="page-title name-heading">{profile.username}</h1>
 		<p class="page-lede">
-			Rank #{profile.overall_rank ?? '—'} of {profile.total_players} commanders · {profile.total_xp} XP
-			total
+			Rank #{profile.overall_rank ?? '—'} of {profile.total_players} commanders ·
+			{profile.overall_success != null ? `${profile.overall_success}% average success` : 'no results yet'}
 		</p>
 	</div>
 
 	<div class="shell profile">
 		<div class="stat-grid">
 			<div class="stat">
-				<div class="stat-value">{profile.total_xp}</div>
-				<div class="stat-label">Total XP</div>
-			</div>
-			<div class="stat">
 				<div class="stat-value">
 					{profile.overall_success != null ? `${profile.overall_success}%` : '—'}
 				</div>
-				<div class="stat-label">Overall success</div>
+				<div class="stat-label">Average success</div>
+			</div>
+			<div class="stat">
+				<div class="stat-value">
+					{profile.best_success != null ? `${profile.best_success}%` : '—'}
+				</div>
+				<div class="stat-label">Best success</div>
 			</div>
 			<div class="stat">
 				<div class="stat-value">#{profile.overall_rank ?? '—'}</div>

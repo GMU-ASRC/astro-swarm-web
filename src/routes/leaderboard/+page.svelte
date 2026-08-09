@@ -6,6 +6,7 @@
 		username: string;
 		total_xp: number;
 		entries: number;
+		best_success: number | null;
 		overall_success: number | null;
 		rank: number;
 	}
@@ -32,17 +33,19 @@
 </script>
 
 <svelte:head>
-	<title>XP Leaderboard — AstroSwarm</title>
-	<meta name="description" content="Top commanders ranked by XP earned across every AstroSwarm level." />
+	<title>Success Rate Leaderboard — AstroSwarm</title>
+	<meta
+		name="description"
+		content="Top commanders ranked by average success rate across every AstroSwarm level."
+	/>
 </svelte:head>
 
 <div class="page">
 	<div class="shell page-head">
-		<p class="eyebrow">STANDINGS</p>
-		<h1 class="page-title">XP Leaderboard</h1>
+		<h1 class="page-title">Success Rate Leaderboard</h1>
 		<p class="page-lede">
-			Commanders ranked by total XP earned across every level. Open a commander to see their profile,
-			entries, and per-level ranks.
+			Commanders ranked by their average success rate across every level. Open a commander to see
+			their profile, entries, and per-level ranks.
 		</p>
 	</div>
 
@@ -53,7 +56,7 @@
 			<div class="notice notice-error">Communication error. Unable to load leaderboard data.</div>
 		{:else if shown.length === 0}
 			<div class="notice">
-				No commanders yet. Complete a level in game and claim your XP to appear here.
+				No commanders yet. Submit a level in game to appear here.
 			</div>
 		{:else}
 			<div class="rows">
@@ -62,9 +65,11 @@
 						<span class="badge rank {rankClass(player.rank)}">#{player.rank}</span>
 						<span class="name">{player.username}</span>
 						<span class="numbers">
-							<span class="xp">{player.total_xp} XP</span>
+							<span class="success-rate">
+								{player.overall_success != null ? `${player.overall_success}%` : '—'}
+							</span>
 							<span class="detail">
-								{player.overall_success != null ? `${player.overall_success}% avg` : 'no data'} ·
+								{player.best_success != null ? `${player.best_success}% best` : 'no data'} ·
 								{player.entries} entries
 							</span>
 						</span>
@@ -121,7 +126,7 @@
 		text-align: right;
 	}
 
-	.xp {
+	.success-rate {
 		display: block;
 		font-size: 1.05rem;
 		font-weight: 600;

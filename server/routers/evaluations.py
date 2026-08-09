@@ -180,6 +180,7 @@ def _aggregate_players():
                 "entries": 0,
                 "success_sum": 0.0,
                 "success_count": 0,
+                "best_success": None,
                 "levels": {},
                 "last": e.created_at,
             }
@@ -200,21 +201,27 @@ def _aggregate_players():
         if rate is not None and e.status == "done":
             p["success_sum"] += float(rate)
             p["success_count"] += 1
+            if p["best_success"] is None or float(rate) > p["best_success"]:
+                p["best_success"] = float(rate)
             lv["success_sum"] += float(rate)
             lv["count"] += 1
     for p in players.values():
         p["overall_success"] = (
             round(p["success_sum"] / p["success_count"], 1) if p["success_count"] else None
         )
+        if p["best_success"] is not None:
+            p["best_success"] = round(p["best_success"], 1)
         for lv in p["levels"].values():
             lv["success_rate"] = round(lv["success_sum"] / lv["count"], 1) if lv["count"] else None
     return players
 
 
-def _sorted_by_xp(players):
+def _sorted_by_success(players):
+    # Players without a finished run have no rate, so they rank below everyone
+    # who does. Entry count breaks ties in favour of the more tested player.
     return sorted(
         players.values(),
-        key=lambda p: (p["total_xp"], p["overall_success"] or 0.0),
+        key=lambda p: (p["overall_success"] is not None, p["overall_success"] or 0.0, p["entries"]),
         reverse=True,
     )
 
@@ -222,15 +229,17 @@ def _sorted_by_xp(players):
 @evaluations_bp.get("/players")
 def players_leaderboard():
     players = _aggregate_players()
-    rows = _sorted_by_xp(players)
+    rows = _sorted_by_success(players)
     return jsonify([
         {
             "player_id": p["player_id"],
             "username": p["username"],
             "total_xp": p["total_xp"],
             "entries": p["entries"],
+            "best_success": p["best_success"],
             "overall_success": p["overall_success"],
             "rank": index + 1,
+            "last_active": p["last"].isoformat() if p["last"] else None,
         }
         for index, p in enumerate(rows)
     ])
@@ -243,7 +252,7 @@ def player_profile(player_id: str):
     if me is None:
         raise NotFound("Player not found")
 
-    ranked = _sorted_by_xp(players)
+    ranked = _sorted_by_success(players)
     overall_rank = next((i + 1 for i, p in enumerate(ranked) if p["player_id"] == player_id), None)
 
     levels_out = []
@@ -282,12 +291,45 @@ def player_profile(player_id: str):
         "username": me["username"],
         "total_xp": me["total_xp"],
         "overall_success": me["overall_success"],
+        "best_success": me["best_success"],
         "overall_rank": overall_rank,
         "total_players": len(ranked),
         "entries": me["entries"],
+        "last_active": me["last"].isoformat() if me["last"] else None,
         "levels": levels_out,
         "recent_entries": [e.to_list_dict() for e in entries],
     })
+
+
+@evaluations_bp.delete("/players/<player_id>")
+def delete_player(player_id: str):
+    require_admin()
+    entries = PlayerEvaluation.query.filter_by(player_id=player_id).all()
+    if not entries:
+        raise NotFound("Player not found")
+    for entry in entries:
+        EvaluationShard.query.filter_by(evaluation_id=entry.id).delete(synchronize_session=False)
+        db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"deleted": len(entries)})
+
+
+@evaluations_bp.put("/players/<player_id>")
+def rename_player(player_id: str):
+    require_admin()
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    if not username:
+        raise BadRequest("username is required")
+    if len(username) > 30:
+        raise BadRequest("username must be 30 characters or fewer")
+    entries = PlayerEvaluation.query.filter_by(player_id=player_id).all()
+    if not entries:
+        raise NotFound("Player not found")
+    for entry in entries:
+        entry.username = username
+    db.session.commit()
+    return jsonify({"player_id": player_id, "username": username, "updated": len(entries)})
 
 
 @evaluations_bp.post("")

@@ -28,7 +28,7 @@ PAGE_META = {
     "": ("AstroSwarm", SITE_DESCRIPTION),
     "previews": ("Previews — AstroSwarm", "Screenshots and preview footage from AstroSwarm."),
     "downloads": ("Downloads — AstroSwarm", "Download the latest AstroSwarm builds."),
-    "leaderboard": ("XP Leaderboard — AstroSwarm", "Top commanders ranked by XP earned across every AstroSwarm level."),
+    "leaderboard": ("Success Rate Leaderboard — AstroSwarm", "Top commanders ranked by average success rate across every AstroSwarm level."),
     "gamemodes": ("Game Modes — AstroSwarm", "Browse AstroSwarm game modes and the data behind every recorded run."),
     "levels": ("Levels — AstroSwarm", "Per-level benchmark data for player algorithms in AstroSwarm."),
     "survive": ("Survive Matches — AstroSwarm", "Two-player Survive match reports with actions-per-minute telemetry."),
