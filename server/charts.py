@@ -7,8 +7,28 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
+PERCENT_CEILING = 108
+PERCENT_TICKS = [0, 25, 50, 75, 100]
+AXIS_PADDING = 0.04
+
+
 def _caption(username, level_id, eval_id, date_label):
     return f"{username}  ·  level: {level_id}  ·  id: {eval_id[:8]}  ·  {date_label}"
+
+
+def _percent_axis(ax):
+    # Leave headroom above 100% so a maxed-out line does not sit on the frame.
+    ax.set_ylim(0, PERCENT_CEILING)
+    ax.set_yticks(PERCENT_TICKS)
+
+
+def _padded_xlim(ax, xs):
+    if not xs:
+        return
+    low = min(xs)
+    high = max(xs)
+    padding = (high - low) * AXIS_PADDING or 1.0
+    ax.set_xlim(low - padding, high + padding)
 
 
 def _outcome_counts(outcomes):
@@ -49,7 +69,8 @@ def render_thumbnail_png(username, level_id, detection_rate, trials, outcomes):
             xs.append(index + 1)
             ys.append(100.0 * wins / (index + 1))
         ax.plot(xs, ys, color="#7c9eff", linewidth=3)
-        ax.set_ylim(0, 100)
+        _percent_axis(ax)
+        _padded_xlim(ax, xs)
         ax.set_title("Cumulative detection rate", color="#8ba3c9", fontsize=14)
         ax.tick_params(colors="#8ba3c9")
         for spine in ax.spines.values():
@@ -74,7 +95,8 @@ def render_line_png(outcomes, username, level_id, eval_id, date_label):
     ax.set_title("Cumulative Detection Rate")
     ax.set_xlabel("Trial")
     ax.set_ylabel("Detection Rate (%)")
-    ax.set_ylim(0, 100)
+    _percent_axis(ax)
+    _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
@@ -99,9 +121,8 @@ def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta)
     ax.set_title(title)
     ax.set_xlabel("Defenders in ring (n)")
     ax.set_ylabel(ylabel)
-    ax.set_ylim(0, 100)
-    if xs:
-        ax.set_xlim(min(xs), max(xs))
+    _percent_axis(ax)
+    _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
     fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
@@ -147,6 +168,9 @@ def render_times_png(detection_times, capture_times, username, level_id, eval_id
     ax.set_title("Detection and Capture Times per Trial")
     ax.set_xlabel("Trial")
     ax.set_ylabel("Time (s)")
+    tallest = max(detections + captures + [0.0])
+    ax.set_ylim(0, tallest * 1.18 if tallest > 0 else 1.0)
+    ax.margins(x=AXIS_PADDING)
     ax.grid(True, axis="y", color="#e5e7eb")
     ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
@@ -169,7 +193,7 @@ def render_bar_png(outcomes, username, level_id, eval_id, date_label):
     ax.bar(labels, values, color=colors)
     ax.set_title("Outcome Breakdown")
     ax.set_ylabel("% of trials")
-    ax.set_ylim(0, 100)
+    _percent_axis(ax)
     ax.grid(True, axis="y", color="#e5e7eb")
     for index, value in enumerate(values):
         ax.text(index, value + 1.5, f"{value:.0f}%", ha="center", fontsize=9, color="#374151")

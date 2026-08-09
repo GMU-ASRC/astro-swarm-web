@@ -3,6 +3,10 @@ import type { ChartConfiguration } from 'chart.js';
 const GRID = '#e5e7eb';
 const TEXT = '#374151';
 
+const PERCENT_CEILING = 108;
+const PERCENT_TICK_STEP = 25;
+const VALUE_HEADROOM = '8%';
+
 function baseOptions(title: string, yTitle: string, xTitle: string, showLegend = false) {
 	return {
 		responsive: true,
@@ -12,9 +16,28 @@ function baseOptions(title: string, yTitle: string, xTitle: string, showLegend =
 			legend: { display: showLegend, labels: { color: TEXT } }
 		},
 		scales: {
-			y: { title: { display: true, text: yTitle, color: TEXT }, ticks: { color: TEXT }, grid: { color: GRID } },
-			x: { title: { display: true, text: xTitle, color: TEXT }, ticks: { color: TEXT }, grid: { color: GRID } }
+			y: {
+				title: { display: true, text: yTitle, color: TEXT },
+				ticks: { color: TEXT },
+				grid: { color: GRID },
+				grace: VALUE_HEADROOM
+			},
+			x: {
+				title: { display: true, text: xTitle, color: TEXT },
+				ticks: { color: TEXT },
+				grid: { color: GRID },
+				offset: true
+			}
 		}
+	};
+}
+
+function percentScale(scale: object) {
+	return {
+		...scale,
+		min: 0,
+		max: PERCENT_CEILING,
+		ticks: { color: TEXT, stepSize: PERCENT_TICK_STEP }
 	};
 }
 
@@ -29,7 +52,7 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 	});
 
 	const options = baseOptions('Cumulative Detection Rate', 'Detection Rate (%)', 'Trial');
-	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
+	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
 		type: 'line',
@@ -58,7 +81,7 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 	];
 
 	const options = baseOptions('Outcome Breakdown', '% of trials', '');
-	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
+	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
 		type: 'bar',
@@ -96,7 +119,7 @@ function sweepRateConfig(
 	};
 
 	const options = baseOptions(title, yTitle, 'Defenders in ring (n)');
-	options.scales.y = { ...options.scales.y, min: 0, max: 100 } as never;
+	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
 		type: 'line',
