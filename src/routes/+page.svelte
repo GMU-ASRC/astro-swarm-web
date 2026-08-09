@@ -26,6 +26,11 @@
 	];
 
 	const fleet: ShipVariant[] = ['blue', 'green', 'gold', 'purple', 'red'];
+
+	const team: { name: string; role: string; handle: string }[] = [
+		{ name: 'Gagan Manjunatha', role: 'Lead Developer', handle: 'SirBlobby' },
+		{ name: 'Yousif Alani', role: 'Game Design Developer', handle: 'YousifA2' }
+	];
 </script>
 
 <svelte:head>
@@ -72,6 +77,38 @@
 					<span class="mode-cta">
 						View data
 						<Icon icon="ph:arrow-right-bold" width="14" />
+					</span>
+				</div>
+			</a>
+		{/each}
+	</div>
+</section>
+
+<section class="shell shell-wide section">
+	<h2 class="page-title">The team</h2>
+
+	<div class="team-grid">
+		{#each team as member}
+			<a
+				href={`https://github.com/${member.handle}`}
+				target="_blank"
+				rel="noreferrer"
+				class="card-link team-card"
+			>
+				<img
+					src={`https://github.com/${member.handle}.png?size=160`}
+					alt={`${member.name} avatar`}
+					class="team-avatar"
+					width="80"
+					height="80"
+					loading="lazy"
+				/>
+				<div class="team-details">
+					<h3 class="team-name">{member.name}</h3>
+					<p class="team-role">{member.role}</p>
+					<span class="team-handle">
+						<Icon icon="ph:github-logo-fill" width="14" />
+						{member.handle}
 					</span>
 				</div>
 			</a>
@@ -188,6 +225,58 @@
 		align-items: center;
 		gap: 0.4rem;
 		margin-top: 1.1rem;
+		font-size: 0.85rem;
+		font-weight: 500;
+		color: var(--color-brand-hover);
+	}
+
+	.team-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+		gap: 1rem;
+		margin-top: 2rem;
+	}
+
+	.team-card {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1.5rem;
+	}
+
+	.team-avatar {
+		flex-shrink: 0;
+		width: 80px;
+		height: 80px;
+		border: 1px solid var(--color-line-strong);
+		border-radius: var(--radius-panel);
+		object-fit: cover;
+		background: var(--color-surface-raised);
+	}
+
+	.team-details {
+		min-width: 0;
+	}
+
+	.team-name {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: var(--color-heading);
+	}
+
+	.team-role {
+		margin-top: 0.25rem;
+		font-size: 0.8rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-faint);
+	}
+
+	.team-handle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.85rem;
 		font-size: 0.85rem;
 		font-weight: 500;
 		color: var(--color-brand-hover);
