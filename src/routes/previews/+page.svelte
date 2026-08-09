@@ -47,7 +47,6 @@
 
 <div class="page">
 	<div class="shell shell-wide page-head">
-		<p class="eyebrow">GALLERY</p>
 		<h1 class="page-title">Screenshots</h1>
 		<p class="page-lede">Captures from the game as it takes shape. Click any shot to view it full size.</p>
 	</div>

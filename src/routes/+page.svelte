@@ -57,7 +57,6 @@
 </section>
 
 <section class="shell shell-wide section">
-	<p class="eyebrow">GAME MODES</p>
 	<h2 class="page-title">Pick your fight</h2>
 
 	<div class="mode-grid">

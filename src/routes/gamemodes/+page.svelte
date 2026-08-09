@@ -39,7 +39,6 @@
 
 <div class="page">
 	<div class="shell page-head">
-		<p class="eyebrow">GAME MODES</p>
 		<h1 class="page-title">Pick a mode</h1>
 		<p class="page-lede">
 			Every mode records what happened in game and publishes it here. Choose a mode to browse its
