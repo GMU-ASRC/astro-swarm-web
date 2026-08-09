@@ -2,10 +2,10 @@ import { apiUrl } from '$lib/ts/api';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = ({ fetch }) => {
-	const leaderboardPromise = (async () => {
-		const res = await fetch(apiUrl('/api/leaderboard'));
+	const playersPromise = (async () => {
+		const res = await fetch(apiUrl('/api/evaluations/players'));
 		return res.ok ? await res.json() : [];
 	})();
 
-	return { leaderboardPromise };
+	return { playersPromise };
 };
