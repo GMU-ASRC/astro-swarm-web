@@ -28,11 +28,11 @@
 		return () => clearInterval(timer);
 	});
 
-	function statusStyle(status: string): string {
-		if (status === 'idle') return 'color:#15803d;border-color:#86c9a0;background:#e7f6ee';
-		if (status === 'busy') return 'color:#1d4ed8;border-color:#9cb6ef;background:#e8eefb';
-		if (status === 'disconnected') return 'color:#b45309;border-color:#e3c08a;background:#fbf1df';
-		return 'color:#6b7280;border-color:#d4d4d8;background:#f4f4f5';
+	function statusClass(status: string): string {
+		if (status === 'idle') return 'status-idle';
+		if (status === 'busy') return 'status-busy';
+		if (status === 'disconnected') return 'status-disconnected';
+		return '';
 	}
 
 	function lastSeen(iso: string | null): string {
@@ -71,7 +71,7 @@
 					>
 						<td>{worker.name}</td>
 						<td>{worker.hostname || '—'}</td>
-						<td><span class="pill" style={statusStyle(worker.status)}>{worker.status}</span></td>
+						<td><span class="pill {statusClass(worker.status)}">{worker.status}</span></td>
 						<td>{worker.max_jobs}</td>
 						<td>{worker.current_job_id ? `${worker.current_job_id.slice(0, 8)}…` : '—'}</td>
 						<td>{lastSeen(worker.last_seen)}</td>

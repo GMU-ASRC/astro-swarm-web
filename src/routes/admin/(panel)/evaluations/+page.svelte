@@ -266,7 +266,7 @@
 <style>
 	.eval-id {
 		font-size: 0.78em;
-		color: #6b7280;
+		color: var(--color-faint);
 	}
 	.progress-cell {
 		min-width: 12rem;
@@ -274,16 +274,16 @@
 	.progress-track {
 		height: 8px;
 		width: 100%;
-		background: #e4e4e7;
-		border: 1px solid #d4d4d8;
+		background: var(--color-ink);
+		border: 1px solid var(--color-line);
 		overflow: hidden;
 	}
 	.progress-fill {
 		height: 100%;
-		background: #2563eb;
+		background: var(--color-brand);
 		transition: width 0.4s ease;
 	}
 	.progress-fill.done {
-		background: #15803d;
+		background: var(--color-win);
 	}
 </style>

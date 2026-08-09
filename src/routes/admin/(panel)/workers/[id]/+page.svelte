@@ -93,11 +93,11 @@
 		}
 	}
 
-	function statusStyle(status: string): string {
-		if (status === 'idle') return 'color:#15803d;border-color:#86c9a0;background:#e7f6ee';
-		if (status === 'busy') return 'color:#1d4ed8;border-color:#9cb6ef;background:#e8eefb';
-		if (status === 'disconnected') return 'color:#b45309;border-color:#e3c08a;background:#fbf1df';
-		return 'color:#6b7280;border-color:#d4d4d8;background:#f4f4f5';
+	function statusClass(status: string): string {
+		if (status === 'idle') return 'status-idle';
+		if (status === 'busy') return 'status-busy';
+		if (status === 'disconnected') return 'status-disconnected';
+		return '';
 	}
 
 	function when(iso: string | null): string {
@@ -118,7 +118,7 @@
 {:else}
 	<h1>{worker.name}</h1>
 	<p class="meta">
-		<span class="pill" style={statusStyle(worker.status)}>{worker.status}</span>
+		<span class="pill {statusClass(worker.status)}">{worker.status}</span>
 		· {worker.hostname || 'unknown host'}
 	</p>
 	<p class="meta">{worker.id}</p>

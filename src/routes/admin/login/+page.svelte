@@ -51,21 +51,16 @@
 	<title>Admin Login — AstroSwarm</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center px-5 py-8 bg-[#f4f4f5]">
-	<form
-		class="w-full max-w-sm p-10 bg-white border border-[#e4e4e7] border-t-2 border-t-[#27272a]"
-		onsubmit={login}
-	>
-		<div class="flex flex-col items-center gap-1 pb-6 mb-6 border-b border-[#e4e4e7]">
-			<span class="text-xl font-bold tracking-[0.1em] text-[#18181b]">ASTROSWARM</span>
-			<span class="text-[0.62rem] tracking-[0.24em] uppercase text-[#a1a1aa]">Admin Console</span>
+<div class="login-page">
+	<form class="login-card" onsubmit={login}>
+		<div class="login-brand">
+			<span class="brand-title">ASTROSWARM</span>
+			<span class="brand-sub">Admin Console</span>
 		</div>
 
-		<h1 class="text-lg text-center text-[#18181b] mb-6">Sign in</h1>
+		<h1 class="login-heading">Sign in</h1>
 
-		<label for="username" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
-			Username
-		</label>
+		<label for="username" class="field-label">Username</label>
 		<input
 			type="text"
 			id="username"
@@ -73,12 +68,10 @@
 			autocomplete="username"
 			placeholder="Enter username"
 			required
-			class="w-full px-3.5 py-2.5 mb-4 bg-white border border-[#d4d4d8] text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#18181b]"
+			class="field login-field"
 		/>
 
-		<label for="password" class="block text-xs font-semibold uppercase tracking-wider text-[#71717a] mb-2">
-			Password
-		</label>
+		<label for="password" class="field-label">Password</label>
 		<input
 			type="password"
 			id="password"
@@ -86,21 +79,83 @@
 			autocomplete="current-password"
 			placeholder="Enter password"
 			required
-			class="w-full px-3.5 py-2.5 mb-5 bg-white border border-[#d4d4d8] text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#18181b]"
+			class="field login-field"
 		/>
 
 		{#if error}
-			<div class="mb-5 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-sm">
-				{error}
-			</div>
+			<div class="login-error">{error}</div>
 		{/if}
 
-		<button
-			type="submit"
-			disabled={loading}
-			class="w-full py-2.5 bg-[#27272a] hover:bg-[#18181b] text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-		>
+		<button type="submit" disabled={loading} class="btn btn-primary login-submit">
 			{loading ? 'Authorizing...' : 'Access panel'}
 		</button>
 	</form>
 </div>
+
+<style>
+	.login-page {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		padding: 2rem 1.25rem;
+		background: var(--color-ink);
+	}
+
+	.login-card {
+		width: 100%;
+		max-width: 24rem;
+		padding: 2.5rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-line);
+	}
+
+	.login-brand {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.35rem;
+		padding-bottom: 1.5rem;
+		margin-bottom: 1.75rem;
+		border-bottom: 1px solid var(--color-line);
+	}
+
+	.brand-title {
+		font-family: var(--font-display);
+		font-size: 1.15rem;
+		letter-spacing: 0.06em;
+		color: var(--color-heading);
+	}
+
+	.brand-sub {
+		font-size: 0.62rem;
+		letter-spacing: 0.22em;
+		text-transform: uppercase;
+		color: var(--color-faint);
+	}
+
+	.login-heading {
+		margin-bottom: 1.75rem;
+		font-size: 1.05rem;
+		font-weight: 600;
+		text-align: center;
+		color: var(--color-heading);
+	}
+
+	.login-field {
+		margin-bottom: 1.25rem;
+	}
+
+	.login-error {
+		margin-bottom: 1.25rem;
+		padding: 0.6rem 0.85rem;
+		background: color-mix(in srgb, var(--color-loss) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-loss) 40%, transparent);
+		color: var(--color-loss);
+		font-size: 0.85rem;
+	}
+
+	.login-submit {
+		width: 100%;
+	}
+</style>

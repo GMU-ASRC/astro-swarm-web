@@ -365,7 +365,7 @@
 <style>
 	hr {
 		border: none;
-		border-top: 1px solid #d1d5db;
-		margin: 1rem 0;
+		border-top: 1px solid var(--color-line);
+		margin: 1.75rem 0;
 	}
 </style>

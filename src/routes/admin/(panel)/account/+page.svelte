@@ -112,7 +112,7 @@
 <p class="meta">Signed in as <strong>{me?.username ?? '…'}</strong>{me?.master ? ' (master key)' : ''}.</p>
 
 {#if message}<div class="message">{message}</div>{/if}
-{#if error}<div class="message" style="color:#b91c1c">{error}</div>{/if}
+{#if error}<div class="message message-error">{error}</div>{/if}
 
 <h2>Change password</h2>
 {#if me?.master}
