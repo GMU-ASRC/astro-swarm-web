@@ -1,4 +1,7 @@
-from flask import Blueprint, jsonify, request
+import os
+
+from flask import Blueprint, current_app, jsonify, request
+from sqlalchemy import text
 from werkzeug.exceptions import BadRequest, Conflict, Forbidden, NotFound
 
 from auth import (
@@ -13,6 +16,19 @@ from database import db
 from models import AdminSession, AdminUser
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+TRACKED_TABLES = [
+    "player_evaluations",
+    "evaluation_shards",
+    "sim_runs",
+    "sim_configs",
+    "survive_matches",
+    "leaderboard_entries",
+    "workers",
+    "admin_users",
+    "admin_sessions",
+    "app_settings",
+]
 
 
 def _username_field(data):
@@ -96,6 +112,72 @@ def create_user():
     db.session.add(user)
     db.session.commit()
     return jsonify(user.to_dict()), 201
+
+
+def _database_size():
+    # pg_total_relation_size covers the table plus its indexes and TOAST data,
+    # which is where the compressed replay blobs actually live.
+    total = db.session.execute(
+        text("SELECT pg_database_size(current_database())")
+    ).scalar()
+    tables = []
+    for name in TRACKED_TABLES:
+        try:
+            size = db.session.execute(
+                text("SELECT pg_total_relation_size(:name)"), {"name": name}
+            ).scalar()
+            rows = db.session.execute(text(f"SELECT count(*) FROM {name}")).scalar()
+        except Exception:
+            db.session.rollback()
+            continue
+        tables.append({"name": name, "bytes": int(size or 0), "rows": int(rows or 0)})
+    tables.sort(key=lambda table: table["bytes"], reverse=True)
+    return int(total or 0), tables
+
+
+def _uploads_size(upload_dir):
+    total = 0
+    files = 0
+    for root, _dirs, names in os.walk(upload_dir):
+        for name in names:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+                files += 1
+            except OSError:
+                continue
+    return total, files
+
+
+@admin_bp.get("/storage")
+def storage():
+    require_admin()
+
+    try:
+        database_bytes, tables = _database_size()
+        database_error = None
+    except Exception as exc:
+        db.session.rollback()
+        database_bytes, tables = 0, []
+        database_error = str(exc)
+
+    upload_dir = current_app.config["UPLOAD_DIR"]
+    if os.path.isdir(upload_dir):
+        uploads_bytes, upload_files = _uploads_size(upload_dir)
+        uploads_error = None
+    else:
+        uploads_bytes, upload_files = 0, 0
+        uploads_error = "Upload directory not found"
+
+    return jsonify({
+        "total_bytes": database_bytes + uploads_bytes,
+        "database_bytes": database_bytes,
+        "database_error": database_error,
+        "tables": tables,
+        "uploads_bytes": uploads_bytes,
+        "upload_files": upload_files,
+        "upload_dir": upload_dir,
+        "uploads_error": uploads_error,
+    })
 
 
 @admin_bp.delete("/users/<user_id>")
