@@ -4,6 +4,8 @@
 	import { page } from '$app/state';
 	import { REPO } from '$lib/ts/github';
 
+	const LAB_URL = 'https://create.autonomousrobotics.club/projects/astroswarm';
+
 	const links = [
 		{ href: '/', label: 'Home', match: (path: string) => path === '/' },
 		{ href: '/gamemodes', label: 'Game Modes', match: (path: string) => path.startsWith('/gamemodes') || path.startsWith('/levels') || path.startsWith('/survive') },
@@ -40,6 +42,17 @@
 			aria-label="AstroSwarm on GitHub"
 		>
 			<Icon icon="ph:github-logo-fill" width="20" />
+		</a>
+
+		<a
+			href={LAB_URL}
+			target="_blank"
+			rel="noreferrer"
+			class="navbar-icon-link"
+			aria-label="AstroSwarm at the Autonomous Robotics Club"
+			title="Research lab project page"
+		>
+			<Icon icon="ph:flask-fill" width="20" />
 		</a>
 
 		<button
