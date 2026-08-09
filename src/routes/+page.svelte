@@ -27,9 +27,30 @@
 
 	const fleet: ShipVariant[] = ['blue', 'green', 'gold', 'purple', 'red'];
 
-	const team: { name: string; role: string; handle: string }[] = [
-		{ name: 'Gagan Manjunatha', role: 'Lead Developer', handle: 'SirBlobby' },
-		{ name: 'Yousif Alani', role: 'Game Design Developer', handle: 'YousifA2' }
+	const team: {
+		name: string;
+		role: string;
+		handle: string;
+		profileUrl: string;
+		profileLabel: string;
+		profileIcon: string;
+	}[] = [
+		{
+			name: 'Gagan Manjunatha',
+			role: 'Lead Developer',
+			handle: 'SirBlobby',
+			profileUrl: 'https://create.autonomousrobotics.club/team/gagan-manjunatha',
+			profileLabel: 'Team profile',
+			profileIcon: 'ph:link-simple-bold'
+		},
+		{
+			name: 'Yousif Alani',
+			role: 'Game Design Developer',
+			handle: 'YousifA2',
+			profileUrl: 'https://github.com/YousifA2',
+			profileLabel: 'YousifA2',
+			profileIcon: 'ph:github-logo-fill'
+		}
 	];
 </script>
 
@@ -89,12 +110,7 @@
 
 	<div class="team-grid">
 		{#each team as member}
-			<a
-				href={`https://github.com/${member.handle}`}
-				target="_blank"
-				rel="noreferrer"
-				class="card-link team-card"
-			>
+			<a href={member.profileUrl} target="_blank" rel="noreferrer" class="card-link team-card">
 				<img
 					src={`https://github.com/${member.handle}.png?size=160`}
 					alt={`${member.name} avatar`}
@@ -107,8 +123,8 @@
 					<h3 class="team-name">{member.name}</h3>
 					<p class="team-role">{member.role}</p>
 					<span class="team-handle">
-						<Icon icon="ph:github-logo-fill" width="14" />
-						{member.handle}
+						<Icon icon={member.profileIcon} width="14" />
+						{member.profileLabel}
 					</span>
 				</div>
 			</a>
