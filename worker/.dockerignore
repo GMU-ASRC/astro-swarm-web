@@ -1,0 +1,6 @@
+out/
+astrosim
+astroworker
+*.png
+*.json
+README.md

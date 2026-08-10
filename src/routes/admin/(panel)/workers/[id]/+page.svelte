@@ -14,9 +14,7 @@
 	let message = $state('');
 
 	let name = $state('');
-	let maxJobs = $state(1);
 	let editingName = $state(false);
-	let editingJobs = $state(false);
 
 	async function refresh() {
 		try {
@@ -29,7 +27,6 @@
 			if (res.ok) {
 				worker = await res.json();
 				if (!editingName) name = worker.name;
-				if (!editingJobs) maxJobs = worker.max_jobs;
 			}
 		} catch (err) {
 			// keep last known state on transient errors
@@ -49,12 +46,11 @@
 			const res = await fetch(apiUrl(`/api/workers/${workerId}/settings`), {
 				method: 'POST',
 				headers: { ...headers, 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, max_jobs: maxJobs })
+				body: JSON.stringify({ name })
 			});
 			if (res.ok) {
 				worker = await res.json();
 				editingName = false;
-				editingJobs = false;
 				message = 'Saved worker settings.';
 			} else {
 				message = `Failed to save: ${res.status}`;
@@ -143,21 +139,10 @@
 				style="width:100%"
 			/>
 		</div>
-		<div class="stat">
-			<div class="label">Max parallel jobs</div>
-			<input
-				type="number"
-				min="1"
-				max="64"
-				bind:value={maxJobs}
-				oninput={() => (editingJobs = true)}
-				style="width:5rem"
-			/>
-		</div>
 	</div>
-	<p class="meta">Max parallel jobs is how many Godot processes this worker runs at once for a single evaluation. Higher values use more CPU and memory on the worker machine.</p>
+	<p class="meta">A worker holds one evaluation at a time and simulates its matches across every core it has.</p>
 	<div class="actions">
-		<button onclick={saveSettings} disabled={!editingName && !editingJobs}>Save settings</button>
+		<button onclick={saveSettings} disabled={!editingName}>Save settings</button>
 	</div>
 
 	<h2>Status</h2>

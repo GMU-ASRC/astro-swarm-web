@@ -138,14 +138,13 @@
 		<h2>How a level {levelNum} entry is processed</h2>
 		<p class="meta">
 			A submitted run was already flown in the game client, so nothing is simulated for this level.
-			The server queues a single <strong>render shard</strong>; a worker claims it and hands the recorded
-			trajectory to the game's level {levelNum} benchmarker, which turns it into a watchable replay.
-			Detection, capture and T_goal come from the run itself.
+			The server queues the entry as a single render job; a worker claims it and packs the recorded
+			trajectory into a watchable replay. Detection, capture and T_goal come from the run itself.
 		</p>
 		<div class="stat-grid">
 			<div class="stat"><div class="label">Simulated trials</div><div>None</div></div>
 			<div class="stat"><div class="label">Ring sweep</div><div>None</div></div>
-			<div class="stat"><div class="label">Work per entry</div><div>1 render shard</div></div>
+			<div class="stat"><div class="label">Work per entry</div><div>1 render job</div></div>
 			<div class="stat"><div class="label">Opponent</div><div>Best submitted farp2 algorithm</div></div>
 		</div>
 
@@ -229,7 +228,6 @@
 		<table>
 			<tbody>
 				<tr><th>Base seed</th><td>{settings.seed}</td></tr>
-				<tr><th>Placement trials</th><td>{settings.placement_trials}</td></tr>
 				<tr><th>Sweep range (n)</th><td>1 to {settings.sweep_max}</td></tr>
 				<tr><th>Trials per sweep n</th><td>{settings.sweep_trials}</td></tr>
 				<tr><th>Match time cap</th><td>{settings.match_cap_seconds}s</td></tr>

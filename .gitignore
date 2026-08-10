@@ -26,9 +26,14 @@ vite.config.ts.timestamp-*
 
 bun.lock
 
-# Python 
+# Python
 __pycache__/
 *.pyc
 *.pyo
 
 venv/
+
+# Worker
+/worker/astrosim
+/worker/astroworker
+/worker/out/

@@ -8,6 +8,7 @@ from flask_cors import CORS
 from sqlalchemy import text
 from werkzeug.exceptions import HTTPException
 
+import migrations
 from config import Config
 from database import db
 from models import PlayerEvaluation
@@ -88,33 +89,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def _ensure_columns():
-    # Lightweight idempotent migrations for columns added after a table existed.
-    statements = [
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS replays json DEFAULT '[]'::json",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS placements json DEFAULT '[]'::json",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS level_id varchar(40) DEFAULT 'farp'",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS worker_id varchar(64)",
-        "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS thumbnail_filename varchar(255)",
-        "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS video_filename varchar(255)",
-        "ALTER TABLE sim_runs ADD COLUMN IF NOT EXISTS frame_count integer DEFAULT 0",
-        "ALTER TABLE workers ADD COLUMN IF NOT EXISTS system_stats json",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS stage varchar(200)",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS game_version varchar(20) DEFAULT 'v0.0.4'",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS defender_count integer DEFAULT 0",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS xp_awarded integer",
-        "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS collisions boolean DEFAULT false",
-    ]
-    for statement in statements:
-        try:
-            db.session.execute(text(statement))
-            db.session.commit()
-        except Exception as exc:
-            db.session.rollback()
-            logger.warning("Migration skipped (%s): %s", statement, exc)
-
-
 def _ensure_admin_user():
     # Seed an initial admin login if none exist. Defaults to username "admin"
     # with the shared API key as the password, both overridable via env. The
@@ -191,7 +165,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
-        _ensure_columns()
+        migrations.apply(logger)
         _ensure_admin_user()
         _recover_shards_on_restart()
         db.engine.dispose()

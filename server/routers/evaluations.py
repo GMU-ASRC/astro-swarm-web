@@ -452,7 +452,6 @@ def settings():
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
         "seed": seed,
-        "placement_trials": 100,
         "sweep_max": get_sweep_max(),
         "sweep_trials": get_sweep_trials(),
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,

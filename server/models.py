@@ -472,7 +472,6 @@ class Worker(db.Model):
     name = db.Column(db.String(80), default="worker")
     hostname = db.Column(db.String(120), default="")
     enabled = db.Column(db.Boolean, default=True)
-    max_jobs = db.Column(db.Integer, default=1)
     reported_status = db.Column(db.String(20), default="idle")
     current_job_id = db.Column(db.String(64), nullable=True)
     system_stats = db.Column(db.JSON, nullable=True)
@@ -508,7 +507,6 @@ class Worker(db.Model):
             "name": self.name,
             "hostname": self.hostname,
             "enabled": self.enabled,
-            "max_jobs": self.max_jobs,
             "status": self.status(),
             "online": self.is_online(),
             "current_job_id": self.current_job_id,

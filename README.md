@@ -27,7 +27,7 @@ Rankings for the Timed Local game mode showing username, completion time, and th
 ### Levels (`/levels`)
 Per-level player entries, in three tabs.
 
-**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly on the dedicated server against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
+**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly by the worker service against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
 
 Three events are measured, and they mean different things:
 
@@ -49,11 +49,15 @@ Clicking a match opens its detail page: the headline result, a per-player breakd
 An action is a movement input changing state — a key going down or up, or a controller stick crossing into a new direction — plus every power-up activation. Samples are taken every 5 seconds and scaled to a per-minute rate. Matches are submitted automatically by the game when the clock runs out.
 
 ### Admin CMS (`/admin`)
-API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, re-running it with the current Godot build to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you set each worker's max parallel jobs or connect/disconnect/remove it.
+API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, requeueing it for the workers to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you rename a worker or connect/disconnect/remove it.
 
 ### Evaluation Workers
 
-Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. Each submitted evaluation is split by the server into many small **work shards** (a slice of placement trials plus a slice of the ring sweep). A Level 3 piloted run is instead a single **render shard**: the run was already simulated in the game client, so the worker just hands the recorded trajectory to the game's level-3 benchmarker, which turns it into a replay without simulating anything. A worker (`web/worker/`) downloads the Godot dedicated-server build (`AstroSwarm_Linux_Server.zip`) from the GitHub release on startup and unzips it — so nothing needs to be bundled into the image. It then registers with the server and repeatedly claims as many queued shards as it has free capacity (`WORKER_MAX_JOBS` minus the shards it is already running — a per-worker setting, editable on each worker's admin page), running each as one Godot process. This balances a single evaluation across every connected worker in proportion to each worker's capacity, so two workers finish one job roughly twice as fast. The server merges the shard results once they are all in. Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight shards are requeued for other workers), and shards from workers that go silent are automatically requeued — a finished shard is never re-run. To add compute, run a worker on another machine (its own data volume gives it a stable, distinct id) pointed at the server's public URL with the matching `API_SECRET_KEY`.
+Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. An evaluation is **one unit of work**: the server queues it whole, a single worker claims it, and that worker runs every match in it. A Level 3 piloted run is a **render job**: the run was already simulated in the game client, so the worker just packs the recorded trajectory into a replay without simulating anything.
+
+A worker (`web/worker/`) is a single static Go binary that re-implements the match loop in process — there is no game build to download and nothing to bundle into the image. It registers with the server, claims one queued evaluation whenever it is idle, and simulates that evaluation's matches in parallel across all its cores (`SIM_WORKERS`). It holds exactly one job at a time. Throughput scales by running more workers: each picks up a different evaluation.
+
+Workers auto-connect on startup; an admin can disconnect one from the Workers page (its in-flight job is requeued for another worker), and jobs from workers that go silent are automatically requeued — a finished job is never re-run. To add compute, run a worker on another machine (its own data volume gives it a stable, distinct id) pointed at the server's public URL with the matching `API_SECRET_KEY`.
 
 ### Downloads (`/downloads`)
 Links to the latest AstroSwarm game releases fetched live from the GitHub Releases API.
@@ -127,13 +131,13 @@ Internal preview page for component and layout development.
 |---|---|---|
 | `GET` | `/api/workers` | List worker nodes with live status (`X-API-Key` required) |
 | `GET` | `/api/workers/<id>` | Get a single worker (`X-API-Key` required) |
-| `POST` | `/api/workers/<id>/settings` | Update a worker's name and/or max parallel jobs (`X-API-Key` required) |
+| `POST` | `/api/workers/<id>/settings` | Rename a worker (`X-API-Key` required) |
 | `POST` | `/api/workers/<id>/connect` | Re-enable a worker (`X-API-Key` required) |
 | `POST` | `/api/workers/<id>/disconnect` | Stop a worker taking jobs; requeue its current job (`X-API-Key` required) |
 | `DELETE` | `/api/workers/<id>` | Remove a worker record (`X-API-Key` required) |
 | `POST` | `/api/worker/register` | Worker announces itself (used by workers) |
 | `POST` | `/api/worker/heartbeat` | Keep-alive and status report (used by workers) |
-| `POST` | `/api/worker/claim` | Claim up to `slots` queued work shards (used by workers) |
+| `POST` | `/api/worker/claim` | Claim the next queued evaluation (used by workers) |
 | `POST` | `/api/worker/shards/<id>/progress` | Report shard progress; response signals cancellation (used by workers) |
 | `POST` | `/api/worker/shards/<id>/result` | Submit a shard's results/replays; the server merges when all shards are done (used by workers) |
 | `POST` | `/api/worker/shards/<id>/fail` | Report a failed shard (used by workers) |
@@ -188,12 +192,11 @@ The following are used by the **worker** service (`web/worker/`), not the web se
 |---|---|---|
 | `WORKER_SERVER_URL` | How the worker reaches the server (internal name in Docker, or a public URL on another machine) | `http://server:5050` |
 | `WORKER_NAME` | Display name shown in the admin Workers page | `worker` |
-| `WORKER_MAX_JOBS` | Default max parallel Godot processes per worker (overridable per worker in the admin panel) | `4` |
-| `GODOT_RELEASE_TAG` | Release to download the dedicated-server build from (`latest` or a tag like `0.0.4`) | `latest` |
-| `GODOT_SERVER_BIN` | Optional path to a provided binary; set this to skip the download | _(unset → download)_ |
-| `GODOT_PCK` | Path to the exported game `.pck` (only when providing a binary that needs a separate pack) | _(unset)_ |
-| `EVAL_TIMEOUT_SECONDS` | Max wall-clock time for a single evaluation run | `1800` |
-| `EVAL_FIXED_FPS` | Fixed physics step the headless benchmark runs at | `60` |
+| `SIM_WORKERS` | Matches simulated in parallel within the job | core count |
+| `EVAL_SWEEP_SPAWN` | `fixed` reproduces the original ring-sweep spawn; `varied` stratifies it per trial and regrades every entry | `fixed` |
+| `EVAL_TIMEOUT_SECONDS` | Max wall-clock time for a single job | `1800` |
+
+The full worker reference is in `worker/WORKER.md`.
 
 In Docker the frontend is served by Flask on the same origin, so `PUBLIC_API_URL` is set to an empty string and all API requests are same-origin relative paths.
 
@@ -208,7 +211,22 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-The server is available at `http://localhost:5050`. Compose also starts one `worker` container that runs evaluations and downloads the dedicated-server build from the GitHub release automatically. To add more compute, run additional workers on other machines (each with its own data volume so it gets a stable, distinct id): use the image published to GHCR by the **Build worker image** GitHub Action (or build `worker/Dockerfile`) and set `WORKER_SERVER_URL` to the server's public URL with the matching `API_SECRET_KEY`.
+The server is available at `http://localhost:5050`. Compose also starts one `worker` container that runs evaluations. To add more compute, run additional workers on other machines (each with its own data volume so it gets a stable, distinct id): use the image published to GHCR by the **Worker** GitHub Action (or build `worker/Dockerfile`) and set `WORKER_SERVER_URL` to the server's public URL with the matching `API_SECRET_KEY`.
+
+### Database migrations
+
+`server/migrations.py` holds every schema change as an idempotent statement. The server runs
+them itself on startup, right after `db.create_all()`, so a normal deploy needs nothing extra.
+
+To apply them by hand against a running stack:
+
+```bash
+docker compose exec server python migrations.py
+```
+
+It is safe to run repeatedly — each statement is `IF NOT EXISTS` / `IF EXISTS`, and anything
+that cannot apply is logged and skipped rather than aborting the rest. Add new changes by
+appending to `STATEMENTS`; never edit or reorder the existing entries.
 
 ## Running Locally
 
@@ -219,10 +237,10 @@ The server is available at `http://localhost:5050`. Compose also starts one `wor
 bun install
 bun run dev
 
-# Worker (in worker/) — downloads the dedicated-server build, then runs jobs
-pip install -r requirements.txt
+# Worker (in worker/) — runs evaluation shards
+go build -o astroworker ./cmd/astroworker
 SERVER_URL=http://localhost:5050 API_SECRET_KEY=dev_secret_key \
-  GODOT_DIR=./server_build python worker.py
+  WORKER_ID_FILE=./worker_id ./astroworker
 
 # Backend (in server/)
 python3 -m venv venv

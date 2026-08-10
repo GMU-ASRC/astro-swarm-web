@@ -54,14 +54,13 @@
 				<th>Name</th>
 				<th>Host</th>
 				<th>Status</th>
-				<th>Max jobs</th>
 				<th>Current job</th>
 				<th>Last seen</th>
 			</tr>
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="6">Loading workers...</td></tr>
+				<tr><td colspan="5">Loading workers...</td></tr>
 			{:else}
 				{#each workers as worker}
 					<tr
@@ -72,12 +71,11 @@
 						<td>{worker.name}</td>
 						<td>{worker.hostname || '—'}</td>
 						<td><span class="pill {statusClass(worker.status)}">{worker.status}</span></td>
-						<td>{worker.max_jobs}</td>
 						<td>{worker.current_job_id ? `${worker.current_job_id.slice(0, 8)}…` : '—'}</td>
 						<td>{lastSeen(worker.last_seen)}</td>
 					</tr>
 				{:else}
-					<tr><td colspan="6">No workers connected. Start a worker pointed at this server.</td></tr>
+					<tr><td colspan="5">No workers connected. Start a worker pointed at this server.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
