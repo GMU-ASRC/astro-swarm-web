@@ -2,10 +2,19 @@
 	import '$lib/css/admin.css';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { apiUrl } from '$lib/ts/api';
 	import { sessionKey } from '../+layout';
 
 	let { children } = $props();
+
+	const collapsedKey = 'astroswarm:admin-sidebar-collapsed';
+	let collapsed = $state(browser && localStorage.getItem(collapsedKey) === '1');
+
+	function toggleSidebar() {
+		collapsed = !collapsed;
+		if (browser) localStorage.setItem(collapsedKey, collapsed ? '1' : '0');
+	}
 
 	async function logout() {
 		const token = localStorage.getItem(sessionKey) ?? '';
@@ -66,15 +75,33 @@
 
 <div class="admin">
 	<div class="admin-layout">
-		<aside class="admin-sidebar">
+		<aside class="admin-sidebar" class:collapsed>
 			<div class="admin-brand">
-				<span class="brand-title">ASTROSWARM</span>
-				<span class="brand-sub">Admin Console</span>
+				<div class="brand-text">
+					<span class="brand-title">ASTROSWARM</span>
+					<span class="brand-sub">Admin Console</span>
+				</div>
+				<button
+					type="button"
+					class="sidebar-toggle"
+					onclick={toggleSidebar}
+					aria-expanded={!collapsed}
+					aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+					title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<polyline points="15 18 9 12 15 6" />
+					</svg>
+				</button>
 			</div>
 
 			<nav>
 				{#each links as link}
-					<a href={link.href} class:active={isActive(link.href)}>
+					<a
+						href={link.href}
+						class:active={isActive(link.href)}
+						title={collapsed ? link.label : undefined}
+					>
 						{@render icon(link.icon)}
 						<span>{link.label}</span>
 					</a>
@@ -82,7 +109,12 @@
 			</nav>
 
 			<div class="sidebar-footer">
-				<button type="button" class="sidebar-logout" onclick={logout}>
+				<button
+					type="button"
+					class="sidebar-logout"
+					onclick={logout}
+					title={collapsed ? 'Logout' : undefined}
+				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 						<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
 					</svg>

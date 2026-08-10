@@ -52,16 +52,88 @@
 	padding: 1.5rem 1rem;
 	box-sizing: border-box;
 	overflow-y: auto;
+	overflow-x: hidden;
 	background: var(--color-surface);
 	border-right: 1px solid var(--color-line);
+	transition: flex-basis 0.18s ease;
 }
 
 .admin-brand {
 	display: flex;
-	flex-direction: column;
-	gap: 0.35rem;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
 	padding: 0.4rem 0.6rem 1.25rem;
 	border-bottom: 1px solid var(--color-line);
+}
+
+.admin-brand .brand-text {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.admin-sidebar .sidebar-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	background: transparent;
+	border: 1px solid var(--color-line);
+	color: var(--color-dim);
+	cursor: pointer;
+	transition:
+		background 0.15s,
+		color 0.15s,
+		border-color 0.15s;
+}
+
+.admin-sidebar .sidebar-toggle svg {
+	width: 14px;
+	height: 14px;
+	transition: transform 0.18s ease;
+}
+
+.admin-sidebar .sidebar-toggle:hover {
+	background: var(--color-surface-raised);
+	border-color: var(--color-line-strong);
+	color: var(--color-heading);
+}
+
+.admin-sidebar.collapsed {
+	flex-basis: 68px;
+}
+
+.admin-sidebar.collapsed .admin-brand {
+	justify-content: center;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.admin-sidebar.collapsed .brand-text {
+	display: none;
+}
+
+.admin-sidebar.collapsed .sidebar-toggle svg {
+	transform: rotate(180deg);
+}
+
+.admin-sidebar.collapsed nav a,
+.admin-sidebar.collapsed .sidebar-logout {
+	justify-content: center;
+	gap: 0;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.admin-sidebar.collapsed nav a span,
+.admin-sidebar.collapsed .sidebar-logout span {
+	display: none;
 }
 
 .admin-brand .brand-title {
@@ -529,8 +601,33 @@
 		border-bottom: 1px solid var(--color-line);
 	}
 
+	.admin-sidebar.collapsed {
+		flex-basis: auto;
+	}
+
 	.admin-brand {
 		padding-bottom: 0.8rem;
+	}
+
+	.admin-sidebar .sidebar-toggle {
+		display: none;
+	}
+
+	.admin-sidebar.collapsed .brand-text {
+		display: flex;
+	}
+
+	.admin-sidebar.collapsed nav a,
+	.admin-sidebar.collapsed .sidebar-logout {
+		justify-content: flex-start;
+		gap: 0.7rem;
+		padding-left: 0.75rem;
+		padding-right: 0.75rem;
+	}
+
+	.admin-sidebar.collapsed nav a span,
+	.admin-sidebar.collapsed .sidebar-logout span {
+		display: inline;
 	}
 
 	.admin-sidebar nav {
