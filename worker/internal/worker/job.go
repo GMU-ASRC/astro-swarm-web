@@ -44,10 +44,10 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 	}
 
 	options := bench.Options{
-		LevelID:          levelID,
-		Algorithm:        algorithm,
-		Placements:       job.benchPlacements(),
-		Trials:           job.Trials,
+		LevelID:    levelID,
+		Algorithm:  algorithm,
+		Placements: job.benchPlacements(),
+		Trials:     job.Trials,
 		// A job is a whole evaluation, so it always runs the full range.
 		TrialStart:       0,
 		TrialCount:       job.Trials,

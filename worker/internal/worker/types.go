@@ -83,9 +83,9 @@ type ClaimRequest struct {
 }
 
 type ClaimResponse struct {
-	Jobs    []Job   `json:"jobs"`
-	Enabled *bool   `json:"enabled"`
-	Known   *bool   `json:"known"`
+	Jobs    []Job `json:"jobs"`
+	Enabled *bool `json:"enabled"`
+	Known   *bool `json:"known"`
 }
 
 type ProgressRequest struct {
@@ -99,7 +99,7 @@ type ProgressResponse struct {
 }
 
 type ResultRequest struct {
-	WorkerID string            `json:"worker_id"`
+	WorkerID string          `json:"worker_id"`
 	Result   bench.JobResult `json:"result"`
 }
 
