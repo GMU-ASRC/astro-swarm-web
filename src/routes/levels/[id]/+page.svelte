@@ -458,9 +458,9 @@
 					<section class="block">
 						<h2 class="section-title">Ring sweep runs ({sweepRuns.length})</h2>
 						<p class="block-note">
-							Each ring size is simulated repeatedly — n defenders placed in a circle around the
-							target, with the ring rotated to a seeded random angle each trial. A green n means
-							most of its trials captured the evader. Pick an n to replay it.
+							Each ring size is simulated repeatedly — n defenders spread around the target, each
+							one dropped at a random angle inside its own slice of the ring and facing a random
+							way. A green n means most of its trials captured the evader. Pick an n to replay it.
 						</p>
 						<ReplayWorkspace
 							groups={sweepGroups}

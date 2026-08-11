@@ -364,7 +364,7 @@
 		<ReplayWorkspace groups={placementGroups} replay={selectedReplay} meta={placementMeta} />
 
 		<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
-		<p class="meta">Each ring size is simulated repeatedly — n defenders placed in a circle around the target, the ring rotated to a seeded random angle each trial, against a fixed enemy spawn. Click an n to replay it.</p>
+		<p class="meta">Each ring size is simulated repeatedly — n defenders spread around the target, each one dropped at a random angle inside its own slice of the ring and facing a random way, against a per-trial evader approach. Click an n to replay it.</p>
 		{#if sweepRuns.length > 0}
 			<ReplayWorkspace
 				groups={sweepGroups}

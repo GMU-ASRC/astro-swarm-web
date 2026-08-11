@@ -31,12 +31,17 @@ func SweepTrialSeed(seed int64, trial int, sweepTrials int) int64 {
 	return seed + SweepSeedOffset + int64(trial%sweepTrials)*SweepSeedStride
 }
 
+// Every defender owns an equal sector of the ring and sits at a random angle
+// inside it, so coverage stays roughly uniform while no two trials repeat a
+// layout. The inset keeps neighbours apart at high defender counts.
 func RingPlacements(seed int64, trial int, sweepTrials int, count int) []Placement {
 	rng := godot.NewRNGFromInt(SweepTrialSeed(seed, trial, sweepTrials) + int64(count))
 	ringOffset := rng.Randf() * godot.Tau
+	span := 1.0 - 2.0*RingSectorInset
 	placements := make([]Placement, 0, count)
 	for index := 0; index < count; index++ {
-		angle := ringOffset + godot.Tau*float64(index)/float64(count)
+		sector := float64(index) + RingSectorInset + rng.Randf()*span
+		angle := ringOffset + godot.Tau*sector/float64(count)
 		placements = append(placements, Placement{
 			Position: PlanetCenter.Add(godot.Vec{X: SweepRadius}.Rotated(angle)),
 			Rotation: rng.Randf() * godot.Tau,

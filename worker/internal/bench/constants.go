@@ -30,6 +30,7 @@ const (
 	ScatterSpacing   = 110.0               // pixels, minimum gap between two scattered defenders
 	ScatterAttempts  = 40                  // count, retries before a scattered position is accepted anyway
 	RingCount        = 5                   // count, defenders in the default level 2 layout
+	RingSectorInset  = 0.2                 // fraction of a ring sector kept clear at each end when a defender is jittered
 	EnemySpawnRadius = 1000.0              // pixels, radius of the ring the evader spawns on
 
 	ReplaySweepNMax   = 50 // count, largest defender count that still records a replay
