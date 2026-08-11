@@ -8,53 +8,56 @@ import (
 	"astroswarm/worker/internal/godot"
 )
 
+// World units are pixels and seconds. Angles are radians unless a name ends in
+// Degrees. blocks.PixelsPerMeter (40) converts pixels to the meters shown in the
+// block editor.
 const (
-	TeamDefender = 0
-	TeamEvader   = 1
+	TeamDefender = 0 // team id
+	TeamEvader   = 1 // team id
 
-	DefaultSpeed        = 150.0
-	DefaultTurnRate     = 3.2
-	DefaultViewDistance = 300.0
-	DefaultFovDegrees   = 70.0
-	DefaultHullRadius   = 9.0
+	DefaultSpeed        = 150.0 // pixels/second (3.75 m/s)
+	DefaultTurnRate     = 3.2   // radians/second
+	DefaultViewDistance = 300.0 // pixels (7.5 m)
+	DefaultFovDegrees   = 70.0  // degrees, full width of the vision cone
+	DefaultHullRadius   = 9.0   // pixels (0.225 m)
 
-	VisionHullRadius   = 9.0
-	VisionConeSegments = 16
-	StepTime           = 0.4
-	ArenaEdgeMargin    = 14.0
-	WallMargin         = 24.0
+	VisionHullRadius   = 9.0  // pixels, hull radius assumed for every ship being looked at
+	VisionConeSegments = 16   // count, segments approximating the cone arc
+	StepTime           = 0.4  // seconds a movement action runs before it reports done
+	ArenaEdgeMargin    = 14.0 // pixels, clamp distance from the arena edge
+	WallMargin         = 24.0 // pixels, distance from a wall counted as near_wall
 )
 
 type Ship struct {
-	Position godot.Vec
-	Rotation float64
-	Team     int
+	Position godot.Vec // pixels, arena space with the origin at the top left corner
+	Rotation float64   // radians, 0 points along +X and grows clockwise
+	Team     int       // TeamDefender or TeamEvader
 
-	ViewDistance float64
-	FovDegrees   float64
-	MaxSpeed     float64
-	TurnRate     float64
-	HullRadius   float64
-	SpeedMult    float64
+	ViewDistance float64 // pixels
+	FovDegrees   float64 // degrees, full width of the vision cone
+	MaxSpeed     float64 // pixels/second at full throttle
+	TurnRate     float64 // radians/second
+	HullRadius   float64 // pixels, collision radius
+	SpeedMult    float64 // multiplier on MaxSpeed, 1.0 is unscaled
 
 	CollisionsEnabled bool
 	IsEvader          bool
 
-	ArenaSize    godot.Vec
-	StarCenter   godot.Vec
-	StarRadius   float64
-	PlanetCenter godot.Vec
-	PlanetRadius float64
+	ArenaSize    godot.Vec // pixels, arena width and height
+	StarCenter   godot.Vec // pixels
+	StarRadius   float64   // pixels, 0 means there is no star
+	PlanetCenter godot.Vec // pixels
+	PlanetRadius float64   // pixels, 0 means there is no planet
 
-	forwardInput     float64
-	turnInput        float64
-	turnCommand      float64
-	throttleMult     float64
-	visionMaxDist    float64
-	visionHalfAngle  float64
-	visionInnerRange float64
+	forwardInput     float64 // throttle in -1..1, negative drives backward
+	turnInput        float64 // turn in -1..1, scaled by TurnRate
+	turnCommand      float64 // radians/second added on top of turnInput
+	throttleMult     float64 // multiplier applied to forwardInput, 1.0 is full throttle
+	visionMaxDist    float64 // pixels, ViewDistance plus VisionHullRadius
+	visionHalfAngle  float64 // radians, half of FovDegrees
+	visionInnerRange float64 // pixels, radius fully inside the segmented cone
 
-	cone    []godot.Vec
+	cone    []godot.Vec // pixels, cone outline in ship local space
 	visible []*Ship
 	enemies []*Ship
 	allies  []*Ship

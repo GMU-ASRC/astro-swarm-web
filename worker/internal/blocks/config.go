@@ -6,14 +6,16 @@ import (
 	"astroswarm/worker/internal/godot"
 )
 
+// PixelsPerMeter converts between the meters block authors type in the editor
+// and the pixels the simulation runs in.
 const PixelsPerMeter = 40.0
 
 type ShipConfig struct {
-	ViewDistance float64
-	FovDegrees   float64
-	Speed        float64
-	TurnSpeed    float64
-	HullRadius   float64
+	ViewDistance float64 // pixels
+	FovDegrees   float64 // degrees, full width of the vision cone
+	Speed        float64 // pixels/second
+	TurnSpeed    float64 // radians/second
+	HullRadius   float64 // pixels
 }
 
 func ConfigFromScripts(scripts []Script, base ShipConfig) ShipConfig {

@@ -5,7 +5,7 @@ import "astroswarm/worker/internal/godot"
 type World struct {
 	Ships           []*Ship
 	RNG             *godot.RNG
-	SinglePrecision bool
+	SinglePrecision bool // round positions and rotations to float32 to match Godot
 }
 
 func NewWorld(rng *godot.RNG, singlePrecision bool) *World {
@@ -17,6 +17,7 @@ func (w *World) Add(ship *Ship) {
 	w.Ships = append(w.Ships, ship)
 }
 
+// delta is the tick length in seconds.
 func (w *World) Step(delta float64) {
 	for _, ship := range w.Ships {
 		ship.updateVisible()

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	levyShortestStep = 0.2
-	levyLongestStep  = 3.0
+	levyShortestStep = 0.2 // seconds, shortest random walk leg
+	levyLongestStep  = 3.0 // seconds, longest random walk leg
 )
 
 func (s *Ship) ExecAction(blockType string, params map[string]any, delta float64, state *blocks.ActionState) bool {
