@@ -86,8 +86,14 @@ func applyServerSettings(options *CommandOptions, server string, explicit map[st
 	if settings.Seed != 0 {
 		adopt("seed", func() { options.Seed = settings.Seed })
 	}
+	if settings.SweepMax > 0 {
+		adopt("n-max", func() { options.SweepMax = settings.SweepMax })
+	}
 	if settings.SweepTrials > 0 {
 		adopt("sweep-trials", func() { options.SweepTrials = settings.SweepTrials })
+	}
+	if settings.SweepSpawn != "" {
+		adopt("sweep-spawn", func() { options.SweepSpawn = settings.SweepSpawn })
 	}
 	if settings.MatchCapSeconds > 0 {
 		adopt("match-seconds", func() { options.MatchSeconds = settings.MatchCapSeconds })
@@ -98,8 +104,8 @@ func applyServerSettings(options *CommandOptions, server string, explicit map[st
 	adopt("enemy-x", func() { options.EnemyX = settings.EnemyStartX })
 	adopt("enemy-y", func() { options.EnemyY = settings.EnemyStartY })
 
-	fmt.Printf("server settings: seed %d, sweep %d x %d trials, match cap %.0fs, evader spawn (%.0f, %.0f)\n",
-		settings.Seed, settings.SweepMax, settings.SweepTrials,
+	fmt.Printf("server settings: seed %d, sweep %d x %d trials (%s spawn), match cap %.0fs, evader spawn (%.0f, %.0f)\n",
+		settings.Seed, settings.SweepMax, settings.SweepTrials, settings.SweepSpawn,
 		settings.MatchCapSeconds, settings.EnemyStartX, settings.EnemyStartY)
 	if len(adopted) > 0 {
 		fmt.Printf("  adopted for this run: %s\n", strings.Join(adopted, ", "))

@@ -446,6 +446,7 @@ def settings():
         "match_cap_seconds": Config.EVAL_MATCH_CAP_SECONDS,
         "enemy_start_x": enemy_x,
         "enemy_start_y": enemy_y,
+        "sweep_spawn": Config.EVAL_SWEEP_SPAWN,
         "arena_width": Config.EVAL_ARENA_WIDTH,
         "arena_height": Config.EVAL_ARENA_HEIGHT,
         "planet_x": Config.EVAL_ARENA_WIDTH / 2,

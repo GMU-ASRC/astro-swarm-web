@@ -26,7 +26,7 @@ func main() {
 		CancelPoll:       envSeconds("WORKER_CANCEL_POLL_SECONDS", 2),
 		JobTimeout:       envSeconds("EVAL_TIMEOUT_SECONDS", 3600),
 		IDFile:           env("WORKER_ID_FILE", "/data/worker_id"),
-		VariedSweepSpawn: env("EVAL_SWEEP_SPAWN", bench.SweepSpawnFixed) == bench.SweepSpawnVaried,
+		VariedSweepSpawn: env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried) == bench.SweepSpawnVaried,
 	}
 	settings.SimWorkers = envInt("SIM_WORKERS", runtime.NumCPU(), 1, 1024)
 
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	logger.Printf("one job at a time, %d parallel matches, %d cores, sweep_spawn=%s",
-		settings.SimWorkers, runtime.NumCPU(), env("EVAL_SWEEP_SPAWN", bench.SweepSpawnFixed))
+		settings.SimWorkers, runtime.NumCPU(), env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

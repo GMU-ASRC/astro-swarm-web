@@ -23,3 +23,7 @@ class Config:
     EVAL_ENEMY_Y = float(os.environ.get("EVAL_ENEMY_Y", "40"))
     EVAL_ARENA_WIDTH = 3840.0
     EVAL_ARENA_HEIGHT = 2160.0
+    # How the ring-sweep evader spawns: "varied" stratifies the approach angle
+    # per trial, "fixed" pins it at the enemy start. The server owns this so every
+    # worker and the CLI grade an entry the same way.
+    EVAL_SWEEP_SPAWN = os.environ.get("EVAL_SWEEP_SPAWN", "varied")

@@ -61,7 +61,7 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 		EnemyStart:       godot.Vec{X: config.EnemyX, Y: config.EnemyY},
 		HasEnemyStart:    true,
 		Collisions:       config.Collisions,
-		VariedSweepSpawn: w.settings.VariedSweepSpawn,
+		VariedSweepSpawn: w.variedSweepSpawn(config),
 		Record:           true,
 		Workers:          w.settings.SimWorkers,
 		Context:          ctx,
@@ -73,6 +73,16 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 		return bench.JobResult{}, ErrCancelled
 	}
 	return result, nil
+}
+
+// The server decides how the ring-sweep evader spawns, so every worker and the
+// CLI grade an entry the same way. The local setting is only a fallback for a
+// server that does not send one.
+func (w *Worker) variedSweepSpawn(config JobConfig) bool {
+	if config.SweepSpawn == "" {
+		return w.settings.VariedSweepSpawn
+	}
+	return config.SweepSpawn == bench.SweepSpawnVaried
 }
 
 func jobProgress(job Job, report progressReporter) func(done, total int) {

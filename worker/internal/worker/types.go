@@ -14,6 +14,7 @@ type JobConfig struct {
 	GoalTailSeconds float64 `json:"goal_tail_seconds"`
 	EnemyX          float64 `json:"enemy_x"`
 	EnemyY          float64 `json:"enemy_y"`
+	SweepSpawn      string  `json:"sweep_spawn"`
 	LevelID         string  `json:"level_id"`
 	Collisions      bool    `json:"collisions"`
 }

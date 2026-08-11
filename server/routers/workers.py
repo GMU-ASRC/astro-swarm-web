@@ -108,6 +108,7 @@ def _job_payload(evaluation):
             "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
             "enemy_x": enemy_x,
             "enemy_y": enemy_y,
+            "sweep_spawn": Config.EVAL_SWEEP_SPAWN,
             "level_id": evaluation.level_id or "farp",
             "collisions": bool(evaluation.collisions),
         },

@@ -56,7 +56,7 @@ func main() {
 	flags.Float64Var(&options.GoalTailSeconds, "goal-tail-seconds", bench.DefaultGoalTailSeconds, "extra seconds simulated after the evader reaches the planet")
 	flags.Float64Var(&options.EnemyX, "enemy-x", 1920, "ring-sweep evader spawn x")
 	flags.Float64Var(&options.EnemyY, "enemy-y", 40, "ring-sweep evader spawn y")
-	flags.StringVar(&options.SweepSpawn, "sweep-spawn", bench.SweepSpawnVaried, "ring-sweep evader spawn: varied stratifies the approach angle per trial, fixed pins it the way the server does")
+	flags.StringVar(&options.SweepSpawn, "sweep-spawn", bench.SweepSpawnVaried, "ring-sweep evader spawn: varied stratifies the approach angle per trial, fixed pins it at the enemy start (the server setting wins unless this is set)")
 	flags.BoolVar(&options.Collisions, "collisions", false, "enable ship and planet collisions")
 	flags.BoolVar(&options.SinglePrecision, "single-precision", false, "round positions and headings to float32 the way Godot stores them")
 	flags.IntVar(&options.Workers, "workers", runtime.NumCPU(), "parallel matches")

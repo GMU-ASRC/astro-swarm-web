@@ -14,6 +14,7 @@ type Settings struct {
 	GoalTailSeconds float64 `json:"goal_tail_seconds"`
 	EnemyStartX     float64 `json:"enemy_start_x"`
 	EnemyStartY     float64 `json:"enemy_start_y"`
+	SweepSpawn      string  `json:"sweep_spawn"`
 	ArenaWidth      float64 `json:"arena_width"`
 	ArenaHeight     float64 `json:"arena_height"`
 }
