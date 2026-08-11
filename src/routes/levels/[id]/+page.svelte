@@ -80,6 +80,18 @@
 		return 'cell-timeout';
 	}
 
+	function sweepClass(run: { outcome: string; capture_rate?: number }): string {
+		// Colour an n by how its trials went overall, not by the one trial kept
+		// for replay.
+		if (run.capture_rate != null) return run.capture_rate > 50 ? 'cell-win' : 'cell-loss';
+		return cellClass(run.outcome);
+	}
+
+	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
+		if (run.capture_rate != null) return `${run.capture_rate}% of trials captured`;
+		return run.outcome;
+	}
+
 	function fmtTime(time: number | undefined): string {
 		return time != null && time >= 0 ? `${time.toFixed(2)}s` : '—';
 	}
@@ -419,18 +431,18 @@
 						<h2 class="section-title">Ring sweep runs ({sweepRuns.length})</h2>
 						<p class="block-note">
 							Each ring size is simulated repeatedly — n defenders placed in a circle around the
-							target, the ring rotated to a seeded random angle each trial, against a fixed enemy
-							spawn. Pick an n to replay it.
+							target, with the ring rotated to a seeded random angle each trial. A green n means
+							most of its trials captured the evader. Pick an n to replay it.
 						</p>
 						<div class="cell-grid">
 							{#each sweepRuns as run}
 								<button
 									type="button"
-									title={`n=${run.n}: ${run.outcome}`}
+									title={`n=${run.n}: ${sweepLabel(run)}`}
 									onclick={() => loadSweepReplay(run.n)}
-									class="cell {cellClass(run.outcome)}"
+									class="cell {sweepClass(run)}"
 									class:selected={selectedN === run.n}
-									aria-label={`n ${run.n} ${run.outcome}`}
+									aria-label={`n ${run.n} ${sweepLabel(run)}`}
 								>
 									{run.n}
 								</button>

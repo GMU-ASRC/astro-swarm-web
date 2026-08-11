@@ -68,6 +68,18 @@
 		return 'run-timeout';
 	}
 
+	function sweepClass(run: { outcome: string; capture_rate?: number }): string {
+		// Colour an n by how its trials went overall, not by the one trial kept
+		// for replay.
+		if (run.capture_rate != null) return run.capture_rate > 50 ? 'run-win' : 'run-lose';
+		return cellClass(run.outcome);
+	}
+
+	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
+		if (run.capture_rate != null) return `${run.capture_rate}% of trials captured`;
+		return run.outcome;
+	}
+
 	function fmtTime(t: number | undefined): string {
 		return t != null && t >= 0 ? `${t.toFixed(2)}s` : '—';
 	}
@@ -331,10 +343,10 @@
 				{#each sweepRuns as run}
 					<button
 						type="button"
-						title={`n=${run.n}: ${run.outcome}`}
+						title={`n=${run.n}: ${sweepLabel(run)}`}
 						onclick={() => loadSweepReplay(run.n)}
-						class="{cellClass(run.outcome)} {selectedN === run.n ? 'run-selected' : ''}"
-						aria-label={`n ${run.n} ${run.outcome}`}
+						class="{sweepClass(run)} {selectedN === run.n ? 'run-selected' : ''}"
+						aria-label={`n ${run.n} ${sweepLabel(run)}`}
 					>{run.n}</button>
 				{/each}
 			</div>
