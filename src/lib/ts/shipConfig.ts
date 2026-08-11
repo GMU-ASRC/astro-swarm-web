@@ -26,6 +26,13 @@ export const PILOT_EVADER_CONFIG: ShipConfig = {
 	fov: 70
 };
 
+export const LEADER_CONFIG: ShipConfig = {
+	speed: 3.75,
+	turn: 160.4,
+	view: 7.5,
+	fov: 70
+};
+
 function collect(blocks: any[], config: ShipConfig) {
 	for (const block of blocks ?? []) {
 		const params = block?.params ?? {};

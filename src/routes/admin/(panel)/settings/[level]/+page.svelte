@@ -20,6 +20,12 @@
 	const levelId = $derived(`farp${levelNum}`);
 	const levelInfo = $derived((settings?.levels ?? []).find((l: any) => l.id === levelId) ?? null);
 	const isPilot = $derived((settings?.pilot_level_ids ?? []).includes(levelId));
+	const runLimits = $derived(
+		settings?.pilot_run_limits?.[levelId] ?? {
+			max_seconds: settings?.pilot_time_limit_seconds,
+			max_ships: 6
+		}
+	);
 
 	let seedPage = $state(1);
 	const seedPageSize = 20;
@@ -139,22 +145,29 @@
 		<p class="meta">
 			A submitted run was already flown in the game client, so nothing is simulated for this level.
 			The server queues the entry as a single render job; a worker claims it and packs the recorded
-			trajectory into a watchable replay. Detection, capture and T_goal come from the run itself.
+			trajectory into a watchable replay. The event times come from the run itself.
 		</p>
 		<div class="stat-grid">
 			<div class="stat"><div class="label">Simulated trials</div><div>None</div></div>
 			<div class="stat"><div class="label">Ring sweep</div><div>None</div></div>
 			<div class="stat"><div class="label">Work per entry</div><div>1 render job</div></div>
-			<div class="stat"><div class="label">Opponent</div><div>Best submitted farp2 algorithm</div></div>
+			<div class="stat">
+				<div class="label">Scenario</div>
+				<div>
+					{levelNum === 4
+						? 'Two milling swarms and one player-flown leader'
+						: 'Best submitted farp2 algorithm'}
+				</div>
+			</div>
 		</div>
 
 		<h2>Run limits</h2>
 		<p class="meta">Enforced when a run is submitted — a run past these limits is rejected, so nobody can upload an hour-long flight.</p>
 		<div class="stat-grid">
-			<div class="stat"><div class="label">Time limit</div><div>{settings.pilot_time_limit_seconds}s</div></div>
+			<div class="stat"><div class="label">Time limit</div><div>{runLimits.max_seconds}s</div></div>
 			<div class="stat"><div class="label">Max record rate</div><div>{settings.pilot_max_fps} fps</div></div>
-			<div class="stat"><div class="label">XP for reaching the goal</div><div>{settings.pilot_max_xp}</div></div>
-			<div class="stat"><div class="label">Arena size</div><div>{settings.arena_width} × {settings.arena_height}</div></div>
+			<div class="stat"><div class="label">Max recorded ships</div><div>{runLimits.max_ships}</div></div>
+			<div class="stat"><div class="label">XP for a finished run</div><div>{settings.pilot_max_xp}</div></div>
 		</div>
 	{:else}
 	<p class="meta">The benchmark parameters below are shared across all benchmarked levels so every entry is tested under identical conditions.</p>

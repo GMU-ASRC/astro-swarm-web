@@ -59,12 +59,13 @@ type Report struct {
 }
 
 type ReplayRun struct {
-	Trial         int     `json:"trial"`
-	Outcome       string  `json:"outcome"`
-	DetectionTime float64 `json:"detection_time"`
-	CaptureTime   float64 `json:"capture_time"`
-	GoalTime      float64 `json:"goal_time"`
-	FramesPacked  string  `json:"frames_packed"`
+	Trial         int                `json:"trial"`
+	Outcome       string             `json:"outcome"`
+	DetectionTime float64            `json:"detection_time"`
+	CaptureTime   float64            `json:"capture_time"`
+	GoalTime      float64            `json:"goal_time"`
+	FramesPacked  string             `json:"frames_packed"`
+	Stats         map[string]float64 `json:"stats,omitempty"`
 }
 
 type ReplaySweepRun struct {
@@ -80,7 +81,7 @@ type ReplaySweepRun struct {
 	FramesPacked  string      `json:"frames_packed"`
 }
 
-type ShardMeta struct {
+type JobMeta struct {
 	FPS       int   `json:"fps"`
 	Defenders int   `json:"defenders"`
 	View      int   `json:"view"`
@@ -90,10 +91,10 @@ type ShardMeta struct {
 	Arena     []int `json:"arena"`
 }
 
-type ShardResult struct {
+type JobResult struct {
 	Runs      []ReplayRun      `json:"runs"`
 	SweepRuns []ReplaySweepRun `json:"sweep_runs"`
-	Meta      ShardMeta        `json:"meta"`
+	Meta      JobMeta          `json:"meta"`
 }
 
 const (

@@ -119,8 +119,8 @@ func run(options CommandOptions, explicit map[string]bool) error {
 	if levelID == "" {
 		levelID = "farp1"
 	}
-	if bench.LevelNumber(levelID) == 3 {
-		return fmt.Errorf("level 3 entries are piloted recordings, there is nothing to re-simulate")
+	if bench.LevelNumber(levelID) >= 3 {
+		return fmt.Errorf("level %d entries are piloted recordings, there is nothing to re-simulate", bench.LevelNumber(levelID))
 	}
 
 	placements := published.BenchPlacements()

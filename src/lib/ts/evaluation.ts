@@ -8,6 +8,22 @@ export interface EvalSummary {
 	capture_times?: number[];
 	goal_times?: number[];
 	sweep?: { n: number; success_rate: number }[];
+	stats?: RunStats;
+}
+
+export interface RunStats {
+	merge_time?: number;
+	deliver_time?: number;
+	escape_time?: number;
+	minimum_loss?: number;
+	final_loss?: number;
+	circliness?: number;
+	goal_distance?: number;
+	agents?: number;
+	groups?: number;
+	merge_distance?: number;
+	goal_radius?: number;
+	escape_distance?: number;
 }
 
 export interface PlacementInfo {
@@ -93,5 +109,6 @@ export interface Replay {
 	speed?: number;
 	planet: [number, number, number];
 	arena: [number, number];
+	stats?: RunStats;
 	frames: number[][];
 }

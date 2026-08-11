@@ -26,6 +26,7 @@ LEVELS = [
 # run into a replay instead of simulating anything.
 PILOT_LEVELS = [
     {"id": "farp3", "name": "Level 3 - Evasion (Pilot)"},
+    {"id": "farp4", "name": "Level 4 - Swarm (Merge)"},
 ]
 
 LEVEL_ALIASES = {

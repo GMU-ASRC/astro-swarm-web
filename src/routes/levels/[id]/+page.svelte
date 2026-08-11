@@ -7,7 +7,7 @@
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, detectionRateConfig, captureRateConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
-	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
+	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 	import { FARP_LEVELS, levelById } from '$lib/ts/levels';
 
 	interface PageData {
@@ -26,7 +26,9 @@
 
 	let outcomes = $derived(ev.results?.outcomes ?? []);
 	let successRate = $derived(ev.results?.success_rate ?? 0);
-	let isPilot = $derived((ev.level_number ?? 1) === 3);
+	let levelNumber = $derived(ev.level_number ?? 1);
+	let isSwarm = $derived(levelNumber === 4);
+	let isPilot = $derived(levelNumber >= 3);
 
 	let counts = $derived.by(() => {
 		const tally = { win: 0, lose: 0, timeout: 0 };
@@ -46,7 +48,9 @@
 	let meanGoalTime = $derived(mean(goalTimes));
 
 	let defenderRows = $derived(configRows(defenderConfig(ev.algorithm)));
-	let evaderRows = $derived(configRows(isPilot ? PILOT_EVADER_CONFIG : EVADER_CONFIG));
+	let evaderRows = $derived(
+		configRows(isSwarm ? LEADER_CONFIG : isPilot ? PILOT_EVADER_CONFIG : EVADER_CONFIG)
+	);
 	let pilotOutcome = $derived(outcomes[0] ?? 'timeout');
 	let pilotDetect = $derived(detectionTimes[0] ?? -1);
 	let pilotCapture = $derived(captureTimes[0] ?? -1);
@@ -68,6 +72,8 @@
 	let selectedReplay: Replay | null = $state(null);
 	let loadedReplays = false;
 
+	let stats = $derived(ev.results?.stats ?? selectedReplay?.stats ?? {});
+
 	function cellClass(outcome: string): string {
 		if (outcome === 'win') return 'cell-win';
 		if (outcome === 'lose') return 'cell-loss';
@@ -76,6 +82,10 @@
 
 	function fmtTime(time: number | undefined): string {
 		return time != null && time >= 0 ? `${time}s` : '—';
+	}
+
+	function fmtNumber(value: number | undefined, digits = 3): string {
+		return value != null && value >= 0 ? value.toFixed(digits) : '—';
 	}
 
 	async function loadReplay(trial: number) {
@@ -189,8 +199,10 @@
 		</a>
 		<h1 class="page-title name-heading">{ev.username}</h1>
 		<p class="page-lede">
-			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.defender_count ?? ev.placements?.length ?? 0} defenders
-			· {ev.trials} trials · {ev.game_version ?? 'v0.0.4'} · evaluated {dateLabel}
+			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.defender_count ?? ev.placements?.length ?? 0}
+			{isSwarm ? 'agents' : 'defenders'}
+			{#if !isPilot}· {ev.trials} trials{/if}
+			· {ev.game_version ?? 'v0.0.4'} · recorded {dateLabel}
 		</p>
 	</div>
 
@@ -214,7 +226,41 @@
 			{/if}
 
 			{#if outcomes.length > 0}
-				{#if isPilot}
+				{#if isSwarm}
+					<div class="headline">
+						<div class="headline-value" class:won={pilotOutcome === 'win'} class:lost={pilotOutcome !== 'win'}>
+							{pilotOutcome === 'win' ? 'Swarm delivered' : 'Out of time'}
+						</div>
+						<div class="headline-label">Piloted swarm run</div>
+					</div>
+
+					<div class="stat-grid">
+						<div class="stat">
+							<div class="stat-value">{fmtTime(stats.merge_time)}</div>
+							<div class="stat-label">Merged — the two groups became one swarm</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{fmtTime(stats.deliver_time)}</div>
+							<div class="stat-label">Delivered — the mill reached the planet</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{fmtTime(stats.escape_time)}</div>
+							<div class="stat-label">Escaped — the leader left the mill intact</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{fmtNumber(stats.minimum_loss)}</div>
+							<div class="stat-label">Minimum loss — goal distance plus milling error</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{fmtNumber(stats.circliness)}</div>
+							<div class="stat-label">Circliness at the end — 1.0 is a clean mill</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{stats.agents ?? ev.defender_count ?? 0}</div>
+							<div class="stat-label">Agents herded across {stats.groups ?? 2} groups</div>
+						</div>
+					</div>
+				{:else if isPilot}
 					<div class="headline">
 						<div class="headline-value" class:won={pilotOutcome === 'win'} class:lost={pilotOutcome !== 'win'}>
 							{pilotOutcome === 'win' ? 'Planet reached' : pilotOutcome === 'lose' ? 'Caught' : 'Out of time'}
@@ -275,7 +321,7 @@
 
 				<div class="config-grid">
 					<div class="card config">
-						<h2 class="config-title">Defender config</h2>
+						<h2 class="config-title">{isSwarm ? 'Swarm agent config' : 'Defender config'}</h2>
 						<dl class="config-rows">
 							{#each defenderRows as row}
 								<dt>{row.label}</dt>
@@ -284,7 +330,7 @@
 						</dl>
 					</div>
 					<div class="card config">
-						<h2 class="config-title config-title-enemy">Evader config</h2>
+						<h2 class="config-title config-title-enemy">{isSwarm ? 'Leader config' : 'Evader config'}</h2>
 						<dl class="config-rows">
 							{#each evaderRows as row}
 								<dt>{row.label}</dt>
@@ -292,9 +338,11 @@
 							{/each}
 						</dl>
 						<p class="config-note">
-							{isPilot
-								? 'The evader is flown by the player from a chosen point on the outer ring.'
-								: 'The evader drives straight at the planet from a random point on the outer ring.'}
+							{isSwarm
+								? 'The leader is flown by the player. The agents cannot tell it apart from one of their own, which is what lets it steer the mill.'
+								: isPilot
+									? 'The evader is flown by the player from a chosen point on the outer ring.'
+									: 'The evader drives straight at the planet from a random point on the outer ring.'}
 						</p>
 					</div>
 				</div>
@@ -351,10 +399,15 @@
 						</p>
 						<div class="card replay">
 							<div class="replay-meta">
-								{selectedReplay.outcome} · detected {fmtTime(selectedReplay.detection_time)} · captured
-								{fmtTime(selectedReplay.capture_time)} · reached planet {fmtTime(selectedReplay.goal_time)}
+								{#if isSwarm}
+									{selectedReplay.outcome} · merged {fmtTime(stats.merge_time)} · delivered
+									{fmtTime(stats.deliver_time)} · escaped {fmtTime(stats.escape_time)}
+								{:else}
+									{selectedReplay.outcome} · detected {fmtTime(selectedReplay.detection_time)} · captured
+									{fmtTime(selectedReplay.capture_time)} · reached planet {fmtTime(selectedReplay.goal_time)}
+								{/if}
 							</div>
-							<FarpReplay replay={selectedReplay} />
+							<FarpReplay replay={selectedReplay} mode={isSwarm ? 'swarm' : 'defence'} />
 						</div>
 					</section>
 				{/if}
@@ -418,7 +471,9 @@
 				{/if}
 
 				<section class="block">
-					<h2 class="section-title">{isPilot ? 'Opponent algorithm' : 'Defender algorithm'}</h2>
+					<h2 class="section-title">
+						{isSwarm ? 'Swarm agent algorithm' : isPilot ? 'Opponent algorithm' : 'Defender algorithm'}
+					</h2>
 					<div class="card algorithm">
 						<AlgorithmView scripts={ev.algorithm} />
 					</div>

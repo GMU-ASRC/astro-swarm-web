@@ -3,7 +3,26 @@
 	import Icon from '@iconify/svelte';
 	import type { Replay } from '$lib/ts/evaluation';
 
-	let { replay }: { replay: Replay } = $props();
+	let { replay, mode = 'defence' }: { replay: Replay; mode?: 'defence' | 'swarm' } = $props();
+
+	const SWARM_A = '#ff6a52';
+	const SWARM_B = '#7c9eff';
+	const LEADER = '#ffd54a';
+
+	// In swarm mode the recorded ships are two milling groups followed by the
+	// player-flown leader, so they are coloured by group instead of by team.
+	function shipColor(slot: number): string {
+		if (mode !== 'swarm') return slot === replay.defenders ? '#ff6a52' : '#7c9eff';
+		if (slot >= replay.defenders) return LEADER;
+		return slot < replay.defenders / 2 ? SWARM_A : SWARM_B;
+	}
+
+	function shipLabel(slot: number): string {
+		if (mode !== 'swarm') return slot === replay.defenders ? 'Enemy raider' : `Defender #${slot + 1}`;
+		if (slot >= replay.defenders) return 'Leader';
+		const group = slot < replay.defenders / 2 ? 'A' : 'B';
+		return `Group ${group} agent #${slot + 1}`;
+	}
 
 	let canvas: HTMLCanvasElement | undefined = $state();
 	let playing = $state(true);
@@ -65,16 +84,18 @@
 			const x = frame[s * 3];
 			const y = frame[s * 3 + 1];
 			const rot = (frame[s * 3 + 2] * Math.PI) / 180;
-			drawCone(ctx, x * sx, y * sy, rot, coneRadius, half, 'rgba(124,158,255,0.16)');
+			const cone = mode === 'swarm' ? coneColor(shipColor(s)) : 'rgba(124,158,255,0.16)';
+			drawCone(ctx, x * sx, y * sy, rot, coneRadius, half, cone);
 		}
+
+		if (mode === 'swarm') drawSwarmMarkers(ctx, frame, sx, sy);
 
 		for (let s = 0; s < total; s++) {
 			const x = frame[s * 3];
 			const y = frame[s * 3 + 1];
 			const rot = (frame[s * 3 + 2] * Math.PI) / 180;
-			const isEnemy = s === replay.defenders;
-			if (isEnemy && x < 0) continue; // enemy destroyed
-			drawShip(ctx, x * sx, y * sy, rot, isEnemy ? '#ff6a52' : '#7c9eff');
+			if (x < 0) continue;
+			drawShip(ctx, x * sx, y * sy, rot, shipColor(s));
 		}
 
 		if (selectedSlot !== null && selectedSlot < total) {
@@ -92,11 +113,94 @@
 		ctx.fillStyle = 'rgba(255,255,255,0.5)';
 		ctx.font = '11px monospace';
 		const seconds = (frameIndex / (replay.fps || 1)).toFixed(1);
+		const count = mode === 'swarm' ? `agents=${replay.defenders}` : `N=${replay.defenders}`;
 		ctx.fillText(
-			`N=${replay.defenders}  ${replay.outcome}  frame ${frameIndex + 1}/${replay.frames.length}  t=${seconds}s`,
+			`${count}  ${replay.outcome}  frame ${frameIndex + 1}/${replay.frames.length}  t=${seconds}s`,
 			8,
 			16
 		);
+	}
+
+	function coneColor(color: string): string {
+		return `${color}22`;
+	}
+
+	function groupCenter(frame: number[], from: number, to: number): [number, number] | null {
+		let sumX = 0;
+		let sumY = 0;
+		let count = 0;
+		for (let s = from; s < to; s++) {
+			if (frame[s * 3] < 0) continue;
+			sumX += frame[s * 3];
+			sumY += frame[s * 3 + 1];
+			count++;
+		}
+		return count === 0 ? null : [sumX / count, sumY / count];
+	}
+
+	function isMerged(frame: number[]): boolean {
+		const limit = replay.stats?.merge_distance;
+		if (!limit || replay.defenders < 2) return false;
+		const reached = new Set<number>([0]);
+		const queue = [0];
+		while (queue.length > 0) {
+			const current = queue.pop() as number;
+			for (let s = 0; s < replay.defenders; s++) {
+				if (reached.has(s)) continue;
+				const dx = frame[current * 3] - frame[s * 3];
+				const dy = frame[current * 3 + 1] - frame[s * 3 + 1];
+				if (Math.hypot(dx, dy) <= limit) {
+					reached.add(s);
+					queue.push(s);
+				}
+			}
+		}
+		return reached.size === replay.defenders;
+	}
+
+	function drawSwarmMarkers(ctx: CanvasRenderingContext2D, frame: number[], sx: number, sy: number) {
+		const half = Math.floor(replay.defenders / 2);
+		const goalRadius = replay.stats?.goal_radius;
+		if (goalRadius) {
+			const [px, py] = replay.planet;
+			ctx.beginPath();
+			ctx.arc(px * sx, py * sy, goalRadius * sx, 0, Math.PI * 2);
+			ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+			ctx.setLineDash([4, 4]);
+			ctx.stroke();
+			ctx.setLineDash([]);
+		}
+		if (isMerged(frame)) {
+			drawMarker(ctx, groupCenter(frame, 0, replay.defenders), sx, sy, LEADER);
+			return;
+		}
+		drawMarker(ctx, groupCenter(frame, 0, half), sx, sy, SWARM_A);
+		drawMarker(ctx, groupCenter(frame, half, replay.defenders), sx, sy, SWARM_B);
+	}
+
+	function drawMarker(
+		ctx: CanvasRenderingContext2D,
+		center: [number, number] | null,
+		sx: number,
+		sy: number,
+		color: string
+	) {
+		if (!center) return;
+		const x = center[0] * sx;
+		const y = center[1] * sy;
+		const radius = 6;
+		const arm = radius + 4;
+		ctx.strokeStyle = color;
+		ctx.lineWidth = 1.5;
+		ctx.beginPath();
+		ctx.arc(x, y, radius, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.moveTo(x - arm, y);
+		ctx.lineTo(x + arm, y);
+		ctx.moveTo(x, y - arm);
+		ctx.lineTo(x, y + arm);
+		ctx.stroke();
 	}
 
 	function drawCone(
@@ -215,7 +319,7 @@
 		const isEnemy = s === replay.defenders;
 		return {
 			isEnemy,
-			label: isEnemy ? 'Enemy raider' : `Defender #${s + 1}`,
+			label: shipLabel(s),
 			x: Math.round(x),
 			y: Math.round(y),
 			heading: (((Math.round(rot) % 360) + 360) % 360),
@@ -274,7 +378,7 @@
 					<div><dt>Position</dt><dd>{selectedInfo.x}, {selectedInfo.y}</dd></div>
 					<div><dt>Heading</dt><dd>{selectedInfo.heading}°</dd></div>
 					{#if selectedInfo.isEnemy}
-						<div><dt>Role</dt><dd>Incoming raider</dd></div>
+						<div><dt>Role</dt><dd>{mode === 'swarm' ? 'Player-flown leader' : 'Incoming raider'}</dd></div>
 					{:else}
 						<div><dt>View</dt><dd>{selectedInfo.view}px</dd></div>
 						<div><dt>FOV</dt><dd>{selectedInfo.fov}°</dd></div>

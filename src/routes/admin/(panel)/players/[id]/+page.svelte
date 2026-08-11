@@ -33,6 +33,7 @@
 	}
 
 	function levelName(levelNumber: number): string {
+		if (levelNumber === 4) return `Level ${levelNumber} · Swarm`;
 		return levelNumber >= 3 ? `Level ${levelNumber} · Evasion` : `Level ${levelNumber} · Defense`;
 	}
 

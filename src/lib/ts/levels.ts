@@ -48,6 +48,18 @@ export const FARP_LEVELS: LevelInfo[] = [
 		summary:
 			'You fly the evader yourself against the best submitted Level 2 algorithm. Each entry is a single recorded flight rather than a benchmark.',
 		rateLabel: 'goal reached'
+	},
+	{
+		number: 4,
+		id: 'farp4',
+		slug: '4',
+		name: 'Level 4',
+		subtitle: 'Swarm',
+		piloted: true,
+		variant: 'purple',
+		summary:
+			'Two milling swarms and one human-flown leader. Merge the groups, walk the mill onto the planet and leave without breaking it. Each entry is a recorded flight scored on a milling loss.',
+		rateLabel: 'swarm delivered'
 	}
 ];
 

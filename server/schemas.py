@@ -74,6 +74,18 @@ MAX_RUN_FPS = 60
 MAX_RUN_FRAMES = MAX_RUN_SECONDS * MAX_RUN_FPS + 60
 VALID_RUN_OUTCOMES = ("win", "lose", "timeout")
 
+DEFAULT_RUN_LIMITS = {"max_ships": 6, "max_seconds": MAX_RUN_SECONDS}
+
+# Level 4 flies a leader against two milling swarms, so it records far more
+# ships than the defence levels and runs for longer.
+RUN_LIMITS = {
+    "farp4": {"max_ships": 24, "max_seconds": 300},
+}
+
+
+def run_limits_for(level_id):
+    return RUN_LIMITS.get(level_id, DEFAULT_RUN_LIMITS)
+
 
 @dataclass
 class RunSubmit:
@@ -96,10 +108,15 @@ class RunSubmit:
             raise ValueError("game_version must be a string up to 20 characters")
         if not isinstance(self.algorithm, list):
             raise ValueError("algorithm must be a list")
+        limits = run_limits_for(self.level_id)
+        max_ships = limits["max_ships"]
+        max_seconds = limits["max_seconds"]
+        max_frames = max_seconds * MAX_RUN_FPS + 60
+
         if not isinstance(self.placements, list):
             raise ValueError("placements must be a list")
-        if len(self.placements) > 6:
-            raise ValueError("placements must not exceed 6 defenders")
+        if len(self.placements) > max_ships:
+            raise ValueError("placements must not exceed %d ships" % max_ships)
         if not isinstance(self.run, dict):
             raise ValueError("run must be an object")
 
@@ -110,8 +127,8 @@ class RunSubmit:
         frames = self.run.get("frames")
         if not isinstance(frames, list) or not frames:
             raise ValueError("run.frames must be a non-empty list")
-        if len(frames) > MAX_RUN_FRAMES:
-            raise ValueError("run.frames must not exceed %d frames" % MAX_RUN_FRAMES)
+        if len(frames) > max_frames:
+            raise ValueError("run.frames must not exceed %d frames" % max_frames)
 
         width = len(self.placements) * 3 + 3
         for frame in frames:
@@ -124,10 +141,20 @@ class RunSubmit:
         self.run["fps"] = fps
 
         goal_time = float(self.run.get("goal_time", -1.0))
-        if goal_time > MAX_RUN_SECONDS:
-            raise ValueError("run.goal_time must not exceed %d seconds" % MAX_RUN_SECONDS)
-        if len(frames) / fps > MAX_RUN_SECONDS + 5:
-            raise ValueError("run must not exceed %d seconds" % MAX_RUN_SECONDS)
+        if goal_time > max_seconds:
+            raise ValueError("run.goal_time must not exceed %d seconds" % max_seconds)
+        if len(frames) / fps > max_seconds + 5:
+            raise ValueError("run must not exceed %d seconds" % max_seconds)
+
+        stats = self.run.get("stats")
+        if stats is not None:
+            if not isinstance(stats, dict):
+                raise ValueError("run.stats must be an object")
+            self.run["stats"] = {
+                str(key)[:40]: float(value)
+                for key, value in list(stats.items())[:24]
+                if isinstance(value, (int, float))
+            }
 
 
 MAX_SURVIVE_SECONDS = 180

@@ -207,6 +207,8 @@
 									{level.piloted ? 'Rendering' : 'Benchmarking'} · {Math.round(
 										(player.progress ?? 0) * 100
 									)}%
+								{:else if level.piloted && level.number === 4}
+									{player.success_rate ? 'Swarm delivered' : 'Not delivered'} · piloted run
 								{:else if level.piloted}
 									{player.success_rate ? 'Planet reached' : 'No goal'} · piloted run
 								{:else if player.success_rate !== null && player.success_rate !== undefined}
