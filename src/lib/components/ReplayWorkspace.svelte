@@ -81,16 +81,21 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, 2.5rem);
 		gap: 0.35rem;
-		max-width: 48rem;
 	}
 
 	.cell {
+		/* Centred by the component, since the admin panel pads every button. */
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 100%;
 		height: 2.5rem;
+		padding: 0;
 		border: 2px solid transparent;
 		border-radius: 0;
 		color: #ffffff;
 		font-size: 0.68rem;
+		line-height: 1;
 		cursor: pointer;
 		transition:
 			filter 0.15s,
@@ -118,7 +123,7 @@
 	}
 
 	.stage {
-		max-width: 54rem;
+		width: 100%;
 	}
 
 	.stage-meta {
