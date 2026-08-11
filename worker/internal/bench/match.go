@@ -37,6 +37,7 @@ type MatchOutput struct {
 	ViewDistance  float64
 	FovDegrees    float64
 	Speed         float64
+	HullRadius    float64
 }
 
 func RunMatch(input MatchInput) MatchOutput {
@@ -84,6 +85,7 @@ func RunMatch(input MatchInput) MatchOutput {
 		ViewDistance: config.ViewDistance,
 		FovDegrees:   config.FovDegrees,
 		Speed:        config.Speed,
+		HullRadius:   config.HullRadius,
 	}
 
 	delta := 1.0 / float64(PhysicsTicksPerSecond)

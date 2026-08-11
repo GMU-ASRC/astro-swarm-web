@@ -147,6 +147,7 @@ func RunJob(options Options) (Report, JobResult) {
 			View:      int(report.ViewDistance),
 			Fov:       int(report.FovDegrees),
 			Speed:     int(report.Speed),
+			Hull:      int(report.HullRadius),
 			Planet:    []int{int(PlanetX), int(PlanetY), int(PlanetRadius)},
 			Arena:     []int{int(ArenaWidth), int(ArenaHeight)},
 		},
@@ -213,6 +214,7 @@ func splitResults(results []jobResult, report *Report) (placement []jobResult, s
 			report.ViewDistance = item.output.ViewDistance
 			report.FovDegrees = item.output.FovDegrees
 			report.Speed = item.output.Speed
+			report.HullRadius = item.output.HullRadius
 		}
 		if item.job.sweep {
 			sweep = append(sweep, item)

@@ -46,6 +46,7 @@ type Report struct {
 	ViewDistance    float64    `json:"view"`
 	FovDegrees      float64    `json:"fov"`
 	Speed           float64    `json:"speed"`
+	HullRadius      float64    `json:"hull"`
 	Seed            int64      `json:"seed"`
 	SweepTrials     int        `json:"sweep_trials"`
 	SweepSpawn      string     `json:"sweep_spawn"`
@@ -87,6 +88,7 @@ type JobMeta struct {
 	View      int   `json:"view"`
 	Fov       int   `json:"fov"`
 	Speed     int   `json:"speed"`
+	Hull      int   `json:"hull"`
 	Planet    []int `json:"planet"`
 	Arena     []int `json:"arena"`
 }

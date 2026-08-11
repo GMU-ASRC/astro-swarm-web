@@ -1,4 +1,4 @@
-META_KEYS = ("fps", "defenders", "view", "fov", "speed", "planet", "arena")
+META_KEYS = ("fps", "defenders", "view", "fov", "speed", "hull", "planet", "arena")
 
 
 def summarize(result):

@@ -5,6 +5,10 @@
 
 	let { replay, mode = 'defence' }: { replay: Replay; mode?: 'defence' | 'swarm' } = $props();
 
+	// The ship icons are drawn far larger than the ships really are, so the hull
+	// each one actually collides with is drawn underneath at true scale.
+	const DEFAULT_HULL = 9;
+
 	const SWARM_A = '#ff6a52';
 	const SWARM_B = '#7c9eff';
 	const LEADER = '#ffd54a';
@@ -90,11 +94,13 @@
 
 		if (mode === 'swarm') drawSwarmMarkers(ctx, frame, sx, sy);
 
+		const hullRadius = (replay.hull ?? DEFAULT_HULL) * sx;
 		for (let s = 0; s < total; s++) {
 			const x = frame[s * 3];
 			const y = frame[s * 3 + 1];
 			const rot = (frame[s * 3 + 2] * Math.PI) / 180;
 			if (x < 0) continue;
+			drawHull(ctx, x * sx, y * sy, hullRadius, shipColor(s));
 			drawShip(ctx, x * sx, y * sy, rot, shipColor(s));
 		}
 
@@ -218,6 +224,16 @@
 		ctx.closePath();
 		ctx.fillStyle = color;
 		ctx.fill();
+	}
+
+	// Two of these circles touching is exactly what the simulator counts as a
+	// capture, which the oversized icons alone never showed.
+	function drawHull(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) {
+		ctx.beginPath();
+		ctx.arc(x, y, Math.max(radius, 1), 0, Math.PI * 2);
+		ctx.strokeStyle = `${color}88`;
+		ctx.lineWidth = 1;
+		ctx.stroke();
 	}
 
 	function drawShip(ctx: CanvasRenderingContext2D, x: number, y: number, rot: number, color: string) {

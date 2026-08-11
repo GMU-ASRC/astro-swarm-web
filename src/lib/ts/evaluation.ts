@@ -107,6 +107,7 @@ export interface Replay {
 	view: number;
 	fov: number;
 	speed?: number;
+	hull?: number;
 	planet: [number, number, number];
 	arena: [number, number];
 	stats?: RunStats;
