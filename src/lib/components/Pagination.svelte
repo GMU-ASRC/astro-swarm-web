@@ -53,13 +53,23 @@
 	button {
 		font: inherit;
 		padding: 0.3rem 0.6rem;
-		border: 1px solid #6b7280;
-		background: #f9fafb;
+		border: 1px solid var(--color-line-strong);
+		border-radius: 3px;
+		background: var(--color-surface-raised);
+		color: var(--color-dim);
 		cursor: pointer;
+		transition:
+			color 0.15s,
+			border-color 0.15s;
+	}
+
+	button:hover:not(:disabled) {
+		border-color: var(--color-faint);
+		color: var(--color-heading);
 	}
 
 	button:disabled {
-		opacity: 0.5;
+		opacity: 0.4;
 		cursor: not-allowed;
 	}
 </style>
