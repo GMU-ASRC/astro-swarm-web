@@ -58,7 +58,7 @@
 <style>
 	.workspace {
 		display: grid;
-		grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+		grid-template-columns: minmax(11rem, 17rem) minmax(0, 1fr);
 		gap: 1.5rem;
 		align-items: start;
 		margin-top: 1.25rem;
@@ -70,13 +70,12 @@
 		}
 	}
 
+	/* Every run stays visible: the column grows instead of scrolling, and the
+	   player is sticky so it follows while the list is scanned. */
 	.picker {
 		display: flex;
 		flex-direction: column;
 		gap: 1.1rem;
-		max-height: 30rem;
-		overflow-y: auto;
-		padding-right: 0.35rem;
 	}
 
 	.group-label {
