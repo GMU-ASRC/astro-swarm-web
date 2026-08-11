@@ -8,7 +8,7 @@ from auth import require_admin
 from app_settings import get_enemy_start, get_seed, get_sweep_max, get_sweep_trials
 from config import Config
 from database import db
-from models import SHARD_STALE_SECONDS, EvaluationShard, PlayerEvaluation, Worker
+from models import JOB_SILENT_SECONDS, PlayerEvaluation, Worker
 
 workers_bp = Blueprint("workers", __name__, url_prefix="/api")
 
@@ -22,46 +22,46 @@ def _now():
     return datetime.now(timezone.utc)
 
 
-def create_shards(evaluation):
+def queue_evaluation(evaluation):
     # An evaluation is one unit of work: a single worker runs the whole thing and
-    # parallelises the matches internally, so it is never split across workers.
-    EvaluationShard.query.filter_by(evaluation_id=evaluation.id).delete(synchronize_session=False)
+    # parallelises the matches internally.
+    evaluation.status = "queued"
+    evaluation.progress = 0.0
+    evaluation.stage = None
+    evaluation.error = None
+    evaluation.worker_id = None
+    evaluation.done_units = 0
+    evaluation.total_units = _total_units(evaluation)
+    evaluation.last_update = _now()
 
+
+def _total_units(evaluation):
+    # A piloted entry carries its own recording, so it is one render job rather
+    # than a benchmark.
+    if _pending_run(evaluation) is not None:
+        return 1
     trials = int(evaluation.trials or 0)
-    sweep_max = get_sweep_max()
-    sweep_trials = get_sweep_trials()
-
-    db.session.add(EvaluationShard(
-        evaluation_id=evaluation.id,
-        shard_index=0,
-        trial_start=0,
-        trial_count=trials,
-        n_start=1,
-        n_count=sweep_max,
-        total_units=max(1, trials + sweep_max * sweep_trials),
-        status="queued",
-    ))
+    return max(1, trials + get_sweep_max() * get_sweep_trials())
 
 
-def _reap_stale(worker_ids=None):
-    # Requeue running shards whose worker has gone offline (or whose last update
-    # is too old), so the queue does not stall on a dead node. Completed shards
-    # are never touched, so a finished job is never re-run.
-    online = {w.id for w in Worker.query.all() if w.is_online()}
-    cutoff = _now() - timedelta(seconds=SHARD_STALE_SECONDS)
+def _reap_stale():
+    # Requeue jobs that have gone silent, so the queue does not stall on a dead
+    # node or on a worker that finished but could never deliver its result. A live
+    # job reports progress the whole time it runs, uploads included, so a stale
+    # last_update means the job is gone even when its worker still pings.
+    cutoff = _now() - timedelta(seconds=JOB_SILENT_SECONDS)
     stale = (
-        EvaluationShard.query.filter_by(status="running")
-        .filter(EvaluationShard.last_update < cutoff)
+        PlayerEvaluation.query.filter_by(status="running")
+        .filter(PlayerEvaluation.last_update < cutoff)
         .all()
     )
     changed = False
-    for shard in stale:
-        if shard.worker_id in online:
-            continue
-        shard.status = "queued"
-        shard.worker_id = None
-        shard.done_units = 0
-        shard.last_update = _now()
+    for evaluation in stale:
+        evaluation.status = "queued"
+        evaluation.worker_id = None
+        evaluation.done_units = 0
+        evaluation.progress = 0.0
+        evaluation.last_update = _now()
         changed = True
     for worker in Worker.query.all():
         if not worker.is_online() and worker.reported_status != "offline":
@@ -79,20 +79,27 @@ def _pending_run(evaluation):
     return None
 
 
-def _shard_payload(evaluation, shard):
+def _keep_pending_run(evaluation, replays):
+    # The recorded run is the only copy of a piloted flight, so it has to survive
+    # every result write. Dropping it would leave the entry impossible to render
+    # again.
+    run = _pending_run(evaluation)
+    if run is not None:
+        replays = dict(replays)
+        replays["pending_run"] = run
+    return replays
+
+
+def _job_payload(evaluation):
     enemy_x, enemy_y = get_enemy_start()
     return {
-        "shard_id": shard.id,
+        "job_id": evaluation.id,
         "evaluation_id": evaluation.id,
         "algorithm": evaluation.algorithm or [],
         "placements": evaluation.placements or [],
         "run": _pending_run(evaluation),
         "trials": evaluation.trials,
-        "trial_start": shard.trial_start,
-        "trial_count": shard.trial_count,
-        "n_start": shard.n_start,
-        "n_count": shard.n_count,
-        "total_units": shard.total_units,
+        "total_units": evaluation.total_units or 1,
         "config": {
             "seed": get_seed(),
             "sweep_max": get_sweep_max(),
@@ -122,66 +129,19 @@ def _annotate_rates(results, evaluation):
         results["attacker_rate"] = round(100.0 - rate, 1)
 
 
-def _store_partial_results(evaluation_id):
-    evaluation = db.session.get(PlayerEvaluation, evaluation_id)
-    if evaluation is None or evaluation.status != "running":
-        return
-    shards = EvaluationShard.query.filter_by(evaluation_id=evaluation_id).all()
-    done = [s.result for s in sorted(shards, key=lambda s: s.shard_index) if s.status == "done" and s.result]
-    if not done:
-        return
-    results, replays = merge.merge_shards(done)
+def _store_result(evaluation, payload):
+    results, replays = merge.summarize(payload)
     _annotate_rates(results, evaluation)
     evaluation.results = results
-    evaluation.replays = replays
-
-
-def _update_progress(evaluation_id):
-    shards = EvaluationShard.query.filter_by(evaluation_id=evaluation_id).all()
-    if not shards:
-        return
-    total = sum(max(1, s.total_units) for s in shards)
-    done = sum(min(s.done_units, s.total_units) for s in shards)
-    evaluation = db.session.get(PlayerEvaluation, evaluation_id)
-    if evaluation is not None and evaluation.status == "running":
-        evaluation.progress = round(min(0.99, done / max(1, total)), 3)
-
-
-def _finalize_if_complete(evaluation_id):
-    # Called while holding a FOR UPDATE lock on the evaluation row so concurrent
-    # shard results from different workers cannot finalize the same job twice.
-    shards = EvaluationShard.query.filter_by(evaluation_id=evaluation_id).all()
-    if not shards:
-        return
-    if any(s.status in ("queued", "running") for s in shards):
-        return
-
-    evaluation = db.session.get(PlayerEvaluation, evaluation_id)
-    if evaluation is None or evaluation.status not in ("running", "queued"):
-        return
-
-    failed = next((s for s in shards if s.status == "failed"), None)
-    if failed is not None:
-        evaluation.status = "failed"
-        evaluation.error = failed.error or "worker error"
-        evaluation.completed_at = _now()
-        evaluation.worker_id = None
-        evaluation.stage = None
-        EvaluationShard.query.filter_by(evaluation_id=evaluation_id).delete(synchronize_session=False)
-        return
-
-    parts = [s.result for s in sorted(shards, key=lambda s: s.shard_index)]
-    results, replays = merge.merge_shards(parts)
-    _annotate_rates(results, evaluation)
-    evaluation.results = results
-    evaluation.replays = replays
+    evaluation.replays = _keep_pending_run(evaluation, replays)
     evaluation.status = "done"
     evaluation.progress = 1.0
+    evaluation.done_units = evaluation.total_units or 1
     evaluation.error = None
     evaluation.completed_at = _now()
     evaluation.worker_id = None
     evaluation.stage = None
-    EvaluationShard.query.filter_by(evaluation_id=evaluation_id).delete(synchronize_session=False)
+    evaluation.last_update = _now()
 
 
 @workers_bp.post("/worker/register")
@@ -229,7 +189,7 @@ def worker_heartbeat():
 
 
 @workers_bp.post("/worker/claim")
-def claim_shards():
+def claim_jobs():
     _require_api_key()
     data = request.get_json(silent=True) or {}
     worker_id = str(data.get("worker_id", "")).strip()
@@ -238,140 +198,125 @@ def claim_shards():
 
     worker = db.session.get(Worker, worker_id)
     if worker is None:
-        return jsonify({"shards": [], "enabled": False, "known": False})
+        return jsonify({"jobs": [], "enabled": False, "known": False})
 
     worker.last_seen = _now()
     if not worker.enabled:
         db.session.commit()
-        return jsonify({"shards": [], "enabled": False})
+        return jsonify({"jobs": [], "enabled": False})
 
     _reap_stale()
 
     # One worker runs one whole evaluation at a time.
-    slots = 1
-
     claimed = (
-        EvaluationShard.query.filter_by(status="queued")
-        .order_by(EvaluationShard.created_at.asc(), EvaluationShard.shard_index.asc())
-        .limit(slots)
+        PlayerEvaluation.query.filter_by(status="queued")
+        .order_by(PlayerEvaluation.created_at.asc())
+        .limit(1)
         .with_for_update(skip_locked=True)
         .all()
     )
 
-    payloads = []
-    busy_eval = None
-    for shard in claimed:
-        evaluation = db.session.get(PlayerEvaluation, shard.evaluation_id)
-        if evaluation is None or evaluation.status not in ("queued", "running"):
-            shard.status = "cancelled"
-            continue
-        if evaluation.status == "queued":
-            evaluation.status = "running"
-            evaluation.progress = 0.0
-        shard.status = "running"
-        shard.worker_id = worker_id
-        shard.done_units = 0
-        shard.last_update = _now()
-        busy_eval = evaluation.id
-        payloads.append(_shard_payload(evaluation, shard))
+    jobs = []
+    for evaluation in claimed:
+        evaluation.status = "running"
+        evaluation.progress = 0.0
+        evaluation.worker_id = worker_id
+        evaluation.done_units = 0
+        evaluation.last_update = _now()
+        if not evaluation.total_units:
+            evaluation.total_units = _total_units(evaluation)
+        jobs.append(_job_payload(evaluation))
 
-    if payloads:
+    if jobs:
         worker.reported_status = "busy"
-        worker.current_job_id = busy_eval
+        worker.current_job_id = jobs[0]["evaluation_id"]
     else:
         worker.reported_status = "idle"
     db.session.commit()
-    return jsonify({"shards": payloads, "enabled": True})
+    return jsonify({"jobs": jobs, "enabled": True})
 
 
-@workers_bp.post("/worker/shards/<shard_id>/progress")
-def shard_progress(shard_id):
+@workers_bp.post("/worker/jobs/<job_id>/progress")
+def job_progress(job_id):
     _require_api_key()
     data = request.get_json(silent=True) or {}
     worker_id = str(data.get("worker_id", "")).strip()
-    shard = db.session.get(EvaluationShard, shard_id)
-    if shard is None:
+    evaluation = db.session.get(PlayerEvaluation, job_id)
+    if evaluation is None:
         return jsonify({"cancel": True})
 
     worker = db.session.get(Worker, worker_id) if worker_id else None
     if worker is not None:
         worker.last_seen = _now()
 
-    owns = shard.status == "running" and shard.worker_id == worker_id
+    owns = evaluation.status == "running" and evaluation.worker_id == worker_id
     if owns:
+        total = max(1, evaluation.total_units or 1)
         try:
-            shard.done_units = max(0, min(int(data.get("done", 0)), shard.total_units))
+            evaluation.done_units = max(0, min(int(data.get("done", 0)), total))
         except (TypeError, ValueError):
             pass
-        shard.last_update = _now()
+        evaluation.progress = round(min(0.99, evaluation.done_units / total), 3)
+        evaluation.last_update = _now()
         stage = data.get("stage")
         if stage:
-            evaluation = db.session.get(PlayerEvaluation, shard.evaluation_id)
-            if evaluation is not None:
-                evaluation.stage = str(stage)[:200]
-        _update_progress(shard.evaluation_id)
+            evaluation.stage = str(stage)[:200]
     db.session.commit()
     return jsonify({"cancel": not owns})
 
 
-@workers_bp.post("/worker/shards/<shard_id>/result")
-def shard_result(shard_id):
+@workers_bp.post("/worker/jobs/<job_id>/result")
+def job_result(job_id):
     _require_api_key()
     data = request.get_json(silent=True) or {}
     worker_id = str(data.get("worker_id", "")).strip()
-    shard = db.session.get(EvaluationShard, shard_id)
-    if shard is None:
-        raise NotFound("Shard not found")
 
     worker = db.session.get(Worker, worker_id) if worker_id else None
     if worker is not None:
         worker.last_seen = _now()
 
-    if shard.status == "running" and shard.worker_id == worker_id:
-        evaluation = (
-            PlayerEvaluation.query.filter_by(id=shard.evaluation_id)
-            .with_for_update()
-            .first()
-        )
-        shard.result = data.get("result") or {}
-        shard.status = "done"
-        shard.done_units = shard.total_units
-        shard.last_update = _now()
-        if evaluation is not None:
-            _finalize_if_complete(shard.evaluation_id)
-            _store_partial_results(shard.evaluation_id)
+    evaluation = (
+        PlayerEvaluation.query.filter_by(id=job_id)
+        .with_for_update()
+        .first()
+    )
+    if evaluation is None:
+        raise NotFound("Job not found")
+
+    accepted = evaluation.status == "running" and evaluation.worker_id == worker_id
+    if accepted:
+        _store_result(evaluation, data.get("result") or {})
     db.session.commit()
-    return jsonify({"ok": True})
+    # A result for a job this worker no longer owns is dropped. Say so, so the
+    # worker logs it instead of treating the job as finished.
+    return jsonify({"ok": True, "accepted": accepted})
 
 
-@workers_bp.post("/worker/shards/<shard_id>/fail")
-def shard_fail(shard_id):
+@workers_bp.post("/worker/jobs/<job_id>/fail")
+def job_fail(job_id):
     _require_api_key()
     data = request.get_json(silent=True) or {}
     worker_id = str(data.get("worker_id", "")).strip()
-    shard = db.session.get(EvaluationShard, shard_id)
-    if shard is None:
-        raise NotFound("Shard not found")
 
     worker = db.session.get(Worker, worker_id) if worker_id else None
     if worker is not None:
         worker.last_seen = _now()
 
-    if shard.status == "running" and shard.worker_id == worker_id:
-        evaluation = (
-            PlayerEvaluation.query.filter_by(id=shard.evaluation_id)
-            .with_for_update()
-            .first()
-        )
-        shard.status = "failed"
-        shard.error = str(data.get("error", "worker error"))[:400]
-        shard.last_update = _now()
-        if evaluation is not None:
-            # Stop the remaining shards of a failed job from running on.
-            EvaluationShard.query.filter_by(
-                evaluation_id=shard.evaluation_id, status="queued"
-            ).update({"status": "cancelled"}, synchronize_session=False)
-            _finalize_if_complete(shard.evaluation_id)
+    evaluation = (
+        PlayerEvaluation.query.filter_by(id=job_id)
+        .with_for_update()
+        .first()
+    )
+    if evaluation is None:
+        raise NotFound("Job not found")
+
+    if evaluation.status == "running" and evaluation.worker_id == worker_id:
+        evaluation.status = "failed"
+        evaluation.error = str(data.get("error", "worker error"))[:400]
+        evaluation.completed_at = _now()
+        evaluation.worker_id = None
+        evaluation.stage = None
+        evaluation.last_update = _now()
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -384,42 +329,36 @@ def list_workers():
     return jsonify([worker.to_dict() for worker in workers])
 
 
-def _requeue_worker_shards(worker_id):
-    shards = EvaluationShard.query.filter_by(worker_id=worker_id, status="running").all()
-    for shard in shards:
-        shard.status = "queued"
-        shard.worker_id = None
-        shard.done_units = 0
-        shard.last_update = _now()
+def _requeue_worker_jobs(worker_id):
+    running = PlayerEvaluation.query.filter_by(worker_id=worker_id, status="running").all()
+    for evaluation in running:
+        evaluation.status = "queued"
+        evaluation.worker_id = None
+        evaluation.done_units = 0
+        evaluation.progress = 0.0
+        evaluation.last_update = _now()
 
 
 def _worker_jobs(worker_id):
-    shards = (
-        EvaluationShard.query
+    running = (
+        PlayerEvaluation.query
         .filter_by(worker_id=worker_id, status="running")
-        .order_by(EvaluationShard.last_update.desc())
+        .order_by(PlayerEvaluation.last_update.desc())
         .all()
     )
-    evaluation_ids = {shard.evaluation_id for shard in shards}
-    evaluations = {
-        ev.id: ev
-        for ev in PlayerEvaluation.query.filter(PlayerEvaluation.id.in_(evaluation_ids)).all()
-    } if evaluation_ids else {}
-    jobs = []
-    for shard in shards:
-        evaluation = evaluations.get(shard.evaluation_id)
-        jobs.append({
-            "shard_id": shard.id,
-            "evaluation_id": shard.evaluation_id,
-            "shard_index": shard.shard_index,
-            "status": shard.status,
-            "done_units": shard.done_units,
-            "total_units": shard.total_units,
-            "username": evaluation.username if evaluation else None,
-            "level_id": (evaluation.level_id or "farp") if evaluation else None,
-            "last_update": shard.last_update.isoformat() if shard.last_update else None,
-        })
-    return jobs
+    return [
+        {
+            "evaluation_id": evaluation.id,
+            "status": evaluation.status,
+            "done_units": evaluation.done_units or 0,
+            "total_units": evaluation.total_units or 1,
+            "username": evaluation.username,
+            "level_id": evaluation.level_id or "farp",
+            "stage": evaluation.stage,
+            "last_update": evaluation.last_update.isoformat() if evaluation.last_update else None,
+        }
+        for evaluation in running
+    ]
 
 
 @workers_bp.get("/workers/<worker_id>")
@@ -467,7 +406,7 @@ def disconnect_worker(worker_id):
     if worker is None:
         raise NotFound("Worker not found")
     worker.enabled = False
-    _requeue_worker_shards(worker_id)
+    _requeue_worker_jobs(worker_id)
     worker.current_job_id = None
     worker.reported_status = "disconnected"
     db.session.commit()
@@ -480,7 +419,7 @@ def delete_worker(worker_id):
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
-    _requeue_worker_shards(worker_id)
+    _requeue_worker_jobs(worker_id)
     db.session.delete(worker)
     db.session.commit()
-    return "", 204
+    return jsonify({"ok": True})

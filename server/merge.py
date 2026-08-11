@@ -1,18 +1,14 @@
 META_KEYS = ("fps", "defenders", "view", "fov", "speed", "planet", "arena")
 
 
-def merge_shards(parts):
-    runs = []
-    sweep_runs = []
-    meta = {}
-    for part in parts:
-        if not part:
-            continue
-        if not meta and part.get("meta"):
-            meta = {key: part["meta"].get(key) for key in META_KEYS}
-        runs.extend(part.get("runs", []))
-        sweep_runs.extend(part.get("sweep_runs", []))
+def summarize(result):
+    # One worker runs a whole evaluation, so a job comes back as a single result.
+    result = result if isinstance(result, dict) else {}
+    meta_source = result.get("meta") or {}
+    meta = {key: meta_source.get(key) for key in META_KEYS}
 
+    runs = list(result.get("runs") or [])
+    sweep_runs = list(result.get("sweep_runs") or [])
     runs.sort(key=lambda run: run.get("trial", 0))
     sweep_runs.sort(key=lambda run: run.get("n", 0))
 
@@ -23,8 +19,6 @@ def merge_shards(parts):
     wins = sum(1 for outcome in outcomes if outcome == "win")
     total = max(1, len(outcomes))
     success_rate = round(100.0 * wins / total, 1)
-    detection_rate = _rate(detection_times)
-    capture_rate = _rate(capture_times)
     sweep = [
         {"n": run.get("n"), "success_rate": run.get("capture_rate", 100.0 if run.get("outcome") == "win" else 0.0)}
         for run in sweep_runs
@@ -37,14 +31,17 @@ def merge_shards(parts):
     results = {
         "trials": len(outcomes),
         "success_rate": success_rate,
-        "detection_rate": detection_rate,
-        "capture_rate": capture_rate,
+        "detection_rate": _rate(detection_times),
+        "capture_rate": _rate(capture_times),
         "outcomes": outcomes,
         "detection_times": detection_times,
         "capture_times": capture_times,
         "goal_times": goal_times,
         "sweep": sweep,
     }
+    stats = next((run.get("stats") for run in runs if run.get("stats")), None)
+    if stats:
+        results["stats"] = stats
     return results, replays
 
 

@@ -186,7 +186,7 @@
 		<div class="admin-table-wrap">
 			<table>
 				<thead>
-					<tr><th>Evaluation</th><th>Player</th><th>Level</th><th>Shard</th><th>Progress</th><th>Updated</th></tr>
+					<tr><th>Evaluation</th><th>Player</th><th>Level</th><th>Stage</th><th>Progress</th><th>Updated</th></tr>
 				</thead>
 				<tbody>
 					{#each worker.jobs as job}
@@ -194,7 +194,7 @@
 							<td><a href={`/admin/evaluations/${job.evaluation_id}`}>{job.evaluation_id}</a></td>
 							<td>{job.username ?? '—'}</td>
 							<td>{job.level_id ?? '—'}</td>
-							<td>#{job.shard_index}</td>
+							<td>{job.stage ?? '—'}</td>
 							<td>{job.done_units} / {job.total_units}</td>
 							<td>{when(job.last_update)}</td>
 						</tr>

@@ -96,11 +96,11 @@ type jobResult struct {
 }
 
 func Run(options Options) Report {
-	report, _ := RunShard(options)
+	report, _ := RunJob(options)
 	return report
 }
 
-func RunShard(options Options) (Report, ShardResult) {
+func RunJob(options Options) (Report, JobResult) {
 	options.applyDefaults()
 	started := time.Now()
 
@@ -138,10 +138,10 @@ func RunShard(options Options) (Report, ShardResult) {
 	report.Results.Sweep = summarizeSweep(sweep)
 	report.DurationSeconds = time.Since(started).Seconds()
 
-	shard := ShardResult{
+	jobResult := JobResult{
 		Runs:      packPlacementRuns(placement),
 		SweepRuns: packSweepRuns(sweep),
-		Meta: ShardMeta{
+		Meta: JobMeta{
 			FPS:       PhysicsTicksPerSecond,
 			Defenders: report.Defenders,
 			View:      int(report.ViewDistance),
@@ -151,7 +151,7 @@ func RunShard(options Options) (Report, ShardResult) {
 			Arena:     []int{int(ArenaWidth), int(ArenaHeight)},
 		},
 	}
-	return report, shard
+	return report, jobResult
 }
 
 func buildJobs(options Options, placementLayout []Placement, spawnPoints []godot.Vec, enemyStart godot.Vec) []job {

@@ -77,21 +77,26 @@ func (c *Client) Claim(request ClaimRequest) (ClaimResponse, error) {
 	return response, err
 }
 
-func (c *Client) Progress(shardID string, request ProgressRequest) (bool, error) {
+func (c *Client) Progress(jobID string, request ProgressRequest) (bool, error) {
 	response := ProgressResponse{}
-	err := c.post(fmt.Sprintf("/api/worker/shards/%s/progress", shardID), request, &response, 30*time.Second)
+	err := c.post(fmt.Sprintf("/api/worker/jobs/%s/progress", jobID), request, &response, 30*time.Second)
 	if err != nil {
 		return false, err
 	}
 	return response.Cancel, nil
 }
 
-func (c *Client) PostResult(shardID string, request ResultRequest) error {
-	return c.post(fmt.Sprintf("/api/worker/shards/%s/result", shardID), request, nil, 300*time.Second)
+func (c *Client) PostResult(jobID string, request ResultRequest) (bool, error) {
+	response := ResultResponse{Accepted: true}
+	err := c.post(fmt.Sprintf("/api/worker/jobs/%s/result", jobID), request, &response, 300*time.Second)
+	if err != nil {
+		return false, err
+	}
+	return response.Accepted, nil
 }
 
-func (c *Client) Fail(shardID string, request FailRequest) error {
-	return c.post(fmt.Sprintf("/api/worker/shards/%s/fail", shardID), request, nil, 30*time.Second)
+func (c *Client) Fail(jobID string, request FailRequest) error {
+	return c.post(fmt.Sprintf("/api/worker/jobs/%s/fail", jobID), request, nil, 30*time.Second)
 }
 
 func truncate(text string, limit int) string {

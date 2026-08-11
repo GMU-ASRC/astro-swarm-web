@@ -6,7 +6,7 @@ import (
 	"astroswarm/worker/internal/godot"
 )
 
-type ShardConfig struct {
+type JobConfig struct {
 	Seed            int64   `json:"seed"`
 	SweepMax        int     `json:"sweep_max"`
 	SweepTrials     int     `json:"sweep_trials"`
@@ -19,38 +19,35 @@ type ShardConfig struct {
 }
 
 type PilotRun struct {
-	Frames        [][]int `json:"frames"`
-	Outcome       string  `json:"outcome"`
-	DetectionTime float64 `json:"detection_time"`
-	CaptureTime   float64 `json:"capture_time"`
-	GoalTime      float64 `json:"goal_time"`
-	FPS           int     `json:"fps"`
-	Defenders     int     `json:"defenders"`
-	View          int     `json:"view"`
-	Fov           int     `json:"fov"`
-	Speed         int     `json:"speed"`
-	Planet        []int   `json:"planet"`
-	Arena         []int   `json:"arena"`
+	Frames        [][]int            `json:"frames"`
+	Outcome       string             `json:"outcome"`
+	DetectionTime float64            `json:"detection_time"`
+	CaptureTime   float64            `json:"capture_time"`
+	GoalTime      float64            `json:"goal_time"`
+	FPS           int                `json:"fps"`
+	Defenders     int                `json:"defenders"`
+	View          int                `json:"view"`
+	Fov           int                `json:"fov"`
+	Speed         int                `json:"speed"`
+	Planet        []int              `json:"planet"`
+	Arena         []int              `json:"arena"`
+	Stats         map[string]float64 `json:"stats"`
 }
 
-type Shard struct {
-	ShardID      string            `json:"shard_id"`
+type Job struct {
+	JobID        string            `json:"job_id"`
 	EvaluationID string            `json:"evaluation_id"`
 	Algorithm    any               `json:"algorithm"`
 	Placements   []entry.Placement `json:"placements"`
 	Run          *PilotRun         `json:"run"`
 	Trials       int               `json:"trials"`
-	TrialStart   int               `json:"trial_start"`
-	TrialCount   int               `json:"trial_count"`
-	NStart       int               `json:"n_start"`
-	NCount       int               `json:"n_count"`
 	TotalUnits   int               `json:"total_units"`
-	Config       ShardConfig       `json:"config"`
+	Config       JobConfig         `json:"config"`
 }
 
-func (s Shard) benchPlacements() []bench.Placement {
-	placements := make([]bench.Placement, 0, len(s.Placements))
-	for _, item := range s.Placements {
+func (j Job) benchPlacements() []bench.Placement {
+	placements := make([]bench.Placement, 0, len(j.Placements))
+	for _, item := range j.Placements {
 		placements = append(placements, bench.Placement{
 			Position: godot.Vec{X: item.X, Y: item.Y},
 			Rotation: item.Rot,
@@ -83,11 +80,10 @@ type HeartbeatResponse struct {
 
 type ClaimRequest struct {
 	WorkerID string `json:"worker_id"`
-	Slots    int    `json:"slots"`
 }
 
 type ClaimResponse struct {
-	Shards  []Shard `json:"shards"`
+	Jobs    []Job   `json:"jobs"`
 	Enabled *bool   `json:"enabled"`
 	Known   *bool   `json:"known"`
 }
@@ -104,7 +100,11 @@ type ProgressResponse struct {
 
 type ResultRequest struct {
 	WorkerID string            `json:"worker_id"`
-	Result   bench.ShardResult `json:"result"`
+	Result   bench.JobResult `json:"result"`
+}
+
+type ResultResponse struct {
+	Accepted bool `json:"accepted"`
 }
 
 type FailRequest struct {

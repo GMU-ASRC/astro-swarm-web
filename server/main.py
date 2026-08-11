@@ -110,35 +110,22 @@ def _ensure_admin_user():
         logger.warning("Could not create initial admin user: %s", exc)
 
 
-def _recover_shards_on_restart():
-    # Jobs are split into shards that run on external worker nodes. On a server
-    # restart, return any in-flight shards to the queue (completed shards keep
-    # their stored result), and rebuild shards for any in-flight evaluation that
-    # has none (e.g. jobs queued before this version).
+def _recover_jobs_on_restart():
+    # A job runs on an external worker node. On a server restart, return any
+    # in-flight job to the queue; finished evaluations keep their results.
     try:
-        from models import EvaluationShard, PlayerEvaluation
-        from routers.workers import create_shards
-
-        db.session.execute(text(
-            "UPDATE evaluation_shards SET status='queued', worker_id=NULL, done_units=0 "
-            "WHERE status='running'"
-        ))
-        db.session.commit()
+        from models import PlayerEvaluation
+        from routers.workers import queue_evaluation
 
         pending = PlayerEvaluation.query.filter(
             PlayerEvaluation.status.in_(("queued", "running"))
         ).all()
         for evaluation in pending:
-            has_shards = EvaluationShard.query.filter_by(evaluation_id=evaluation.id).count()
-            if not has_shards:
-                evaluation.status = "queued"
-                evaluation.progress = 0.0
-                evaluation.worker_id = None
-                create_shards(evaluation)
+            queue_evaluation(evaluation)
         db.session.commit()
     except Exception as exc:
         db.session.rollback()
-        logger.warning("Could not recover evaluation shards: %s", exc)
+        logger.warning("Could not recover evaluation jobs: %s", exc)
 
 
 def create_app():
@@ -167,7 +154,7 @@ def create_app():
         db.create_all()
         migrations.apply(logger)
         _ensure_admin_user()
-        _recover_shards_on_restart()
+        _recover_jobs_on_restart()
         db.engine.dispose()
 
     @app.before_request

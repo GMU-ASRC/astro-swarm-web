@@ -22,6 +22,12 @@ STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS xp_awarded integer",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS collisions boolean DEFAULT false",
     "ALTER TABLE workers DROP COLUMN IF EXISTS max_jobs",
+    # One worker runs one whole evaluation, so the job state moved onto the
+    # evaluation itself and the shard table is gone.
+    "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS done_units integer DEFAULT 0",
+    "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS total_units integer DEFAULT 1",
+    "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS last_update timestamptz DEFAULT now()",
+    "DROP TABLE IF EXISTS evaluation_shards",
 ]
 
 

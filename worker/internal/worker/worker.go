@@ -10,6 +10,13 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"astroswarm/worker/internal/bench"
+)
+
+const (
+	resultPostAttempts = 3               // count, tries before the job is reported as failed
+	resultPostBackoff  = 5 * time.Second // seconds added between retries
 )
 
 type Settings struct {
@@ -146,8 +153,8 @@ func (w *Worker) register(ctx context.Context) {
 	}
 }
 
-func (w *Worker) claimOne(ctx context.Context) *Shard {
-	response, err := w.client.Claim(ClaimRequest{WorkerID: w.id, Slots: 1})
+func (w *Worker) claimOne(ctx context.Context) *Job {
+	response, err := w.client.Claim(ClaimRequest{WorkerID: w.id})
 	if err != nil {
 		w.logger.Printf("claim failed: %v", err)
 		return nil
@@ -160,15 +167,15 @@ func (w *Worker) claimOne(ctx context.Context) *Shard {
 	if response.Enabled != nil && !*response.Enabled {
 		return nil
 	}
-	if len(response.Shards) == 0 {
+	if len(response.Jobs) == 0 {
 		return nil
 	}
-	return &response.Shards[0]
+	return &response.Jobs[0]
 }
 
-func (w *Worker) startJob(parent context.Context, shard Shard) {
+func (w *Worker) startJob(parent context.Context, job Job) {
 	w.mutex.Lock()
-	w.currentID = shard.EvaluationID
+	w.currentID = job.EvaluationID
 	w.mutex.Unlock()
 
 	go func() {
@@ -177,7 +184,7 @@ func (w *Worker) startJob(parent context.Context, shard Shard) {
 			w.currentID = ""
 			w.mutex.Unlock()
 		}()
-		w.execute(parent, shard)
+		w.execute(parent, job)
 	}()
 }
 
@@ -193,7 +200,7 @@ func (w *Worker) waitUntilIdle() {
 	}
 }
 
-func (w *Worker) execute(parent context.Context, shard Shard) {
+func (w *Worker) execute(parent context.Context, job Job) {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(parent, w.settings.JobTimeout)
 	defer cancel()
@@ -213,46 +220,82 @@ func (w *Worker) execute(parent context.Context, shard Shard) {
 		})
 	}
 
-	go w.pollCancellation(ctx, shard, state, stopPolling, markCancelled)
+	go w.pollCancellation(ctx, job, state, stopPolling, markCancelled)
 
 	report := func(done int, stage string) {
 		state.set(done, stage)
 	}
 
-	result, err := w.executeShard(ctx, shard, report)
-	stop()
+	result, err := w.executeJob(ctx, job, report)
 
 	select {
 	case <-cancelled:
-		w.logger.Printf("job %s (shard %s): cancelled", shard.EvaluationID, shard.ShardID)
+		stop()
+		w.logger.Printf("job %s: cancelled", job.EvaluationID)
 		return
 	default:
 	}
 
 	if err != nil {
+		stop()
 		if errors.Is(err, ErrCancelled) || errors.Is(ctx.Err(), context.Canceled) {
-			w.logger.Printf("job %s (shard %s): cancelled", shard.EvaluationID, shard.ShardID)
+			w.logger.Printf("job %s: cancelled", job.EvaluationID)
 			return
 		}
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			err = errors.New("job exceeded the configured timeout")
 		}
-		w.logger.Printf("job %s (shard %s): failed: %v", shard.EvaluationID, shard.ShardID, err)
-		if failErr := w.client.Fail(shard.ShardID, FailRequest{WorkerID: w.id, Error: truncate(err.Error(), 400)}); failErr != nil {
-			w.logger.Printf("shard %s: fail post failed: %v", shard.ShardID, failErr)
+		w.logger.Printf("job %s: failed: %v", job.EvaluationID, err)
+		if failErr := w.client.Fail(job.JobID, FailRequest{WorkerID: w.id, Error: truncate(err.Error(), 400)}); failErr != nil {
+			w.logger.Printf("job %s: fail post failed: %v", job.JobID, failErr)
 		}
 		return
 	}
 
-	if postErr := w.client.PostResult(shard.ShardID, ResultRequest{WorkerID: w.id, Result: result}); postErr != nil {
-		w.logger.Printf("shard %s: result post failed: %v", shard.ShardID, postErr)
+	// The cancellation poller keeps running through the upload. A finished replay
+	// payload takes a while to send, and a job that stops reporting looks dead to
+	// the server.
+	postErr := w.postResult(job, result)
+	stop()
+	if postErr != nil {
+		w.logger.Printf("job %s: result never reached the server: %v", job.EvaluationID, postErr)
+		// Without this the evaluation would sit in "running" forever, so the old
+		// results would stay on screen for good.
+		if failErr := w.client.Fail(job.JobID, FailRequest{
+			WorkerID: w.id,
+			Error:    truncate("result upload failed: "+postErr.Error(), 400),
+		}); failErr != nil {
+			w.logger.Printf("job %s: fail post failed: %v", job.JobID, failErr)
+		}
 		return
 	}
-	w.logger.Printf("job %s (shard %s): done in %.1fs (%d runs, %d sweep points)",
-		shard.EvaluationID, shard.ShardID, time.Since(started).Seconds(), len(result.Runs), len(result.SweepRuns))
+	w.logger.Printf("job %s: done in %.1fs (%d runs, %d sweep points)",
+		job.EvaluationID, time.Since(started).Seconds(), len(result.Runs), len(result.SweepRuns))
 }
 
-func (w *Worker) pollCancellation(ctx context.Context, shard Shard, state *progressState, stop <-chan struct{}, markCancelled func()) {
+func (w *Worker) postResult(job Job, result bench.JobResult) error {
+	request := ResultRequest{WorkerID: w.id, Result: result}
+	var err error
+	for attempt := 1; attempt <= resultPostAttempts; attempt++ {
+		var accepted bool
+		accepted, err = w.client.PostResult(job.JobID, request)
+		if err == nil {
+			if !accepted {
+				// The server no longer had this job assigned to us, so it threw the
+				// result away. Say so instead of reporting a clean finish.
+				w.logger.Printf("job %s: the server rejected the result (it was reassigned or cancelled)", job.EvaluationID)
+			}
+			return nil
+		}
+		w.logger.Printf("job %s: result post attempt %d/%d failed: %v", job.JobID, attempt, resultPostAttempts, err)
+		if attempt < resultPostAttempts {
+			time.Sleep(resultPostBackoff * time.Duration(attempt))
+		}
+	}
+	return err
+}
+
+func (w *Worker) pollCancellation(ctx context.Context, job Job, state *progressState, stop <-chan struct{}, markCancelled func()) {
 	ticker := time.NewTicker(w.settings.CancelPoll)
 	defer ticker.Stop()
 	for {
@@ -263,13 +306,13 @@ func (w *Worker) pollCancellation(ctx context.Context, shard Shard, state *progr
 			return
 		case <-ticker.C:
 			done, stage := state.get()
-			cancel, err := w.client.Progress(shard.ShardID, ProgressRequest{
+			cancel, err := w.client.Progress(job.JobID, ProgressRequest{
 				WorkerID: w.id,
 				Done:     done,
 				Stage:    stage,
 			})
 			if err != nil {
-				w.logger.Printf("shard %s: progress post failed: %v", shard.ShardID, err)
+				w.logger.Printf("job %s: progress post failed: %v", job.JobID, err)
 				continue
 			}
 			if cancel {

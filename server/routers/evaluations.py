@@ -35,9 +35,9 @@ from app_settings import (
 )
 from config import Config
 from database import db
-from models import EvaluationShard, PlayerEvaluation
-from routers.workers import create_shards
-from schemas import MAX_RUN_FPS, MAX_RUN_SECONDS, EvaluationSubmit, RunSubmit
+from models import PlayerEvaluation
+from routers.workers import queue_evaluation
+from schemas import MAX_RUN_FPS, MAX_RUN_SECONDS, EvaluationSubmit, RunSubmit, run_limits_for
 
 MAX_XP_PER_LEVEL_UNIT = 100
 PILOT_LEVEL_MAX_XP = 1000
@@ -308,7 +308,6 @@ def delete_player(player_id: str):
     if not entries:
         raise NotFound("Player not found")
     for entry in entries:
-        EvaluationShard.query.filter_by(evaluation_id=entry.id).delete(synchronize_session=False)
         db.session.delete(entry)
     db.session.commit()
     return jsonify({"deleted": len(entries)})
@@ -382,7 +381,7 @@ def submit_evaluation():
         return jsonify(evaluation.to_dict()), 202
 
     db.session.flush()
-    create_shards(evaluation)
+    queue_evaluation(evaluation)
     db.session.commit()
 
     return jsonify(evaluation.to_dict()), 202
@@ -421,17 +420,7 @@ def submit_run():
     )
     db.session.add(evaluation)
     db.session.flush()
-
-    db.session.add(EvaluationShard(
-        evaluation_id=evaluation.id,
-        shard_index=0,
-        trial_start=0,
-        trial_count=1,
-        n_start=1,
-        n_count=0,
-        total_units=1,
-        status="queued",
-    ))
+    queue_evaluation(evaluation)
     db.session.commit()
 
     return jsonify(evaluation.to_dict()), 202
@@ -464,6 +453,7 @@ def settings():
         "sweep_trial_seeds": get_sweep_trial_seeds(),
         "levels": get_levels(),
         "pilot_level_ids": [level["id"] for level in PILOT_LEVELS],
+        "pilot_run_limits": {level["id"]: run_limits_for(level["id"]) for level in PILOT_LEVELS},
         "pilot_time_limit_seconds": MAX_RUN_SECONDS,
         "pilot_max_fps": MAX_RUN_FPS,
         "pilot_max_xp": PILOT_LEVEL_MAX_XP,
@@ -630,9 +620,6 @@ def cancel_evaluation_route(eval_id: str):
     evaluation.worker_id = None
     evaluation.stage = None
     evaluation.completed_at = datetime.now(timezone.utc)
-    EvaluationShard.query.filter_by(evaluation_id=eval_id).filter(
-        EvaluationShard.status.in_(("queued", "running"))
-    ).update({"status": "cancelled"}, synchronize_session=False)
     db.session.commit()
     return jsonify(evaluation.to_dict()), 202
 
@@ -646,11 +633,17 @@ def resimulate_evaluation(eval_id: str):
     if evaluation.status in ("queued", "running"):
         raise BadRequest("Evaluation is already running")
 
-    evaluation.status = "queued"
-    evaluation.progress = 0.0
-    evaluation.error = None
-    evaluation.worker_id = None
-    create_shards(evaluation)
+    replays = evaluation.replays if isinstance(evaluation.replays, dict) else {}
+    pending_run = replays.get("pending_run")
+    if is_pilot_level(evaluation.level_id) and pending_run is None:
+        raise BadRequest("This piloted entry has no recorded run left to render")
+
+    # Clear the previous output first. A re-run that fails or is cancelled must
+    # not leave the old results on screen looking like fresh ones.
+    evaluation.completed_at = None
+    evaluation.results = {}
+    evaluation.replays = {"pending_run": pending_run} if pending_run is not None else {}
+    queue_evaluation(evaluation)
     db.session.commit()
 
     return jsonify(evaluation.to_dict()), 202

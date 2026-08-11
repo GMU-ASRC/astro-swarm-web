@@ -193,6 +193,13 @@ class PlayerEvaluation(db.Model):
     replays = db.Column(db.JSON, default=dict)
     error = db.Column(db.String(400), nullable=True)
 
+    done_units = db.Column(db.Integer, default=0)
+    total_units = db.Column(db.Integer, default=1)
+    last_update = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
     game_version = db.Column(db.String(20), default="v0.0.4")
     defender_count = db.Column(db.Integer, default=0)
     xp_awarded = db.Column(db.Integer, nullable=True)
@@ -334,6 +341,7 @@ class PlayerEvaluation(db.Model):
                     "speed": replays.get("speed"),
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
+                    "stats": run.get("stats", {}),
                     "frames": frames,
                 }
         return None
@@ -425,35 +433,6 @@ class PlayerEvaluation(db.Model):
         return None
 
 
-class EvaluationShard(db.Model):
-    __tablename__ = "evaluation_shards"
-
-    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    evaluation_id = db.Column(db.String, index=True, nullable=False)
-    shard_index = db.Column(db.Integer, default=0)
-
-    trial_start = db.Column(db.Integer, default=0)
-    trial_count = db.Column(db.Integer, default=0)
-    n_start = db.Column(db.Integer, default=1)
-    n_count = db.Column(db.Integer, default=0)
-    total_units = db.Column(db.Integer, default=1)
-
-    status = db.Column(db.String(12), default="queued", index=True)
-    done_units = db.Column(db.Integer, default=0)
-    worker_id = db.Column(db.String(64), nullable=True)
-    result = db.Column(db.JSON, nullable=True)
-    error = db.Column(db.String(400), nullable=True)
-
-    created_at = db.Column(
-        db.DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-    )
-    last_update = db.Column(
-        db.DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-    )
-
-
 class AppSetting(db.Model):
     __tablename__ = "app_settings"
 
@@ -462,7 +441,9 @@ class AppSetting(db.Model):
 
 
 WORKER_ONLINE_SECONDS = 30
-SHARD_STALE_SECONDS = 45
+# A running job reports progress every couple of seconds, right through the
+# upload of its result. This much silence means it is never coming back.
+JOB_SILENT_SECONDS = 300
 
 
 class Worker(db.Model):
