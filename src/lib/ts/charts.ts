@@ -3,6 +3,10 @@ import type { ChartConfiguration } from 'chart.js';
 const GRID = '#e5e7eb';
 const TEXT = '#374151';
 
+const DETECTION = '#2563eb';
+const CAPTURE = '#dc2626';
+const SUCCESS = '#4ade80';
+
 const PERCENT_CEILING = 108;
 const PERCENT_TICK_STEP = 25;
 const VALUE_HEADROOM = '8%';
@@ -41,6 +45,30 @@ function percentScale(scale: object) {
 	};
 }
 
+export function headlineRatesConfig(
+	detectionRate: number,
+	captureRate: number,
+	successRate: number
+): ChartConfiguration {
+	const options = baseOptions('Outcome Rates', '% of trials', '');
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'bar',
+		data: {
+			labels: ['Evader detected', 'Evader captured', 'Defenders win'],
+			datasets: [
+				{
+					label: 'Percent of trials',
+					data: [detectionRate, captureRate, successRate],
+					backgroundColor: [DETECTION, CAPTURE, SUCCESS]
+				}
+			]
+		},
+		options
+	};
+}
+
 export function lineConfig(outcomes: string[]): ChartConfiguration {
 	let wins = 0;
 	const labels: number[] = [];
@@ -51,7 +79,7 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 		data.push((100 * wins) / (index + 1));
 	});
 
-	const options = baseOptions('Cumulative Detection Rate', 'Detection Rate (%)', 'Trial');
+	const options = baseOptions('Cumulative Defender Win Rate', 'Defenders win (%)', 'Trial');
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
@@ -59,7 +87,7 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 		data: {
 			labels,
 			datasets: [
-				{ label: 'Detection rate', data, borderColor: '#2563eb', backgroundColor: '#2563eb', pointRadius: 0, borderWidth: 2, tension: 0.1 }
+				{ label: 'Defenders win', data, borderColor: DETECTION, backgroundColor: DETECTION, pointRadius: 0, borderWidth: 2, tension: 0.1 }
 			]
 		},
 		options
@@ -102,6 +130,21 @@ type SweepRow = {
 	capture_rate?: number;
 };
 
+function sweepPoints(rows: SweepRow[]): SweepRow[] {
+	return [...rows].sort((a, b) => a.n - b.n);
+}
+
+function rateOf(
+	row: SweepRow,
+	rateKey: 'detection_rate' | 'capture_rate',
+	timeKey: 'detection_time' | 'capture_time'
+): number {
+	const averaged = row[rateKey];
+	if (averaged != null) return averaged;
+	const time = row[timeKey];
+	return time != null && time >= 0 ? 100 : 0;
+}
+
 function sweepRateConfig(
 	rows: SweepRow[],
 	rateKey: 'detection_rate' | 'capture_rate',
@@ -110,13 +153,8 @@ function sweepRateConfig(
 	yTitle: string,
 	color: string
 ): ChartConfiguration {
-	const points = [...rows].sort((a, b) => a.n - b.n);
-	const rate = (row: SweepRow) => {
-		const averaged = row[rateKey];
-		if (averaged != null) return averaged;
-		const time = row[timeKey];
-		return time != null && time >= 0 ? 100 : 0;
-	};
+	const points = sweepPoints(rows);
+	const rate = (row: SweepRow) => rateOf(row, rateKey, timeKey);
 
 	const options = baseOptions(title, yTitle, 'Defenders in ring (n)');
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -140,7 +178,7 @@ export function detectionRateConfig(rows: SweepRow[]): ChartConfiguration {
 		'detection_time',
 		'Detection Success Rate vs Number of Defenders',
 		'Detection success rate (%)',
-		'#2563eb'
+		DETECTION
 	);
 }
 
@@ -151,8 +189,45 @@ export function captureRateConfig(rows: SweepRow[]): ChartConfiguration {
 		'capture_time',
 		'Capture Success Rate vs Number of Defenders',
 		'Capture success rate (%)',
-		'#dc2626'
+		CAPTURE
 	);
+}
+
+export function combinedRatesConfig(rows: SweepRow[]): ChartConfiguration {
+	const points = sweepPoints(rows);
+	const options = baseOptions(
+		'Detection and Capture Rates vs Number of Defenders',
+		'% of ring sweep runs',
+		'Defenders in ring (n)',
+		true
+	);
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels: points.map((point) => point.n),
+			datasets: [
+				{
+					label: 'Seen at least once',
+					data: points.map((point) => rateOf(point, 'detection_rate', 'detection_time')),
+					borderColor: DETECTION,
+					backgroundColor: DETECTION,
+					pointRadius: 0,
+					borderWidth: 2
+				},
+				{
+					label: 'Captured',
+					data: points.map((point) => rateOf(point, 'capture_rate', 'capture_time')),
+					borderColor: CAPTURE,
+					backgroundColor: CAPTURE,
+					pointRadius: 0,
+					borderWidth: 2
+				}
+			]
+		},
+		options
+	};
 }
 
 export function timesConfig(detection: number[], capture: number[]): ChartConfiguration {

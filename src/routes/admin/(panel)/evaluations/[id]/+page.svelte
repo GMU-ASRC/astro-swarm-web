@@ -4,7 +4,7 @@
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, detectionRateConfig, captureRateConfig, timesConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 
 	let { data } = $props();
@@ -53,6 +53,14 @@
 
 	let detectionTimes = $derived(ev?.results?.detection_times ?? []);
 	let captureTimes = $derived(ev?.results?.capture_times ?? []);
+	let detectionRate = $derived(ev?.results?.detection_rate ?? rateOf(detectionTimes));
+	let captureRate = $derived(ev?.results?.capture_rate ?? rateOf(captureTimes));
+
+	function rateOf(times: number[]): number {
+		if (times.length === 0) return 0;
+		const hits = times.filter((time) => time >= 0).length;
+		return Math.round((1000 * hits) / times.length) / 10;
+	}
 
 	function cellClass(o: string): string {
 		if (o === 'win') return 'run-win';
@@ -280,11 +288,13 @@
 		</div>
 
 		<div class="charts">
+			<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate)} />
 			<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 			<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
 			{#if sweepRuns.length > 0}
 				<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
 				<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
+				<ChartCard config={combinedRatesConfig(sweepRuns)} />
 			{/if}
 			{#if detectionTimes.length > 0}
 				<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
