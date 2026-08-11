@@ -3,6 +3,8 @@
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
+	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
+	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
@@ -74,17 +76,62 @@
 
 	let stats = $derived(ev.results?.stats ?? selectedReplay?.stats ?? {});
 
-	function cellClass(outcome: string): string {
-		if (outcome === 'win') return 'cell-win';
-		if (outcome === 'lose') return 'cell-loss';
-		return 'cell-timeout';
-	}
+	let placementGroups = $derived<ReplayGroup[]>([
+		{
+			label: 'Trials',
+			cells: outcomes.map((outcome, index) => ({
+				id: index,
+				label: index + 1,
+				tone: toneOf(outcome),
+				title: `Trial ${index + 1}: ${outcome}`,
+				selected: selectedTrial === index,
+				select: () => loadReplay(index)
+			}))
+		}
+	]);
 
-	function sweepClass(run: { outcome: string; capture_rate?: number }): string {
+	let placementMeta = $derived(
+		selectedReplay
+			? `Trial ${(selectedTrial ?? 0) + 1} · ${selectedReplay.outcome} · detected ${fmtTime(selectedReplay.detection_time)} · captured ${fmtTime(selectedReplay.capture_time)} · reached planet ${fmtTime(selectedReplay.goal_time)}`
+			: ''
+	);
+
+	let sweepGroups = $derived<ReplayGroup[]>([
+		{
+			label: 'Ring size (n)',
+			cells: sweepRuns.map((run) => ({
+				id: `n${run.n}`,
+				label: run.n,
+				tone: sweepTone(run),
+				title: `n=${run.n}: ${sweepLabel(run)}`,
+				selected: selectedN === run.n,
+				select: () => loadSweepReplay(run.n)
+			}))
+		},
+		{
+			label: selectedN != null ? `Trials for n = ${selectedN}` : 'Trials',
+			cells: sweepTrials.map((trial) => ({
+				id: `t${trial.trial}`,
+				label: trial.trial + 1,
+				tone: toneOf(trial.outcome),
+				title: `n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`,
+				selected: selectedSweepTrial === trial.trial,
+				select: () => loadSweepTrialReplay(selectedN as number, trial.trial)
+			}))
+		}
+	]);
+
+	let sweepMeta = $derived(
+		selectedSweepReplay
+			? `n = ${selectedN} defenders${selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · ${selectedSweepReplay.outcome} · detected ${fmtTime(selectedSweepReplay.detection_time)} · captured ${fmtTime(selectedSweepReplay.capture_time)} · reached planet ${fmtTime(selectedSweepReplay.goal_time)}`
+			: ''
+	);
+
+	function sweepTone(run: { outcome: string; capture_rate?: number }): 'win' | 'loss' | 'timeout' {
 		// Colour an n by how its trials went overall, not by the one trial kept
 		// for replay.
-		if (run.capture_rate != null) return run.capture_rate > 50 ? 'cell-win' : 'cell-loss';
-		return cellClass(run.outcome);
+		if (run.capture_rate != null) return run.capture_rate > 50 ? 'win' : 'loss';
+		return toneOf(run.outcome);
 	}
 
 	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
@@ -380,30 +427,11 @@
 							Each cell is one trial — green intercepted, red reached the planet. Pick a run to replay
 							it.
 						</p>
-						<div class="cell-grid">
-							{#each outcomes as outcome, index}
-								<button
-									type="button"
-									title={`Trial ${index + 1}: ${outcome}`}
-									onclick={() => loadReplay(index)}
-									class="cell {cellClass(outcome)}"
-									class:selected={selectedTrial === index}
-									aria-label={`Trial ${index + 1} ${outcome}`}
-								>
-									{index + 1}
-								</button>
-							{/each}
-						</div>
-
-						{#if selectedReplay}
-							<div class="card replay">
-								<div class="replay-meta">
-									Trial {(selectedTrial ?? 0) + 1} · {selectedReplay.outcome} · detected {fmtTime(selectedReplay.detection_time)}
-									· captured {fmtTime(selectedReplay.capture_time)} · reached planet {fmtTime(selectedReplay.goal_time)}
-								</div>
-								<FarpReplay replay={selectedReplay} />
-							</div>
-						{/if}
+						<ReplayWorkspace
+							groups={placementGroups}
+							replay={selectedReplay}
+							meta={placementMeta}
+						/>
 					</section>
 				{:else if selectedReplay}
 					<section class="block">
@@ -434,53 +462,12 @@
 							target, with the ring rotated to a seeded random angle each trial. A green n means
 							most of its trials captured the evader. Pick an n to replay it.
 						</p>
-						<div class="cell-grid">
-							{#each sweepRuns as run}
-								<button
-									type="button"
-									title={`n=${run.n}: ${sweepLabel(run)}`}
-									onclick={() => loadSweepReplay(run.n)}
-									class="cell {sweepClass(run)}"
-									class:selected={selectedN === run.n}
-									aria-label={`n ${run.n} ${sweepLabel(run)}`}
-								>
-									{run.n}
-								</button>
-							{/each}
-						</div>
-
-						{#if sweepTrials.length > 0}
-							<p class="block-note">
-								Each n is simulated multiple times with the ring rotated to a different angle. Pick a
-								trial to replay it.
-							</p>
-							<div class="cell-grid">
-								{#each sweepTrials as trial}
-									<button
-										type="button"
-										title={`n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`}
-										onclick={() => loadSweepTrialReplay(selectedN as number, trial.trial)}
-										class="cell {cellClass(trial.outcome)}"
-										class:selected={selectedSweepTrial === trial.trial}
-										aria-label={`trial ${trial.trial + 1} ${trial.outcome}`}
-									>
-										{trial.trial + 1}
-									</button>
-								{/each}
-							</div>
-						{/if}
-
-						{#if selectedSweepReplay}
-							<div class="card replay">
-								<div class="replay-meta">
-									n = {selectedN} defenders{selectedSweepTrial !== null
-										? ` · trial ${selectedSweepTrial + 1}`
-										: ''} · {selectedSweepReplay.outcome} · detected {fmtTime(selectedSweepReplay.detection_time)}
-									· captured {fmtTime(selectedSweepReplay.capture_time)} · reached planet {fmtTime(selectedSweepReplay.goal_time)}
-								</div>
-								<FarpReplay replay={selectedSweepReplay} />
-							</div>
-						{/if}
+						<ReplayWorkspace
+							groups={sweepGroups}
+							replay={selectedSweepReplay}
+							meta={sweepMeta}
+							empty="Pick a ring size to replay it."
+						/>
 					</section>
 				{/if}
 
@@ -657,47 +644,6 @@
 		font-size: 0.85rem;
 		line-height: 1.6;
 		color: var(--color-dim);
-	}
-
-	.cell-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.35rem;
-		max-width: 48rem;
-		margin-top: 1.25rem;
-	}
-
-	.cell {
-		width: 2.5rem;
-		height: 2.5rem;
-		border: 2px solid transparent;
-		border-radius: 0;
-		color: #ffffff;
-		font-size: 0.72rem;
-		cursor: pointer;
-		transition:
-			filter 0.15s,
-			border-color 0.15s;
-	}
-
-	.cell:hover {
-		filter: brightness(1.25);
-	}
-
-	.cell.selected {
-		border-color: var(--color-heading);
-	}
-
-	.cell-win {
-		background: color-mix(in srgb, var(--color-win) 70%, #000000);
-	}
-
-	.cell-loss {
-		background: color-mix(in srgb, var(--color-loss) 70%, #000000);
-	}
-
-	.cell-timeout {
-		background: color-mix(in srgb, var(--color-warn) 70%, #000000);
 	}
 
 	.replay {

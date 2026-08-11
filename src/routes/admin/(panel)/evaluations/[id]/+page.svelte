@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
-	import FarpReplay from '$lib/components/FarpReplay.svelte';
+	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
+	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
@@ -62,17 +63,62 @@
 		return Math.round((1000 * hits) / times.length) / 10;
 	}
 
-	function cellClass(o: string): string {
-		if (o === 'win') return 'run-win';
-		if (o === 'lose') return 'run-lose';
-		return 'run-timeout';
-	}
+	let placementGroups = $derived<ReplayGroup[]>([
+		{
+			label: 'Trials',
+			cells: outcomes.map((outcome, index) => ({
+				id: index,
+				label: index + 1,
+				tone: toneOf(outcome),
+				title: `Trial ${index + 1}: ${outcome}`,
+				selected: selectedTrial === index,
+				select: () => loadReplay(index)
+			}))
+		}
+	]);
 
-	function sweepClass(run: { outcome: string; capture_rate?: number }): string {
+	let placementMeta = $derived(
+		selectedReplay
+			? `Trial ${(selectedTrial ?? 0) + 1} · outcome: ${selectedReplay.outcome} · detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`
+			: ''
+	);
+
+	let sweepGroups = $derived<ReplayGroup[]>([
+		{
+			label: 'Ring size (n)',
+			cells: sweepRuns.map((run) => ({
+				id: `n${run.n}`,
+				label: run.n,
+				tone: sweepTone(run),
+				title: `n=${run.n}: ${sweepLabel(run)}`,
+				selected: selectedN === run.n,
+				select: () => loadSweepReplay(run.n)
+			}))
+		},
+		{
+			label: selectedN != null ? `Trials for n = ${selectedN}` : 'Trials',
+			cells: sweepTrials.map((trial) => ({
+				id: `t${trial.trial}`,
+				label: trial.trial + 1,
+				tone: toneOf(trial.outcome),
+				title: `n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`,
+				selected: selectedSweepTrial === trial.trial,
+				select: () => loadSweepTrialReplay(selectedN as number, trial.trial)
+			}))
+		}
+	]);
+
+	let sweepMeta = $derived(
+		selectedSweepReplay
+			? `N = ${selectedN} defenders${selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · outcome: ${selectedSweepReplay.outcome} · detected: ${fmtTime(selectedSweepReplay.detection_time)} · captured: ${fmtTime(selectedSweepReplay.capture_time)}`
+			: ''
+	);
+
+	function sweepTone(run: { outcome: string; capture_rate?: number }): 'win' | 'loss' | 'timeout' {
 		// Colour an n by how its trials went overall, not by the one trial kept
 		// for replay.
-		if (run.capture_rate != null) return run.capture_rate > 50 ? 'run-win' : 'run-lose';
-		return cellClass(run.outcome);
+		if (run.capture_rate != null) return run.capture_rate > 50 ? 'win' : 'loss';
+		return toneOf(run.outcome);
 	}
 
 	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
@@ -315,64 +361,17 @@
 
 		<h2>Placement Runs ({outcomes.length})</h2>
 		<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>
-		<div class="runs-grid">
-			{#each outcomes as o, i}
-				<button
-					type="button"
-					title={`Trial ${i + 1}: ${o}`}
-					onclick={() => loadReplay(i)}
-					class="{cellClass(o)} {selectedTrial === i ? 'run-selected' : ''}"
-					aria-label={`Trial ${i + 1} ${o}`}
-				>{i + 1}</button>
-			{/each}
-		</div>
-		{#if selectedReplay}
-			<div>
-				<p class="meta">
-					Trial {(selectedTrial ?? 0) + 1} · outcome: {selectedReplay.outcome} · detected:
-					{fmtTime(selectedReplay.detection_time)} · captured: {fmtTime(selectedReplay.capture_time)}
-				</p>
-				<FarpReplay replay={selectedReplay} />
-			</div>
-		{/if}
+		<ReplayWorkspace groups={placementGroups} replay={selectedReplay} meta={placementMeta} />
 
 		<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
 		<p class="meta">Each ring size is simulated repeatedly — n defenders placed in a circle around the target, the ring rotated to a seeded random angle each trial, against a fixed enemy spawn. Click an n to replay it.</p>
 		{#if sweepRuns.length > 0}
-			<div class="runs-grid">
-				{#each sweepRuns as run}
-					<button
-						type="button"
-						title={`n=${run.n}: ${sweepLabel(run)}`}
-						onclick={() => loadSweepReplay(run.n)}
-						class="{sweepClass(run)} {selectedN === run.n ? 'run-selected' : ''}"
-						aria-label={`n ${run.n} ${sweepLabel(run)}`}
-					>{run.n}</button>
-				{/each}
-			</div>
-			{#if sweepTrials.length > 0}
-				<p class="meta">Trials for n = {selectedN} — each one rotates the ring to a different angle. Click a trial to replay it.</p>
-				<div class="runs-grid">
-					{#each sweepTrials as trial}
-						<button
-							type="button"
-							title={`n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`}
-							onclick={() => loadSweepTrialReplay(selectedN as number, trial.trial)}
-							class="{cellClass(trial.outcome)} {selectedSweepTrial === trial.trial ? 'run-selected' : ''}"
-							aria-label={`trial ${trial.trial + 1} ${trial.outcome}`}
-						>{trial.trial + 1}</button>
-					{/each}
-				</div>
-			{/if}
-			{#if selectedSweepReplay}
-				<div>
-					<p class="meta">
-						N = {selectedN} defenders{selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · outcome: {selectedSweepReplay.outcome} · detected:
-						{fmtTime(selectedSweepReplay.detection_time)} · captured: {fmtTime(selectedSweepReplay.capture_time)}
-					</p>
-					<FarpReplay replay={selectedSweepReplay} />
-				</div>
-			{/if}
+			<ReplayWorkspace
+				groups={sweepGroups}
+				replay={selectedSweepReplay}
+				meta={sweepMeta}
+				empty="Pick a ring size to replay it."
+			/>
 		{:else}
 			<div class="message">No ring sweep data for this entry. Re-simulate it with the latest simulator build to generate the sweep replays.</div>
 		{/if}
