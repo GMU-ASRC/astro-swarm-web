@@ -81,7 +81,7 @@
 	}
 
 	function fmtTime(time: number | undefined): string {
-		return time != null && time >= 0 ? `${time}s` : '—';
+		return time != null && time >= 0 ? `${time.toFixed(2)}s` : '—';
 	}
 
 	function fmtNumber(value: number | undefined, digits = 3): string {

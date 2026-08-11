@@ -69,7 +69,7 @@
 	}
 
 	function fmtTime(t: number | undefined): string {
-		return t != null && t >= 0 ? `${t}s` : '—';
+		return t != null && t >= 0 ? `${t.toFixed(2)}s` : '—';
 	}
 
 	async function loadReplay(trial: number) {
