@@ -57,21 +57,12 @@
 
 <style>
 	.workspace {
-		display: grid;
-		grid-template-columns: minmax(11rem, 17rem) minmax(0, 1fr);
-		gap: 1.5rem;
-		align-items: start;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
 		margin-top: 1.25rem;
 	}
 
-	@media (max-width: 60rem) {
-		.workspace {
-			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	/* Every run stays visible: the column grows instead of scrolling, and the
-	   player is sticky so it follows while the list is scanned. */
 	.picker {
 		display: flex;
 		flex-direction: column;
@@ -87,14 +78,15 @@
 	}
 
 	.cells {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.3rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, 2.5rem);
+		gap: 0.35rem;
+		max-width: 48rem;
 	}
 
 	.cell {
-		width: 2.1rem;
-		height: 2.1rem;
+		width: 100%;
+		height: 2.5rem;
 		border: 2px solid transparent;
 		border-radius: 0;
 		color: #ffffff;
@@ -126,8 +118,7 @@
 	}
 
 	.stage {
-		position: sticky;
-		top: 1rem;
+		max-width: 54rem;
 	}
 
 	.stage-meta {
