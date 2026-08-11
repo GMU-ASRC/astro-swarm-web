@@ -300,7 +300,7 @@
 		</div>
 
 		<div class="charts">
-			<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate)} />
+			<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
 			<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 			<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
 			{#if sweepRuns.length > 0}
