@@ -8,6 +8,9 @@
 		entries: number;
 		best_success: number | null;
 		overall_success: number | null;
+		rating: number | null;
+		levels_played: number;
+		levels_total: number;
 		rank: number;
 	}
 
@@ -44,7 +47,9 @@
 	<div class="shell page-head">
 		<h1 class="page-title">Success Rate Leaderboard</h1>
 		<p class="page-lede">
-			Commanders ranked by their average success rate across every level. Open a commander to see
+			Commanders ranked by a weighted success rating. Each level is scored on its own and pulled
+			toward that level's average, so a single lucky entry cannot top the board, and levels a
+			commander has not played count as average rather than being ignored. Open a commander to see
 			their profile, entries, and per-level ranks.
 		</p>
 	</div>
@@ -66,11 +71,11 @@
 						<span class="name">{player.username}</span>
 						<span class="numbers">
 							<span class="success-rate">
-								{player.overall_success != null ? `${player.overall_success}%` : '—'}
+								{player.rating != null ? `${player.rating}` : '—'}
 							</span>
 							<span class="detail">
-								{player.best_success != null ? `${player.best_success}% best` : 'no data'} ·
-								{player.entries} entries
+								{player.overall_success != null ? `${player.overall_success}% raw` : 'no data'} ·
+								{player.entries} entries · {player.levels_played}/{player.levels_total} levels
 							</span>
 						</span>
 						<Icon icon="ph:caret-right-bold" width="14" color="var(--color-faint)" />

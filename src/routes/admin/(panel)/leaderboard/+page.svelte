@@ -68,6 +68,8 @@
 			<tr>
 				<th>Rank</th>
 				<th>Username</th>
+				<th>Rating</th>
+				<th>Levels</th>
 				<th>Average Rate</th>
 				<th>Best Rate</th>
 				<th>Entries</th>
@@ -78,12 +80,14 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="8">Loading leaderboard...</td></tr>
+				<tr><td colspan="10">Loading leaderboard...</td></tr>
 			{:else}
 				{#each pagedPlayers as row}
 					<tr>
 						<td>#{row.rank}</td>
 						<td>{row.username}</td>
+						<td>{row.rating ?? '—'}</td>
+						<td>{row.levels_played}/{row.levels_total}</td>
 						<td>{rate(row.overall_success)}</td>
 						<td>{rate(row.best_success)}</td>
 						<td>{row.entries}</td>
@@ -96,7 +100,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="8">No commanders found.</td></tr>
+					<tr><td colspan="10">No commanders found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>

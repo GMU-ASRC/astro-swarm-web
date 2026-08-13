@@ -1,9 +1,13 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
+	import { levelName, rateLabel } from '$lib/ts/levels';
 
 	interface LevelStat {
 		level_number: number;
 		success_rate: number | null;
+		weighted_rate: number | null;
+		level_average: number | null;
+		entries: number;
 		xp: number;
 		rank: number | null;
 		players: number;
@@ -27,6 +31,9 @@
 		total_xp: number;
 		overall_success: number | null;
 		best_success: number | null;
+		rating: number | null;
+		levels_played: number;
+		levels_total: number;
 		overall_rank: number | null;
 		total_players: number;
 		entries: number;
@@ -48,10 +55,7 @@
 		return `${month}/${day}/${date.getFullYear()}`;
 	}
 
-	function levelName(levelNumber: number): string {
-		if (levelNumber === 4) return `Level ${levelNumber} · Swarm`;
-		return levelNumber >= 3 ? `Level ${levelNumber} · Evasion` : `Level ${levelNumber} · Defense`;
-	}
+
 
 	function statusClass(status: string): string {
 		if (status === 'done') return 'badge-win';
@@ -73,12 +77,17 @@
 		<h1 class="page-title name-heading">{profile.username}</h1>
 		<p class="page-lede">
 			Rank #{profile.overall_rank ?? '—'} of {profile.total_players} commanders ·
-			{profile.overall_success != null ? `${profile.overall_success}% average success` : 'no results yet'}
+			{profile.rating != null ? `${profile.rating} rating` : 'no results yet'} ·
+			{profile.levels_played}/{profile.levels_total} levels played
 		</p>
 	</div>
 
 	<div class="shell profile">
 		<div class="stat-grid">
+			<div class="stat">
+				<div class="stat-value">{profile.rating ?? '—'}</div>
+				<div class="stat-label">Weighted rating</div>
+			</div>
 			<div class="stat">
 				<div class="stat-value">
 					{profile.overall_success != null ? `${profile.overall_success}%` : '—'}
@@ -112,8 +121,12 @@
 							<div class="level-name">{levelName(level.level_number)}</div>
 							<div class="level-detail">
 								{level.success_rate != null
-									? `${level.success_rate}% ${level.level_number >= 3 ? 'evasion' : 'detection'}`
-									: 'no data'} · {level.xp} XP
+									? `${level.success_rate}% ${rateLabel(level.level_number)}`
+									: 'no data'} · {level.entries} entries · {level.xp} XP
+							</div>
+							<div class="level-detail">
+								{level.weighted_rate != null ? `${level.weighted_rate} weighted` : ''}
+								{level.level_average != null ? `· level average ${level.level_average}%` : ''}
 							</div>
 						</div>
 						<div class="level-rank">

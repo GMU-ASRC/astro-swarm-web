@@ -29,7 +29,7 @@
 	});
 
 	let searchQuery = $state('');
-	let sortOrder = $state('rate_desc');
+	let sortOrder = $state('rating_desc');
 
 	const filtered = $derived(
 		players
@@ -41,6 +41,8 @@
 				return name.includes(query) || id.includes(query);
 			})
 			.sort((a: any, b: any) => {
+				if (sortOrder === 'rating_desc') return (b.rating ?? -1) - (a.rating ?? -1);
+				if (sortOrder === 'rating_asc') return (a.rating ?? -1) - (b.rating ?? -1);
 				if (sortOrder === 'rate_desc') return (b.overall_success ?? -1) - (a.overall_success ?? -1);
 				if (sortOrder === 'rate_asc') return (a.overall_success ?? -1) - (b.overall_success ?? -1);
 				if (sortOrder === 'entries_desc') return b.entries - a.entries;
@@ -200,6 +202,8 @@
 				</th>
 				<th>Username</th>
 				<th>Player ID</th>
+				<th>Rating</th>
+				<th>Levels</th>
 				<th>Average Rate</th>
 				<th>Best Rate</th>
 				<th>Entries</th>
@@ -210,7 +214,7 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="9">Loading players...</td></tr>
+				<tr><td colspan="11">Loading players...</td></tr>
 			{:else}
 				{#each pagedPlayers as row}
 					<tr class:selected={selected.has(row.player_id)}>
@@ -224,6 +228,8 @@
 						</td>
 						<td>{row.username}</td>
 						<td><code title={row.player_id}>{row.player_id.slice(0, 8)}</code></td>
+						<td>{row.rating ?? '—'}</td>
+						<td>{row.levels_played}/{row.levels_total}</td>
 						<td>{rate(row.overall_success)}</td>
 						<td>{rate(row.best_success)}</td>
 						<td>{row.entries}</td>
@@ -251,7 +257,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="9">No players found.</td></tr>
+					<tr><td colspan="11">No players found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
