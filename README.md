@@ -1,6 +1,6 @@
 # AstroSwarm Web
 
-![Version](https://img.shields.io/badge/version-0.0.5-blue)
+![Version](https://img.shields.io/badge/version-0.0.7-blue)
 ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
@@ -22,10 +22,48 @@ Landing page with an animated starfield background, a game overview, and navigat
 Browse community-uploaded recorded runs. Each card shows the species list with their colors, robot count, arena dimensions, and frame count. Clicking on a run opens a dedicated detail page featuring a streaming video player and run statistics. Runs (`.run`) are uploaded directly from Godot and parsed automatically by the backend.
 
 ### Leaderboard (`/leaderboard`)
-Rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used. Entries link to a detail page with the full algorithm breakdown.
+Commanders ranked by a **weighted rating** rather than a raw average success rate. Each row shows the rating, the unweighted average behind it, how many entries the commander has submitted, and how many of the levels they have played. Entries link to a profile with the per-level breakdown, including the weighted rate and the level average it was pulled toward.
+
+#### How the weighted rating works
+
+A plain mean over a commander's entries rewards two things it should not: a single lucky submission, and playing only the levels that are easy to win. One entry at 100% would top the board over someone with eighteen entries averaging 40%, and a commander who only ever played Level 1 would outrank one who played everything.
+
+The rating fixes both, in three steps.
+
+**1. Score each level on its own.** A commander's rate on a level is the mean success rate of their finished entries on that level. Levels are never mixed together at this stage, so a strong Level 1 result cannot paper over a weak Level 4 one.
+
+**2. Pull each level rate toward that level's average.** A rate measured from one entry is mostly noise; a rate measured from fifty is close to the truth. Each level rate is therefore blended with the level's own average, weighted by how many entries back it:
+
+```
+weighted = (entries * rate + 2 * level_average) / (entries + 2)
+```
+
+The `2` is a constant number of imaginary average entries every commander is credited with (`PRIOR_ENTRIES` in `server/rating.py`). One entry at 100% on a level averaging 30% lands at roughly 53, not 100. Eighteen entries move barely at all: the evidence outweighs the prior. Nothing is thrown away and no minimum entry count is imposed — a small sample is simply trusted less.
+
+The level average is the mean of each commander's *own* mean on that level, counting every commander once. Averaging over raw entries instead would let one prolific commander drag a level's baseline toward their personal results.
+
+**3. Average across every level, filling in the ones not played.** A level a commander has never touched counts as that level's average rather than being skipped. This is what stops partial coverage from inflating a rating: a commander who only played the easy level is treated as merely average everywhere else, so their rating sits between their result and the field's. Playing more levels well is the only way to pull it up.
+
+The final rating is the mean of the per-level weighted rates across all levels that have any data.
+
+Worked example, with Level 1 averaging 60% and Level 2 averaging 30%:
+
+| Commander | Level 1 | Level 2 | Rating |
+|---|---|---|---|
+| One lucky entry | 100% from 1 entry | never played | `(1*100 + 2*60)/3 = 73.3`, then `(73.3 + 30)/2` = **51.7** |
+| Consistent, both levels | 80% from 10 entries | 60% from 10 entries | `76.7` and `55`, so **65.9** |
+
+The second commander ranks higher despite a lower headline number on Level 1, which is the intent.
+
+Ties break on levels played, then entry count, so the more thoroughly tested commander wins. A commander with no finished entries has no rating and sorts below everyone who does. The raw average is still shown everywhere the rating is, so nothing is hidden — the rating decides the order, the average tells you what actually happened.
+
+The implementation is `server/rating.py`, applied in `_aggregate_players` so the public leaderboard, the profile pages and the admin tables all rank identically.
+
+### Timed Local leaderboard (`/api/leaderboard`)
+Separate from the above: rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used.
 
 ### Levels (`/levels`)
-Per-level player entries, in three tabs.
+Per-level player entries, one tab per level.
 
 **Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly by the worker service against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
 
@@ -37,9 +75,15 @@ Three events are measured, and they mean different things:
 | **Captured** | The first time any defender physically touches (collides with) the evader. |
 | **Reached planet** | The time the evader reaches the centre planet (`T_goal` in the admin panel). |
 
-**Level 3** entries are *piloted runs*, not benchmarks: the player flies the evader themselves against the best submitted Level 2 algorithm — and that entry's defender placements — capped at three minutes. Any run can be submitted, caught or clean. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its detected / captured / reached-planet times, the recorded flight, and the opponent's algorithm.
+**Levels 3 and 4** are benchmarked as *waves*. Three evaders come in off the ring instead of one, and the run only counts as held if every one of them is destroyed before any reaches the planet. Level 3 destroys the captured evader alone; Level 4 destroys the defender that caught it as well, so each kill costs a body. Each entry is graded over 100 sequential trials and 100 simultaneous trials, every trial with its own seeded defender scatter, spawn angles and evader count (never more evaders than defenders), followed by a defender sweep. The detail page adds per-style hold rates and an evader kill rate to the usual tiles.
 
-The per-level admin settings page (`/admin/settings/level-3`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
+**Levels 5 and 6** are *piloted runs*, not benchmarks. In Level 5 the player flies the evader themselves against the best submitted Level 2 algorithm — and that entry's defender placements — capped at three minutes; Level 6 is the swarm merge. Any run is submitted, caught or clean. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its detected / captured / reached-planet times, the recorded flight, and the opponent's algorithm. Charts and the ring sweep are hidden for these levels, since a single flight has no rates to plot.
+
+The per-level admin settings page (`/admin/settings/level-5`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
+
+#### Level numbering
+
+Levels 3 and 4 were added in v0.0.7 and the pilot and swarm levels moved up to 5 and 6. A guarded migration renames the stored ids once (`farp` to `farp1`, `farp3` to `farp5`, `farp4` to `farp6`) and records a marker in `app_settings` so it can never fire a second time and shift genuine new entries. Only the current game version may submit, which is what stops an old client filing a run under an id that has since moved.
 
 ### Survive (`/survive`)
 Match reports from the game's two-player Survive mode. Each card shows the two commanders, the winner (or a tie), how many evaders reached each planet, and both average APMs; a sidebar provides a search bar (commander or match ID) and sort order.
@@ -51,9 +95,15 @@ An action is a movement input changing state — a key going down or up, or a co
 ### Admin CMS (`/admin`)
 API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, requeueing it for the workers to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you rename a worker or connect/disconnect/remove it.
 
+Row actions on the evaluations and players tables are icon buttons, and both tables support **multi-select**: tick any number of rows and delete them in bulk, or requeue a selection of evaluations for re-simulation. Every destructive bulk action confirms first and warns separately when the selection is large.
+
+**Data storage.** The dashboard lists each table's size, dead-row count and last vacuum. Re-simulating rewrites an entry's whole replay blob, and Postgres keeps the old version as a dead tuple, so a heavily re-simulated table bloats well past the data it holds. A **reclaim** action per table runs `VACUUM (FULL, ANALYZE)` and reports the space returned; the table is locked for the rewrite, which the confirmation says plainly. `player_evaluations` and its TOAST table are also configured to autovacuum far more eagerly than the defaults, so the bloat stops accumulating in the first place.
+
+**Game version.** Settings carries the version gate. Only the build named there may submit entries; everything else is rejected with a `426`. It is stored in `app_settings`, so releasing a new game version is a settings change rather than a deploy.
+
 ### Evaluation Workers
 
-Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. An evaluation is **one unit of work**: the server queues it whole, a single worker claims it, and that worker runs every match in it. A Level 3 piloted run is a **render job**: the run was already simulated in the game client, so the worker just packs the recorded trajectory into a replay without simulating anything.
+Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. An evaluation is **one unit of work**: the server queues it whole, a single worker claims it, and that worker runs every match in it. A Level 5 or Level 6 piloted run is a **render job**: the run was already simulated in the game client, so the worker just packs the recorded trajectory into a replay without simulating anything.
 
 A worker (`web/worker/`) is a single static Go binary that re-implements the match loop in process — there is no game build to download and nothing to bundle into the image. It registers with the server, claims one queued evaluation whenever it is idle, and simulates that evaluation's matches in parallel across all its cores (`SIM_WORKERS`). It holds exactly one job at a time. Throughput scales by running more workers: each picks up a different evaluation.
 
@@ -100,18 +150,22 @@ Internal preview page for component and layout development.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/evaluations` | List evaluations (most recent) |
-| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking (levels 1-2 only); an identical submission (same level, algorithm, placements, trials) reuses the existing result instead of re-running (`X-API-Key` required) |
-| `POST` | `/api/evaluations/run` | Submit a piloted run (level 3 only): the recorded flight is queued for a worker to render into a replay (`X-API-Key` required) |
-| `GET` | `/api/evaluations/best` | Best submitted algorithm and placements for a level (`?level_id=farp2`), picked at random among ties — this is the opponent the game's level 3 plays against |
+| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking (levels 1-4); an identical submission (same level, algorithm, placements, trials) reuses the existing result instead of re-running. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
+| `POST` | `/api/evaluations/run` | Submit a piloted run (levels 5-6): the recorded flight is queued for a worker to render into a replay. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
+| `GET` | `/api/evaluations/best` | Best submitted algorithm and placements for a level (`?level_id=farp2`), picked at random among ties — this is the opponent the game's level 5 plays against |
 | `GET` | `/api/evaluations/<id>` | Get a single evaluation |
 | `GET` | `/api/evaluations/baseline` | Average success rate across completed runs |
+| `GET` | `/api/evaluations/players` | Commanders ranked by weighted rating, with the raw average, entry count and level coverage behind it |
+| `GET` | `/api/evaluations/players/<id>` | One commander's profile: rating, per-level weighted rates and level averages, ranks and recent entries |
+| `GET` | `/api/evaluations/settings` | Benchmark parameters, the level list and the required game version |
+| `PUT` | `/api/evaluations/settings` | Update benchmark parameters, enable/disable a level, or set the required game version (`X-API-Key` required) |
 | `GET` | `/api/evaluations/<id>/replays` | Placement-run replay index |
 | `GET` | `/api/evaluations/<id>/replay/<trial>` | Replay frames for one placement trial |
 | `GET` | `/api/evaluations/<id>/sweep-replays` | Ring-sweep replay index (n, outcome, detection/capture time) |
 | `GET` | `/api/evaluations/<id>/sweep-replay/<n>` | Replay frames for one ring-sweep run |
 | `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep` detection rate, `capture` capture rate, `times`) |
 | `GET` | `/api/evaluations/<id>/export` | Download a ZIP of the entry and per-run JSON |
-| `POST` | `/api/evaluations/<id>/claim-xp` | Claim the XP an entry earned, once per entry; a level-3 goal is worth far more than a benchmark (`X-API-Key` required) |
+| `POST` | `/api/evaluations/<id>/claim-xp` | Claim the XP an entry earned, once per entry; a level-5 goal is worth far more than a benchmark (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/resimulate` | Re-run an evaluation on the current build (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/cancel` | Cancel a queued or running evaluation (`X-API-Key` required) |
 | `DELETE` | `/api/evaluations/<id>` | Delete an evaluation (`X-API-Key` required) |
@@ -161,6 +215,13 @@ Every endpoint returns errors as JSON (`{"error": "...", "status": 404}`) rather
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Server health check |
+
+### Admin
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/admin/storage` | Database and upload sizes per table, with dead-row counts and the last vacuum time (`X-API-Key` required) |
+| `POST` | `/api/admin/storage/reclaim` | `VACUUM (FULL, ANALYZE)` one table and report the bytes freed (`X-API-Key` required) |
 
 ### Version
 

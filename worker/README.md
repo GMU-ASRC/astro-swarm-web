@@ -80,6 +80,9 @@ the same four formulas under `derived_seeds` on that settings endpoint:
 | Ring-sweep trial | `seed + 100000 + trial * 1000000` |
 | Ring-sweep match at `n` | `sweep_seed[trial] + 500000 + n` |
 | Level 2 scatter fallback | `seed + 700000` |
+| Wave trial, sequential | `seed + 1100000 + trial` |
+| Wave trial, simultaneous | `seed + 2200000 + trial` |
+| Wave defender sweep at `n` | `seed + 3300000 + n * 1000000 + trial` |
 
 **The seed a given entry was graded with is not recorded.** `PlayerEvaluation` has no seed
 column, and `_shard_payload` in `web/server/routers/workers.py` reads the current global
@@ -129,7 +132,44 @@ the defenders sit closer together than their own hulls. With collisions off (the
 they simply overlap, which is what the Godot benchmarker does too; with `-collisions` they
 shove each other off the ring and the layout stops being a ring at all.
 
-Level 3 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
+## Wave benchmarks (levels 3 and 4)
+
+Levels 3 and 4 are not single-evader matches, so they take a different path
+(`internal/bench/wave.go` and `internal/bench/waverunner.go`). Several evaders come in off the
+same ring and the run is a win only if every one of them is destroyed before any reaches the
+planet. Level 3 removes the captured evader; Level 4 removes the defender that caught it as
+well, so the line thins as the wave goes on. Running out of defenders ends the run.
+
+Each entry is graded twice over, once per wave style:
+
+| Wave style | Behaviour |
+|---|---|
+| Sequential | The next evader launches only once the previous one is gone |
+| Simultaneous | Every evader is in the air from the first frame |
+
+Each style runs the full trial count (100 by default). Every trial gets its own seeded
+defender scatter, its own seeded spawn angles, and an evader count of `1 + trial % defenders`,
+so counts vary across the run and never exceed the defender count. The two styles use separate
+seed offsets, so they are independent but both reproducible: the same entry and seed always
+produce the same result.
+
+The report keeps the combined outcome arrays the existing charts read, and adds
+`sequential_rate`, `simultaneous_rate`, `evaders_destroyed`, `evaders_total` and
+`evader_destroyed_rate`.
+
+### Adaptive defender sweep
+
+The ring sweep for these levels does not run out to a fixed `n-max`. It starts at one
+defender and grows, running `sweep-trials` matches at each count with alternating wave styles
+and varying evader counts, and stops as soon as **three consecutive defender counts come back
+at 100 percent**. `n-max` is only a ceiling.
+
+The point is that simulating out to n=100 is wasted work once an algorithm is clearly holding.
+A strong entry finishes in a handful of steps; a weak one keeps climbing until it either holds
+or hits the ceiling. `WaveConsecutiveMax` in `internal/bench/wave.go` is the run length that
+counts as settled.
+
+Level 5 and Level 6 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
 
 ## Charts
 

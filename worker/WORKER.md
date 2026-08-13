@@ -89,8 +89,11 @@ System stats are read from `/proc` and `statfs` rather than psutil, and report t
 Replay frames are delta-encoded, zlib-compressed at level 9, and base64 encoded — the format
 `models._unpack_frames` reads.
 
-Level 3 shards carry a `run` payload rather than an algorithm. Nothing is simulated; the
-recorded trajectory is packed into a single-run replay, matching `Level3Bench.gd`.
+Level 5 and Level 6 jobs carry a `run` payload rather than an algorithm. Nothing is simulated;
+the recorded trajectory is packed into a single-run replay.
+
+Level 3 and Level 4 jobs are simulated as waves rather than single-evader matches, described
+in the wave benchmark section of `README.md`.
 
 ## Shard result shape
 
