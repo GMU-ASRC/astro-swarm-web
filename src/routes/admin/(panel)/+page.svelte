@@ -1,7 +1,15 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { apiUrl } from '$lib/ts/api';
+	import { createPrompt } from '$lib/ts/prompt.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+
 	let { data } = $props();
 	let storage = $state<Record<string, any> | null>(null);
 	let loading = $state(true);
+	let reclaiming = $state('');
+	let message = $state('');
+	const prompt = createPrompt();
 
 	$effect(() => {
 		let active = true;
@@ -29,6 +37,53 @@
 		if (!total) return '0%';
 		return `${((100 * bytes) / total).toFixed(1)}%`;
 	}
+
+	function when(iso: string | null): string {
+		return iso ? new Date(iso).toLocaleString() : 'never';
+	}
+
+	async function refreshStorage() {
+		try {
+			const res = await fetch(apiUrl('/api/admin/storage'), {
+				headers: { 'X-API-Key': data.adminKey }
+			});
+			if (res.ok) storage = await res.json();
+		} catch {
+			message = 'Could not refresh storage usage.';
+		}
+	}
+
+	async function reclaim(table: string) {
+		reclaiming = table;
+		message = `Reclaiming space in ${table}...`;
+		try {
+			const res = await fetch(apiUrl('/api/admin/storage/reclaim'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-API-Key': data.adminKey },
+				body: JSON.stringify({ table })
+			});
+			if (res.ok) {
+				const body = await res.json();
+				message = `Reclaimed ${formatBytes(body.freed_bytes)} from ${table} (${formatBytes(body.before_bytes)} to ${formatBytes(body.after_bytes)}).`;
+				await refreshStorage();
+			} else {
+				message = `Reclaim failed: ${res.status}`;
+			}
+		} catch (err) {
+			message = `Reclaim failed: ${err}`;
+		}
+		reclaiming = '';
+	}
+
+	function askReclaim(table: string, deadRows: number) {
+		prompt.ask({
+			title: 'Reclaim disk space',
+			message: `Rewrite ${table} to give its dead rows back to the disk? Re-simulating an entry leaves the old replay behind, and that is what this clears.`,
+			warning: `The table is locked for the whole rewrite, so the site cannot read or write ${table} until it finishes.${deadRows ? ` ${deadRows} dead rows are waiting.` : ''}`,
+			confirmLabel: 'Reclaim',
+			run: () => reclaim(table)
+		});
+	}
 </script>
 
 <h1>Welcome, Admin</h1>
@@ -42,6 +97,8 @@
 </ul>
 
 <h2>Data Storage</h2>
+
+{#if message}<div class="message">{message}</div>{/if}
 
 {#if loading}
 	<p>Loading storage usage...</p>
@@ -83,6 +140,9 @@
 						<th>Rows</th>
 						<th>Size</th>
 						<th>Share</th>
+						<th>Dead Rows</th>
+						<th>Last Vacuum</th>
+						<th>Actions</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -92,10 +152,37 @@
 							<td>{table.rows}</td>
 							<td>{formatBytes(table.bytes)}</td>
 							<td>{share(table.bytes)}</td>
+							<td>{table.dead_rows ?? 0}</td>
+							<td>{when(table.last_vacuum)}</td>
+							<td>
+								<div class="actions">
+									<button
+										class="icon-btn"
+										title="Reclaim disk space"
+										aria-label="Reclaim disk space"
+										disabled={reclaiming !== ''}
+										onclick={() => askReclaim(table.name, table.dead_rows ?? 0)}
+									>
+										<Icon icon="ph:broom-bold" width="16" />
+									</button>
+								</div>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
 	{/if}
+{/if}
+
+{#if prompt.current}
+	<ConfirmDialog
+		title={prompt.current.title}
+		message={prompt.current.message}
+		warning={prompt.current.warning}
+		confirmLabel={prompt.current.confirmLabel}
+		danger={prompt.current.danger}
+		onconfirm={prompt.accept}
+		oncancel={prompt.dismiss}
+	/>
 {/if}

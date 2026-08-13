@@ -113,6 +113,29 @@ def create_user():
     return jsonify(user.to_dict()), 201
 
 
+BLOAT_QUERY = text(
+    """
+    SELECT n_live_tup, n_dead_tup, last_vacuum, last_autovacuum
+    FROM pg_stat_user_tables
+    WHERE relname = :name
+    """
+)
+
+
+def _table_bloat(name):
+    row = db.session.execute(BLOAT_QUERY, {"name": name}).first()
+    if row is None:
+        return {"dead_rows": 0, "last_vacuum": None}
+    live, dead, last_vacuum, last_autovacuum = row
+    stamps = [stamp for stamp in (last_vacuum, last_autovacuum) if stamp is not None]
+    latest = max(stamps) if stamps else None
+    return {
+        "live_rows": int(live or 0),
+        "dead_rows": int(dead or 0),
+        "last_vacuum": latest.isoformat() if latest else None,
+    }
+
+
 def _database_size():
     # pg_total_relation_size covers the table plus its indexes and TOAST data,
     # which is where the compressed replay blobs actually live.
@@ -126,10 +149,13 @@ def _database_size():
                 text("SELECT pg_total_relation_size(:name)"), {"name": name}
             ).scalar()
             rows = db.session.execute(text(f"SELECT count(*) FROM {name}")).scalar()
+            bloat = _table_bloat(name)
         except Exception:
             db.session.rollback()
             continue
-        tables.append({"name": name, "bytes": int(size or 0), "rows": int(rows or 0)})
+        table = {"name": name, "bytes": int(size or 0), "rows": int(rows or 0)}
+        table.update(bloat)
+        tables.append(table)
     tables.sort(key=lambda table: table["bytes"], reverse=True)
     return int(total or 0), tables
 
@@ -176,6 +202,38 @@ def storage():
         "upload_files": upload_files,
         "upload_dir": upload_dir,
         "uploads_error": uploads_error,
+    })
+
+
+@admin_bp.post("/storage/reclaim")
+def reclaim_storage():
+    require_admin()
+
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("table", "player_evaluations"))
+    if name not in TRACKED_TABLES:
+        raise BadRequest("Unknown table")
+
+    before = db.session.execute(
+        text("SELECT pg_total_relation_size(:name)"), {"name": name}
+    ).scalar()
+    db.session.commit()
+
+    try:
+        with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text(f"VACUUM (FULL, ANALYZE) {name}"))
+    except Exception as exc:
+        raise BadRequest(f"Reclaim failed: {exc}")
+
+    after = db.session.execute(
+        text("SELECT pg_total_relation_size(:name)"), {"name": name}
+    ).scalar()
+
+    return jsonify({
+        "table": name,
+        "before_bytes": int(before or 0),
+        "after_bytes": int(after or 0),
+        "freed_bytes": max(0, int(before or 0) - int(after or 0)),
     })
 
 
