@@ -154,7 +154,7 @@
 			<div class="stat">
 				<div class="label">Scenario</div>
 				<div>
-					{levelNum === 4
+					{levelNum === 6
 						? 'Two milling swarms and one player-flown leader'
 						: 'Best submitted farp2 algorithm'}
 				</div>

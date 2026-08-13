@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
-	import { levelName, rateLabel } from '$lib/ts/levels';
+	import { levelName, rateWord } from '$lib/ts/levels';
 
 	interface LevelStat {
 		level_number: number;
@@ -121,7 +121,7 @@
 							<div class="level-name">{levelName(level.level_number)}</div>
 							<div class="level-detail">
 								{level.success_rate != null
-									? `${level.success_rate}% ${rateLabel(level.level_number)}`
+									? `${level.success_rate}% ${rateWord(level.level_number)}`
 									: 'no data'} · {level.entries} entries · {level.xp} XP
 							</div>
 							<div class="level-detail">
