@@ -25,19 +25,19 @@ type WaveInput struct {
 }
 
 type WaveOutput struct {
-	Outcome        string
-	EvaderCount    int
-	Destroyed      int
-	DefendersLost  int
-	DetectionTime  float64
-	CaptureTime    float64
-	GoalTime       float64
-	ClearTime      float64
-	Frames         [][]int
-	ViewDistance   float64
-	FovDegrees     float64
-	Speed          float64
-	HullRadius     float64
+	Outcome       string
+	EvaderCount   int
+	Destroyed     int
+	DefendersLost int
+	DetectionTime float64
+	CaptureTime   float64
+	GoalTime      float64
+	ClearTime     float64
+	Frames        [][]int
+	ViewDistance  float64
+	FovDegrees    float64
+	Speed         float64
+	HullRadius    float64
 }
 
 type waveEvader struct {
