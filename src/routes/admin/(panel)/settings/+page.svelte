@@ -47,6 +47,19 @@
 		save({ level_id: levelId, enabled }, `Saved level settings.`);
 	}
 
+	let versionInput = $state('');
+
+	$effect(() => {
+		if (settings && versionInput === '') versionInput = settings.required_game_version ?? '';
+	});
+
+	async function saveVersion() {
+		const version = versionInput.trim();
+		if (!version) return;
+		await save({ required_game_version: version }, `Only ${version} can submit entries now.`);
+		if (settings) settings.required_game_version = version;
+	}
+
 	function levelSlug(levelId: string): string {
 		const m = (levelId ?? '').match(/\d+/);
 		return `level-${m ? m[0] : '1'}`;
@@ -63,6 +76,18 @@
 {:else}
 	{#if message}<div class="message">{message}</div>{/if}
 	<p class="meta">Max parallel jobs is configured per worker on the <a href="/admin/workers">Workers</a> page.</p>
+
+	<h2>Game version</h2>
+	<p class="meta">
+		Only this build may submit entries. Every other version is rejected with a 426, which keeps an
+		older client from filing entries under level ids that have since moved.
+	</p>
+	<div class="actions">
+		<input type="text" maxlength="20" bind:value={versionInput} />
+		<button onclick={saveVersion} disabled={saving || versionInput.trim() === settings.required_game_version}>
+			Require this version
+		</button>
+	</div>
 
 	<h2>Level settings</h2>
 	<p class="meta">Enable or disable levels. A disabled level rejects new benchmark submissions.</p>

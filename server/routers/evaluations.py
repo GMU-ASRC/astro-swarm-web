@@ -7,11 +7,12 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, Response, jsonify, request, send_file
 from sqlalchemy.orm import defer
-from werkzeug.exceptions import BadRequest, Conflict, NotFound, Unauthorized
+from werkzeug.exceptions import BadRequest, Conflict, HTTPException, NotFound, Unauthorized
 
 from auth import require_admin
 import charts
 import merge
+import rating
 from app_settings import (
     PILOT_LEVELS,
     SWEEP_MATCH_OFFSET,
@@ -20,6 +21,7 @@ from app_settings import (
     get_enemy_start,
     get_level_enabled,
     get_levels,
+    get_required_game_version,
     get_seed,
     get_sweep_max,
     get_sweep_trial_seeds,
@@ -31,7 +33,9 @@ from app_settings import (
     level_ids_for,
     set_enemy_start,
     set_level_enabled,
+    set_required_game_version,
     set_sweep_params,
+    version_is_current,
 )
 from config import Config
 from database import db
@@ -213,17 +217,12 @@ def _aggregate_players():
             p["best_success"] = round(p["best_success"], 1)
         for lv in p["levels"].values():
             lv["success_rate"] = round(lv["success_sum"] / lv["count"], 1) if lv["count"] else None
+    rating.apply(players)
     return players
 
 
 def _sorted_by_success(players):
-    # Players without a finished run have no rate, so they rank below everyone
-    # who does. Entry count breaks ties in favour of the more tested player.
-    return sorted(
-        players.values(),
-        key=lambda p: (p["overall_success"] is not None, p["overall_success"] or 0.0, p["entries"]),
-        reverse=True,
-    )
+    return sorted(players.values(), key=rating.sort_key, reverse=True)
 
 
 @evaluations_bp.get("/players")
@@ -238,11 +237,21 @@ def players_leaderboard():
             "entries": p["entries"],
             "best_success": p["best_success"],
             "overall_success": p["overall_success"],
+            "rating": p["rating"],
+            "levels_played": p["levels_played"],
+            "levels_total": p["levels_total"],
             "rank": index + 1,
             "last_active": p["last"].isoformat() if p["last"] else None,
         }
         for index, p in enumerate(rows)
     ])
+
+
+def _weighted_level_rate(player, level_number):
+    for entry in player["rating_levels"]:
+        if entry["level_number"] == level_number:
+            return entry["weighted_rate"]
+    return 0.0
 
 
 @evaluations_bp.get("/players/<player_id>")
@@ -255,18 +264,25 @@ def player_profile(player_id: str):
     ranked = _sorted_by_success(players)
     overall_rank = next((i + 1 for i, p in enumerate(ranked) if p["player_id"] == player_id), None)
 
+    weighted_by_level = {
+        entry["level_number"]: entry for entry in me["rating_levels"]
+    }
     levels_out = []
     for level_num in sorted(me["levels"].keys()):
         contenders = [
             p for p in players.values()
             if level_num in p["levels"] and p["levels"][level_num]["success_rate"] is not None
         ]
-        contenders.sort(key=lambda p: p["levels"][level_num]["success_rate"], reverse=True)
+        contenders.sort(key=lambda p: _weighted_level_rate(p, level_num), reverse=True)
         rank = next((i + 1 for i, p in enumerate(contenders) if p["player_id"] == player_id), None)
         lv = me["levels"][level_num]
+        weighted = weighted_by_level.get(level_num, {})
         levels_out.append({
             "level_number": level_num,
             "success_rate": lv["success_rate"],
+            "weighted_rate": weighted.get("weighted_rate"),
+            "level_average": weighted.get("level_average"),
+            "entries": lv["count"],
             "xp": lv["xp"],
             "rank": rank,
             "players": len(contenders),
@@ -292,6 +308,10 @@ def player_profile(player_id: str):
         "total_xp": me["total_xp"],
         "overall_success": me["overall_success"],
         "best_success": me["best_success"],
+        "rating": me["rating"],
+        "rating_levels": me["rating_levels"],
+        "levels_played": me["levels_played"],
+        "levels_total": me["levels_total"],
         "overall_rank": overall_rank,
         "total_players": len(ranked),
         "entries": me["entries"],
@@ -331,6 +351,20 @@ def rename_player(player_id: str):
     return jsonify({"player_id": player_id, "username": username, "updated": len(entries)})
 
 
+class OutdatedGameVersion(HTTPException):
+    code = 426
+    description = "This build is out of date."
+
+
+def _require_current_version(version):
+    if version_is_current(version):
+        return
+    raise OutdatedGameVersion(
+        "This build is out of date. Update to %s to submit entries."
+        % get_required_game_version()
+    )
+
+
 @evaluations_bp.post("")
 def submit_evaluation():
     require_admin()
@@ -343,6 +377,8 @@ def submit_evaluation():
         parsed = EvaluationSubmit(**data)
     except Exception as exc:
         raise BadRequest(str(exc))
+
+    _require_current_version(parsed.game_version)
 
     if not is_benchmark_level(parsed.level_id):
         raise BadRequest("Level is not benchmarked")
@@ -399,6 +435,8 @@ def submit_run():
         parsed = RunSubmit(**data)
     except Exception as exc:
         raise BadRequest(str(exc))
+
+    _require_current_version(parsed.game_version)
 
     if not is_pilot_level(parsed.level_id):
         raise BadRequest("Level does not accept piloted runs")
@@ -459,6 +497,7 @@ def settings():
         "pilot_max_fps": MAX_RUN_FPS,
         "pilot_max_xp": PILOT_LEVEL_MAX_XP,
         "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
+        "required_game_version": get_required_game_version(),
         "derived_seeds": _derived_seeds(seed),
     })
 
@@ -489,6 +528,11 @@ def update_settings():
             raise BadRequest("seed must be an integer")
     if "level_id" in data and "enabled" in data:
         set_level_enabled(str(data["level_id"]), bool(data["enabled"]))
+    if "required_game_version" in data:
+        try:
+            set_required_game_version(data["required_game_version"])
+        except ValueError as exc:
+            raise BadRequest(str(exc))
     enemy_x, enemy_y = get_enemy_start()
     return jsonify({
         "seed": get_seed(),

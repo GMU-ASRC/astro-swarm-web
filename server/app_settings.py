@@ -9,6 +9,9 @@ ENEMY_Y_KEY = "enemy_start_y"
 SWEEP_MAX_KEY = "sweep_max"
 SWEEP_TRIALS_KEY = "sweep_trials"
 SEED_KEY = "eval_seed"
+GAME_VERSION_KEY = "required_game_version"
+
+CURRENT_GAME_VERSION = "v0.0.7"
 
 SEED_MIN = 1
 SEED_MAX = 2147483647
@@ -20,14 +23,18 @@ SWEEP_MATCH_OFFSET = 500000
 LEVELS = [
     {"id": "farp1", "name": "Level 1 - Defense (Place)"},
     {"id": "farp2", "name": "Level 2 - Defense (Ring)"},
+    {"id": "farp3", "name": "Level 3 - Defense (Waves)"},
+    {"id": "farp4", "name": "Level 4 - Defense (Trade)"},
 ]
 
 # Levels whose entries are player-piloted runs: the worker renders the recorded
 # run into a replay instead of simulating anything.
 PILOT_LEVELS = [
-    {"id": "farp3", "name": "Level 3 - Evasion (Pilot)"},
-    {"id": "farp4", "name": "Level 4 - Swarm (Merge)"},
+    {"id": "farp5", "name": "Level 5 - Evasion (Pilot)"},
+    {"id": "farp6", "name": "Level 6 - Swarm (Merge)"},
 ]
+
+WAVE_LEVELS = ["farp3", "farp4"]
 
 LEVEL_ALIASES = {
     "farp1": ["farp1", "farp"],
@@ -42,8 +49,35 @@ def is_benchmark_level(level_id):
     return any(level["id"] == level_id for level in LEVELS)
 
 
+def get_required_game_version():
+    stored = _get(GAME_VERSION_KEY)
+    if stored is None or not str(stored).strip():
+        return CURRENT_GAME_VERSION
+    return str(stored).strip()
+
+
+def set_required_game_version(version):
+    cleaned = str(version).strip()
+    if not cleaned:
+        raise ValueError("version is required")
+    _set(GAME_VERSION_KEY, cleaned)
+    return cleaned
+
+
+def version_is_current(version):
+    return str(version or "").strip().lower() == get_required_game_version().lower()
+
+
 def is_pilot_level(level_id):
     return any(level["id"] == level_id for level in PILOT_LEVELS)
+
+
+def is_wave_level(level_id):
+    return level_id in WAVE_LEVELS
+
+
+def wave_destroys_defender(level_id):
+    return level_id == "farp4"
 
 
 def _get(key):

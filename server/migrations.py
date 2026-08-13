@@ -6,6 +6,8 @@ from database import db
 
 logger = logging.getLogger(__name__)
 
+LEVEL_SHIFT_KEY = "level_ids_shifted_v2"
+
 STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS replays json DEFAULT '[]'::json",
@@ -28,6 +30,20 @@ STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS total_units integer DEFAULT 1",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS last_update timestamptz DEFAULT now()",
     "DROP TABLE IF EXISTS evaluation_shards",
+    "UPDATE player_evaluations SET level_id = 'farp6' WHERE level_id = 'farp4'"
+    " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % LEVEL_SHIFT_KEY,
+    "UPDATE player_evaluations SET level_id = 'farp5' WHERE level_id = 'farp3'"
+    " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % LEVEL_SHIFT_KEY,
+    "UPDATE player_evaluations SET level_id = 'farp1' WHERE level_id = 'farp' OR level_id IS NULL",
+    "INSERT INTO app_settings (key, value) VALUES ('%s', '1')"
+    " ON CONFLICT (key) DO NOTHING" % LEVEL_SHIFT_KEY,
+    "ALTER TABLE player_evaluations ALTER COLUMN level_id SET DEFAULT 'farp1'",
+    "ALTER TABLE player_evaluations SET ("
+    " autovacuum_vacuum_scale_factor = 0.02,"
+    " autovacuum_vacuum_threshold = 5,"
+    " autovacuum_analyze_scale_factor = 0.05,"
+    " toast.autovacuum_vacuum_scale_factor = 0.02,"
+    " toast.autovacuum_vacuum_threshold = 5)",
 ]
 
 

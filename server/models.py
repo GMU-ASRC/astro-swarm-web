@@ -179,7 +179,7 @@ class PlayerEvaluation(db.Model):
     id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
     player_id = db.Column(db.String(36), nullable=False, index=True)
     username = db.Column(db.String(30), nullable=False)
-    level_id = db.Column(db.String(40), default="farp", index=True)
+    level_id = db.Column(db.String(40), default="farp1", index=True)
     algorithm = db.Column(db.JSON, default=list)
     placements = db.Column(db.JSON, default=list)
 
@@ -225,7 +225,7 @@ class PlayerEvaluation(db.Model):
         return 1
 
     def is_attack_level(self):
-        return self.level_number() >= 3
+        return self.level_number() >= 5
 
     def to_dict(self):
         results = self._results_dict()

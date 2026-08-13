@@ -5,7 +5,13 @@ from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import merge
 from auth import require_admin
-from app_settings import get_enemy_start, get_seed, get_sweep_max, get_sweep_trials
+from app_settings import (
+    get_enemy_start,
+    get_seed,
+    get_sweep_max,
+    get_sweep_trials,
+    is_wave_level,
+)
 from config import Config
 from database import db
 from models import JOB_SILENT_SECONDS, PlayerEvaluation, Worker
@@ -41,7 +47,10 @@ def _total_units(evaluation):
     if _pending_run(evaluation) is not None:
         return 1
     trials = int(evaluation.trials or 0)
-    return max(1, trials + get_sweep_max() * get_sweep_trials())
+    sweep = get_sweep_max() * get_sweep_trials()
+    if is_wave_level(evaluation.level_id):
+        return max(1, trials * 2 + sweep)
+    return max(1, trials + sweep)
 
 
 def _reap_stale():
