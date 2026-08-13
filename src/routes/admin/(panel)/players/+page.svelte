@@ -1,6 +1,14 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { apiUrl } from '$lib/ts/api';
+	import { runBulk, bulkMessage } from '$lib/ts/bulk';
+	import { createPrompt } from '$lib/ts/prompt.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+
+	const MANY_ENTRIES = 10;
 
 	let { data } = $props();
 	let players = $state<any[]>([]);
@@ -41,6 +49,25 @@
 			})
 	);
 
+	const selected = new SvelteSet<string>();
+	const selectedRows = $derived(filtered.filter((row: any) => selected.has(row.player_id)));
+	const allFilteredSelected = $derived(
+		filtered.length > 0 && filtered.every((row: any) => selected.has(row.player_id))
+	);
+	const selectedEntries = $derived(
+		selectedRows.reduce((total: number, row: any) => total + (row.entries ?? 0), 0)
+	);
+
+	function toggleRow(playerId: string) {
+		if (selected.has(playerId)) selected.delete(playerId);
+		else selected.add(playerId);
+	}
+
+	function toggleAll() {
+		if (allFilteredSelected) selected.clear();
+		else for (const row of filtered) selected.add(row.player_id);
+	}
+
 	let page = $state(1);
 	const pageSize = 25;
 	const pagedPlayers = $derived(filtered.slice((page - 1) * pageSize, page * pageSize));
@@ -49,7 +76,10 @@
 		searchQuery;
 		sortOrder;
 		page = 1;
+		selected.clear();
 	});
+
+	const prompt = createPrompt();
 
 	function rate(value: number | null): string {
 		return value != null ? `${value}%` : '—';
@@ -59,8 +89,48 @@
 		return iso ? new Date(iso).toLocaleString() : '—';
 	}
 
-	async function removePlayer(playerId: string, name: string, entries: number) {
-		if (!confirm(`Delete "${name}" and all ${entries} of their entries? This cannot be undone.`)) return;
+	function askRemovePlayer(playerId: string, name: string, entries: number) {
+		prompt.ask({
+			title: 'Delete player',
+			message: `Delete "${name}" and all ${entries} of their ${entries === 1 ? 'entry' : 'entries'}? This cannot be undone.`,
+			warning:
+				entries >= MANY_ENTRIES ? `That deletes ${entries} entries in one go.` : '',
+			confirmLabel: 'Delete',
+			danger: true,
+			run: () => removePlayer(playerId, name)
+		});
+	}
+
+	function askRemoveSelected() {
+		const count = selectedRows.length;
+		prompt.ask({
+			title: 'Delete players',
+			message: `Delete ${count} selected ${count === 1 ? 'player' : 'players'} and all ${selectedEntries} of their ${selectedEntries === 1 ? 'entry' : 'entries'}? This cannot be undone.`,
+			warning:
+				count >= MANY_ENTRIES || selectedEntries >= MANY_ENTRIES
+					? `That removes ${count} ${count === 1 ? 'player' : 'players'} and ${selectedEntries} ${selectedEntries === 1 ? 'entry' : 'entries'} at once.`
+					: '',
+			confirmLabel: 'Delete',
+			danger: true,
+			run: removeSelected
+		});
+	}
+
+	async function removeSelected() {
+		const ids = selectedRows.map((row: any) => row.player_id);
+		message = `Deleting ${ids.length} players...`;
+		const result = await runBulk(
+			ids,
+			data.adminKey,
+			'DELETE',
+			(id) => `/api/evaluations/players/${id}`
+		);
+		players = players.filter((p: any) => !result.succeeded.includes(p.player_id));
+		selected.clear();
+		message = bulkMessage('Deleted', 'players', result);
+	}
+
+	async function removePlayer(playerId: string, name: string) {
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/players/${playerId}`), {
 				method: 'DELETE',
@@ -103,10 +173,31 @@
 	<p class="filter-summary">Showing {filtered.length} of {players.length} players</p>
 {/if}
 
+<BulkActionBar
+	count={selectedRows.length}
+	noun="player"
+	nounPlural="players"
+	onclear={() => selected.clear()}
+>
+	<button type="button" class="admin-btn-danger" onclick={askRemoveSelected}>
+		<Icon icon="ph:trash-bold" width="14" />
+		Delete
+	</button>
+</BulkActionBar>
+
 <div class="admin-table-wrap">
 	<table>
 		<thead>
 			<tr>
+				<th class="select-cell">
+					<input
+						type="checkbox"
+						aria-label="Select all players"
+						checked={allFilteredSelected}
+						indeterminate={selectedRows.length > 0 && !allFilteredSelected}
+						onchange={toggleAll}
+					/>
+				</th>
 				<th>Username</th>
 				<th>Player ID</th>
 				<th>Average Rate</th>
@@ -119,10 +210,18 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="8">Loading players...</td></tr>
+				<tr><td colspan="9">Loading players...</td></tr>
 			{:else}
 				{#each pagedPlayers as row}
-					<tr>
+					<tr class:selected={selected.has(row.player_id)}>
+						<td class="select-cell">
+							<input
+								type="checkbox"
+								aria-label={`Select ${row.username}`}
+								checked={selected.has(row.player_id)}
+								onchange={() => toggleRow(row.player_id)}
+							/>
+						</td>
 						<td>{row.username}</td>
 						<td><code title={row.player_id}>{row.player_id.slice(0, 8)}</code></td>
 						<td>{rate(row.overall_success)}</td>
@@ -132,18 +231,27 @@
 						<td>{when(row.last_active)}</td>
 						<td>
 							<div class="actions">
-								<a class="admin-btn" href={`/admin/players/${row.player_id}`}>View</a>
-								<button
-									class="admin-btn-danger"
-									onclick={() => removePlayer(row.player_id, row.username, row.entries)}
+								<a
+									class="admin-btn icon-btn"
+									href={`/admin/players/${row.player_id}`}
+									title="View"
+									aria-label="View"
 								>
-									Delete
+									<Icon icon="ph:eye-bold" width="16" />
+								</a>
+								<button
+									class="admin-btn-danger icon-btn"
+									title="Delete"
+									aria-label="Delete"
+									onclick={() => askRemovePlayer(row.player_id, row.username, row.entries)}
+								>
+									<Icon icon="ph:trash-bold" width="16" />
 								</button>
 							</div>
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="8">No players found.</td></tr>
+					<tr><td colspan="9">No players found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
@@ -151,3 +259,21 @@
 </div>
 
 <Pagination bind:page total={filtered.length} {pageSize} />
+
+{#if prompt.current}
+	<ConfirmDialog
+		title={prompt.current.title}
+		message={prompt.current.message}
+		warning={prompt.current.warning}
+		confirmLabel={prompt.current.confirmLabel}
+		danger={prompt.current.danger}
+		onconfirm={prompt.accept}
+		oncancel={prompt.dismiss}
+	/>
+{/if}
+
+<style>
+	tbody tr.selected td {
+		background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+	}
+</style>
