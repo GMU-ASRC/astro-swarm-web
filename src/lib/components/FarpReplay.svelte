@@ -29,7 +29,7 @@
 	}
 
 	let canvas: HTMLCanvasElement | undefined = $state();
-	let playing = $state(true);
+	let playing = $state(false);
 	let frameIndex = $state(0);
 	let speed = $state(1);
 	let loop = $state(true);
@@ -393,12 +393,12 @@
 	});
 
 	$effect(() => {
-		// restart playback when the replay changes
+		// rewind to a paused first frame when the replay changes
 		replay;
 		frameIndex = 0;
 		acc = 0;
 		last = 0;
-		playing = true;
+		playing = false;
 		selectedSlot = null;
 		cancelAnimationFrame(raf);
 		raf = requestAnimationFrame(tick);
