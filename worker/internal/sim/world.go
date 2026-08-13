@@ -17,6 +17,16 @@ func (w *World) Add(ship *Ship) {
 	w.Ships = append(w.Ships, ship)
 }
 
+func (w *World) Remove(target *Ship) {
+	kept := w.Ships[:0]
+	for _, ship := range w.Ships {
+		if ship != target {
+			kept = append(kept, ship)
+		}
+	}
+	w.Ships = kept
+}
+
 // delta is the tick length in seconds.
 func (w *World) Step(delta float64) {
 	for _, ship := range w.Ships {

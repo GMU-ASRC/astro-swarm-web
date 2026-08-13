@@ -34,7 +34,7 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 
 	// A piloted level has nothing to simulate. Without the recording there is no
 	// replay to rebuild, so fail loudly rather than benchmark the wrong thing.
-	if bench.LevelNumber(levelID) >= 3 {
+	if bench.IsPilotLevel(levelID) {
 		return bench.JobResult{}, fmt.Errorf("level %d is piloted but job %s carries no recorded run", bench.LevelNumber(levelID), job.JobID)
 	}
 

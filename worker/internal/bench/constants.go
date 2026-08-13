@@ -57,6 +57,11 @@ type Placement struct {
 	Rotation float64   // radians
 }
 
+func IsPilotLevel(levelID string) bool {
+	number := LevelNumber(levelID)
+	return number == 5 || number == 6
+}
+
 func LevelNumber(levelID string) int {
 	digits := ""
 	for _, character := range levelID {
