@@ -7,6 +7,11 @@ export interface EvalSummary {
 	detection_times?: number[];
 	capture_times?: number[];
 	goal_times?: number[];
+	sequential_rate?: number;
+	simultaneous_rate?: number;
+	evaders_destroyed?: number;
+	evaders_total?: number;
+	evader_destroyed_rate?: number;
 	sweep?: { n: number; success_rate: number }[];
 	stats?: RunStats;
 }

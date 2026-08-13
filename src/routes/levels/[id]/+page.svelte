@@ -6,6 +6,7 @@
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
@@ -29,8 +30,9 @@
 	let outcomes = $derived(ev.results?.outcomes ?? []);
 	let successRate = $derived(ev.results?.success_rate ?? 0);
 	let levelNumber = $derived(ev.level_number ?? 1);
-	let isSwarm = $derived(levelNumber === 4);
-	let isPilot = $derived(levelNumber >= 3);
+	let isSwarm = $derived(swarmLevel(levelNumber));
+	let isPilot = $derived(pilotLevel(levelNumber));
+	let isWave = $derived(waveLevel(levelNumber));
 
 	let counts = $derived.by(() => {
 		const tally = { win: 0, lose: 0, timeout: 0 };

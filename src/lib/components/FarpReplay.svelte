@@ -16,13 +16,16 @@
 	// In swarm mode the recorded ships are two milling groups followed by the
 	// player-flown leader, so they are coloured by group instead of by team.
 	function shipColor(slot: number): string {
-		if (mode !== 'swarm') return slot === replay.defenders ? '#ff6a52' : '#7c9eff';
+		if (mode !== 'swarm') return slot >= replay.defenders ? '#ff6a52' : '#7c9eff';
 		if (slot >= replay.defenders) return LEADER;
 		return slot < replay.defenders / 2 ? SWARM_A : SWARM_B;
 	}
 
 	function shipLabel(slot: number): string {
-		if (mode !== 'swarm') return slot === replay.defenders ? 'Enemy raider' : `Defender #${slot + 1}`;
+		if (mode !== 'swarm')
+			return slot >= replay.defenders
+				? `Evader #${slot - replay.defenders + 1}`
+				: `Defender #${slot + 1}`;
 		if (slot >= replay.defenders) return 'Leader';
 		const group = slot < replay.defenders / 2 ? 'A' : 'B';
 		return `Group ${group} agent #${slot + 1}`;

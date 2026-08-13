@@ -7,6 +7,7 @@
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
+	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
 
 	let { data } = $props();
 
@@ -41,6 +42,10 @@
 	let outcomes = $derived(ev?.results?.outcomes ?? []);
 	let successRate = $derived(ev?.results?.success_rate ?? 0);
 	let dateLabel = $derived(ev ? (ev.completed_at ?? ev.created_at).slice(0, 10) : '');
+	let levelNumber = $derived(ev?.level_number ?? 1);
+	let isPilot = $derived(pilotLevel(levelNumber));
+	let isSwarm = $derived(swarmLevel(levelNumber));
+	let isWave = $derived(waveLevel(levelNumber));
 
 	let counts = $derived.by(() => {
 		const c = { win: 0, lose: 0, timeout: 0 };
@@ -63,9 +68,22 @@
 		return Math.round((1000 * hits) / times.length) / 10;
 	}
 
+	let pilotTimes = $derived({
+		detection: detectionTimes[0] ?? -1,
+		capture: captureTimes[0] ?? -1,
+		goal: (ev?.results?.goal_times ?? [])[0] ?? -1
+	});
+
+	let pilotOutcomeLabel = $derived.by(() => {
+		const outcome = outcomes[0] ?? 'timeout';
+		if (isSwarm) return outcome === 'win' ? 'Swarm delivered' : 'Out of time';
+		if (outcome === 'win') return 'Planet reached';
+		return outcome === 'lose' ? 'Caught' : 'Out of time';
+	});
+
 	let placementGroups = $derived<ReplayGroup[]>([
 		{
-			label: 'Trials',
+			label: isPilot ? 'Flight' : 'Trials',
 			cells: outcomes.map((outcome, index) => ({
 				id: index,
 				label: index + 1,
@@ -79,7 +97,7 @@
 
 	let placementMeta = $derived(
 		selectedReplay
-			? `Trial ${(selectedTrial ?? 0) + 1} · outcome: ${selectedReplay.outcome} · detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`
+			? `${isPilot ? 'Recorded flight' : `Trial ${(selectedTrial ?? 0) + 1}`} · outcome: ${selectedReplay.outcome} · detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`
 			: ''
 	);
 
@@ -201,7 +219,7 @@
 	}
 
 	$effect(() => {
-		if (ev && ev.status === 'done' && !loadedSweep) {
+		if (ev && ev.status === 'done' && !isPilot && !loadedSweep) {
 			loadedSweep = true;
 			loadSweepIndex();
 		}
@@ -326,57 +344,107 @@
 	{:else if outcomes.length === 0}
 		<p>No benchmark data available.</p>
 	{:else}
-		<div class="stat-grid">
-			<div class="stat">
-				<div class="label">Detection rate</div>
-				<div>{successRate}%</div>
+		{#if isPilot}
+			<div class="stat-grid">
+				<div class="stat">
+					<div class="label">Outcome</div>
+					<div>{pilotOutcomeLabel}</div>
+				</div>
+				<div class="stat">
+					<div class="label">Detected</div>
+					<div>{fmtTime(pilotTimes.detection)}</div>
+				</div>
+				<div class="stat">
+					<div class="label">Captured</div>
+					<div>{fmtTime(pilotTimes.capture)}</div>
+				</div>
+				<div class="stat">
+					<div class="label">Reached planet</div>
+					<div>{fmtTime(pilotTimes.goal)}</div>
+				</div>
 			</div>
-			<div class="stat">
-				<div class="label">Intercepts</div>
-				<div>{counts.win}</div>
-			</div>
-			<div class="stat">
-				<div class="label">Planet hits</div>
-				<div>{counts.lose}</div>
-			</div>
-			<div class="stat">
-				<div class="label">Timeouts</div>
-				<div>{counts.timeout}</div>
-			</div>
-		</div>
-
-		<div class="charts">
-			<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
-			<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
-			<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
-			{#if sweepRuns.length > 0}
-				<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
-				<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
-				<ChartCard config={combinedRatesConfig(sweepRuns)} />
-			{/if}
-			{#if detectionTimes.length > 0}
-				<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
-			{/if}
-		</div>
-
-		<h2>Placement Runs ({outcomes.length})</h2>
-		<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>
-		<ReplayWorkspace groups={placementGroups} replay={selectedReplay} meta={placementMeta} />
-
-		<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
-		<p class="meta">Each ring size is simulated repeatedly — n defenders spread around the target, each one dropped at a random angle inside its own slice of the ring and facing a random way, against a per-trial evader approach. Click an n to replay it.</p>
-		{#if sweepRuns.length > 0}
-			<ReplayWorkspace
-				groups={sweepGroups}
-				replay={selectedSweepReplay}
-				meta={sweepMeta}
-				empty="Pick a ring size to replay it."
-			/>
 		{:else}
-			<div class="message">No ring sweep data for this entry. Re-simulate it with the latest simulator build to generate the sweep replays.</div>
+			<div class="stat-grid">
+				<div class="stat">
+					<div class="label">{isWave ? 'Waves held' : 'Detection rate'}</div>
+					<div>{successRate}%</div>
+				</div>
+				<div class="stat">
+					<div class="label">Intercepts</div>
+					<div>{counts.win}</div>
+				</div>
+				<div class="stat">
+					<div class="label">Planet hits</div>
+					<div>{counts.lose}</div>
+				</div>
+				<div class="stat">
+					<div class="label">Timeouts</div>
+					<div>{counts.timeout}</div>
+				</div>
+			</div>
+			{#if isWave}
+				<div class="stat-grid">
+					<div class="stat">
+						<div class="label">Sequential waves held</div>
+						<div>{ev.results?.sequential_rate ?? 0}%</div>
+					</div>
+					<div class="stat">
+						<div class="label">Simultaneous waves held</div>
+						<div>{ev.results?.simultaneous_rate ?? 0}%</div>
+					</div>
+					<div class="stat">
+						<div class="label">Evaders destroyed</div>
+						<div>{ev.results?.evaders_destroyed ?? 0} / {ev.results?.evaders_total ?? 0}</div>
+					</div>
+					<div class="stat">
+						<div class="label">Evader kill rate</div>
+						<div>{ev.results?.evader_destroyed_rate ?? 0}%</div>
+					</div>
+				</div>
+			{/if}
 		{/if}
 
-		<h2>Defender Algorithm</h2>
+		{#if !isPilot}
+			<div class="charts">
+				<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
+				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
+				{#if sweepRuns.length > 0}
+					<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
+					<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
+					<ChartCard config={combinedRatesConfig(sweepRuns)} />
+				{/if}
+				{#if detectionTimes.length > 0}
+					<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
+				{/if}
+			</div>
+		{/if}
+
+		{#if isPilot}
+			<h2>Recorded Flight</h2>
+			<p class="meta">The player's own piloted run, rendered from the movement recorded in game.</p>
+		{:else}
+			<h2>Run Data ({outcomes.length})</h2>
+			<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>
+		{/if}
+		<ReplayWorkspace groups={placementGroups} replay={selectedReplay} meta={placementMeta} />
+
+		{#if !isPilot}
+			<h2>Ring Sweep Runs ({sweepRuns.length})</h2>
+			<p class="meta">Each ring size is simulated repeatedly — n defenders spread around the target, each one dropped at a random angle inside its own slice of the ring and facing a random way, against a per-trial evader approach. Click an n to replay it.</p>
+			{#if sweepRuns.length > 0}
+				<ReplayWorkspace
+					groups={sweepGroups}
+					replay={selectedSweepReplay}
+					meta={sweepMeta}
+					empty="Pick a ring size to replay it."
+				/>
+			{:else}
+				<div class="message">No ring sweep data for this entry. Re-simulate it with the latest simulator build to generate the sweep replays.</div>
+			{/if}
+		{/if}
+
+		<h2>{isSwarm ? 'Swarm Agent Algorithm' : isPilot ? 'Opponent Algorithm' : 'Defender Algorithm'}</h2>
 		<div class="admin-table-wrap">
 			<AlgorithmView scripts={ev.algorithm} />
 		</div>
