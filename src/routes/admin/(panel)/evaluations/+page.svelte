@@ -1,6 +1,14 @@
 <script lang="ts">
+	import Icon from '@iconify/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { apiUrl } from '$lib/ts/api';
+	import { runBulk, bulkMessage } from '$lib/ts/bulk';
+	import { createPrompt } from '$lib/ts/prompt.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import BulkActionBar from '$lib/components/BulkActionBar.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+
+	const MANY_ENTRIES = 10;
 
 	let { data } = $props();
 	let evaluations = $state<any[]>([]);
@@ -95,6 +103,25 @@
 			})
 	);
 
+	const selected = new SvelteSet<string>();
+	const selectedRows = $derived(filtered.filter((e: any) => selected.has(e.id)));
+	const allFilteredSelected = $derived(
+		filtered.length > 0 && filtered.every((e: any) => selected.has(e.id))
+	);
+	const resimulatableRows = $derived(
+		selectedRows.filter((e: any) => e.status !== 'queued' && e.status !== 'running')
+	);
+
+	function toggleRow(id: string) {
+		if (selected.has(id)) selected.delete(id);
+		else selected.add(id);
+	}
+
+	function toggleAll() {
+		if (allFilteredSelected) selected.clear();
+		else for (const row of filtered) selected.add(row.id);
+	}
+
 	let page = $state(1);
 	const pageSize = 25;
 	const pagedEvaluations = $derived(filtered.slice((page - 1) * pageSize, page * pageSize));
@@ -107,10 +134,88 @@
 		startDate;
 		endDate;
 		page = 1;
+		selected.clear();
 	});
 
+	const prompt = createPrompt();
+
+	function manyWarning(count: number, action: string): string {
+		return count >= MANY_ENTRIES ? `That is a lot of entries to ${action} at once.` : '';
+	}
+
+	async function removeSelected() {
+		const ids = selectedRows.map((row: any) => row.id);
+		message = `Deleting ${ids.length} evaluations...`;
+		const result = await runBulk(ids, data.adminKey, 'DELETE', (id) => `/api/evaluations/${id}`);
+		evaluations = evaluations.filter((e: any) => !result.succeeded.includes(e.id));
+		selected.clear();
+		message = bulkMessage('Deleted', 'evaluations', result);
+	}
+
+	async function resimulateSelected() {
+		const ids = resimulatableRows.map((row: any) => row.id);
+		message = `Queueing ${ids.length} evaluations...`;
+		const result = await runBulk(
+			ids,
+			data.adminKey,
+			'POST',
+			(id) => `/api/evaluations/${id}/resimulate`
+		);
+		evaluations = evaluations.map((e: any) =>
+			result.succeeded.includes(e.id) ? { ...e, status: 'queued', progress: 0 } : e
+		);
+		selected.clear();
+		message = bulkMessage('Queued', 'evaluations', result);
+	}
+
+	function askRemoveSelected() {
+		const count = selectedRows.length;
+		prompt.ask({
+			title: 'Delete evaluations',
+			message: `Delete ${count} selected ${count === 1 ? 'evaluation' : 'evaluations'}? Their results and replays cannot be recovered.`,
+			warning: manyWarning(count, 'delete'),
+			confirmLabel: 'Delete',
+			danger: true,
+			run: removeSelected
+		});
+	}
+
+	function askResimulateSelected() {
+		const count = resimulatableRows.length;
+		const skipped = selectedRows.length - count;
+		prompt.ask({
+			title: 'Re-simulate evaluations',
+			message: `Re-run ${count} selected ${count === 1 ? 'evaluation' : 'evaluations'} with the current simulator build? This overwrites their results and replays.`,
+			warning:
+				skipped > 0
+					? `${skipped} selected ${skipped === 1 ? 'entry is' : 'entries are'} already queued or running and will be skipped.`
+					: manyWarning(count, 're-simulate'),
+			confirmLabel: 'Re-simulate',
+			run: resimulateSelected
+		});
+	}
+
+	function askCancel(id: string, name: string) {
+		prompt.ask({
+			title: 'Cancel run',
+			message: `Cancel the running evaluation for "${name}"?`,
+			confirmLabel: 'Cancel run',
+			danger: true,
+			run: () => cancel(id, name)
+		});
+	}
+
+	function askRemove(id: string, name: string) {
+		prompt.ask({
+			title: 'Delete evaluation',
+			message: `Delete the evaluation for "${name}"? Its results and replays cannot be recovered.`,
+			confirmLabel: 'Delete',
+			danger: true,
+			run: () => remove(id, name)
+		});
+	}
+
 	async function cancel(id: string, name: string) {
-		if (!confirm(`Cancel the running evaluation for "${name}"?`)) return;
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${id}/cancel`), {
 				method: 'POST',
@@ -128,7 +233,6 @@
 	}
 
 	async function remove(id: string, name: string) {
-		if (!confirm(`Delete evaluation for "${name}"? This cannot be undone.`)) return;
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${id}`), {
 				method: 'DELETE',
@@ -197,10 +301,39 @@
 	<p class="filter-summary">Showing {filtered.length} of {evaluations.length} evaluations</p>
 {/if}
 
+<BulkActionBar
+	count={selectedRows.length}
+	noun="evaluation"
+	nounPlural="evaluations"
+	onclear={() => selected.clear()}
+>
+	<button
+		type="button"
+		onclick={askResimulateSelected}
+		disabled={resimulatableRows.length === 0}
+	>
+		<Icon icon="ph:arrows-clockwise-bold" width="14" />
+		Re-simulate
+	</button>
+	<button type="button" class="admin-btn-danger" onclick={askRemoveSelected}>
+		<Icon icon="ph:trash-bold" width="14" />
+		Delete
+	</button>
+</BulkActionBar>
+
 <div class="admin-table-wrap">
 	<table>
 		<thead>
 			<tr>
+				<th class="select-cell">
+					<input
+						type="checkbox"
+						aria-label="Select all evaluations"
+						checked={allFilteredSelected}
+						indeterminate={selectedRows.length > 0 && !allFilteredSelected}
+						onchange={toggleAll}
+					/>
+				</th>
 				<th>Username</th>
 				<th>ID</th>
 				<th>Level</th>
@@ -217,10 +350,18 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="12">Loading evaluations...</td></tr>
+				<tr><td colspan="13">Loading evaluations...</td></tr>
 			{:else}
 				{#each pagedEvaluations as row}
-					<tr>
+					<tr class:selected={selected.has(row.id)}>
+						<td class="select-cell">
+							<input
+								type="checkbox"
+								aria-label={`Select evaluation for ${row.username}`}
+								checked={selected.has(row.id)}
+								onchange={() => toggleRow(row.id)}
+							/>
+						</td>
 						<td>{row.username}</td>
 						<td><code class="eval-id" title={row.id}>{row.id.slice(0, 8)}</code></td>
 						<td>{row.level_id || 'farp'}</td>
@@ -245,16 +386,37 @@
 						<td>{when(row.completed_at)}</td>
 						<td>
 							<div class="actions">
-								<a class="admin-btn" href={`/admin/evaluations/${row.id}`}>View</a>
+								<a
+									class="admin-btn icon-btn"
+									href={`/admin/evaluations/${row.id}`}
+									title="View"
+									aria-label="View"
+								>
+									<Icon icon="ph:eye-bold" width="16" />
+								</a>
 								{#if row.status === 'queued' || row.status === 'running'}
-									<button onclick={() => cancel(row.id, row.username)}>Cancel</button>
+									<button
+										class="icon-btn"
+										title="Cancel run"
+										aria-label="Cancel run"
+										onclick={() => askCancel(row.id, row.username)}
+									>
+										<Icon icon="ph:prohibit-bold" width="16" />
+									</button>
 								{/if}
-								<button class="admin-btn-danger" onclick={() => remove(row.id, row.username)}>Delete</button>
+								<button
+									class="admin-btn-danger icon-btn"
+									title="Delete"
+									aria-label="Delete"
+									onclick={() => askRemove(row.id, row.username)}
+								>
+									<Icon icon="ph:trash-bold" width="16" />
+								</button>
 							</div>
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="12">No evaluations found.</td></tr>
+					<tr><td colspan="13">No evaluations found.</td></tr>
 				{/each}
 			{/if}
 		</tbody>
@@ -263,7 +425,22 @@
 
 <Pagination bind:page total={filtered.length} {pageSize} />
 
+{#if prompt.current}
+	<ConfirmDialog
+		title={prompt.current.title}
+		message={prompt.current.message}
+		warning={prompt.current.warning}
+		confirmLabel={prompt.current.confirmLabel}
+		danger={prompt.current.danger}
+		onconfirm={prompt.accept}
+		oncancel={prompt.dismiss}
+	/>
+{/if}
+
 <style>
+	tbody tr.selected td {
+		background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+	}
 	.eval-id {
 		font-size: 0.78em;
 		color: var(--color-faint);

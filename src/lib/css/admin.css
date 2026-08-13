@@ -326,6 +326,34 @@
 	color: var(--color-loss);
 }
 
+.admin .icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.4rem;
+	line-height: 0;
+}
+
+.admin td .actions {
+	margin: 0;
+	flex-wrap: nowrap;
+	gap: 0.35rem;
+}
+
+.admin .select-cell {
+	width: 1px;
+	padding-right: 0.35rem;
+}
+
+.admin input[type='checkbox'] {
+	display: block;
+	width: 1rem;
+	height: 1rem;
+	margin: 0;
+	accent-color: var(--color-brand);
+	cursor: pointer;
+}
+
 .admin .message {
 	margin: 1rem 0;
 	padding: 0.85rem 1.1rem;
