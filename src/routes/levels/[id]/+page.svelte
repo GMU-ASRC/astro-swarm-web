@@ -426,8 +426,13 @@
 					<section class="block">
 						<h2 class="section-title">Runs ({outcomes.length})</h2>
 						<p class="block-note">
-							Each cell is one trial — green intercepted, red reached the planet. Pick a run to replay
-							it.
+							{#if isWave}
+								Each cell is one wave — green held every evader, red let one through. Half the
+								trials send the evaders one after another, half send them together.
+							{:else}
+								Each cell is one trial — green intercepted, red reached the planet. Pick a run to
+								replay it.
+							{/if}
 						</p>
 						<ReplayWorkspace
 							groups={placementGroups}

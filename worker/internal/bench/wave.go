@@ -28,6 +28,7 @@ type WaveOutput struct {
 	Outcome       string
 	EvaderCount   int
 	Destroyed     int
+	Breaches      int
 	DefendersLost int
 	DetectionTime float64
 	CaptureTime   float64
@@ -110,6 +111,7 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 	delta := 1.0 / float64(PhysicsTicksPerSecond)
 	frame := 0
 	destroyed := 0
+	resolved := 0
 	breached := false
 
 	if input.Record {
@@ -130,9 +132,15 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 				output.DetectionTime = frameToTime(frame)
 			}
 			if entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
-				output.GoalTime = frameToTime(frame)
+				if output.GoalTime < 0.0 {
+					output.GoalTime = frameToTime(frame)
+				}
+				entry.alive = false
+				world.Remove(entry.ship)
 				breached = true
-				break
+				output.Breaches++
+				resolved++
+				continue
 			}
 			catcher := defenderTouching(defenders, entry.ship)
 			if catcher == nil {
@@ -141,6 +149,7 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 			entry.alive = false
 			world.Remove(entry.ship)
 			destroyed++
+			resolved++
 			if output.CaptureTime < 0.0 {
 				output.CaptureTime = frameToTime(frame)
 			}
@@ -151,18 +160,16 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 			}
 		}
 
-		if breached {
-			break
-		}
-
-		if destroyed >= len(input.SpawnAngles) {
-			output.ClearTime = frameToTime(frame)
+		if resolved >= len(input.SpawnAngles) {
+			if destroyed >= len(input.SpawnAngles) {
+				output.ClearTime = frameToTime(frame)
+			}
 			break
 		}
 		if !input.Simultaneous && launched < len(input.SpawnAngles) && !anyAlive(evaders) {
 			launch()
 		}
-		if len(defenders) == 0 {
+		if len(defenders) == 0 && launched >= len(input.SpawnAngles) && !anyAlive(evaders) {
 			break
 		}
 		if frame >= input.MatchFrames {

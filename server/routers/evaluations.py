@@ -15,6 +15,9 @@ import merge
 import rating
 from app_settings import (
     PILOT_LEVELS,
+    WAVE_CLEAN_STREAK,
+    WAVE_LEVELS,
+    WAVE_TRIALS,
     SWEEP_MATCH_OFFSET,
     SWEEP_SEED_OFFSET,
     SWEEP_SEED_STRIDE,
@@ -498,6 +501,9 @@ def settings():
         "pilot_max_xp": PILOT_LEVEL_MAX_XP,
         "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
         "required_game_version": get_required_game_version(),
+        "wave_levels": WAVE_LEVELS,
+        "wave_trials": WAVE_TRIALS,
+        "wave_clean_streak": WAVE_CLEAN_STREAK,
         "derived_seeds": _derived_seeds(seed),
     })
 

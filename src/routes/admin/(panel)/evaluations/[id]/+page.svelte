@@ -423,6 +423,9 @@
 		{#if isPilot}
 			<h2>Recorded Flight</h2>
 			<p class="meta">The player's own piloted run, rendered from the movement recorded in game.</p>
+		{:else if isWave}
+			<h2>Run Data ({outcomes.length})</h2>
+			<p class="meta">{outcomes.length} waves against the submitted defender scatter, split evenly between sequential and simultaneous arrivals — green held every evader, red let one through. Each trial varies the scatter, the spawn angles and the evader count. Click a run to replay it.</p>
 		{:else}
 			<h2>Run Data ({outcomes.length})</h2>
 			<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>

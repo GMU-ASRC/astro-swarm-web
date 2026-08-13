@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { apiUrl } from '$lib/ts/api';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import { isWave as waveLevel } from '$lib/ts/levels';
 
 	let { data } = $props();
 	let settings = $state<any>(null);
@@ -20,6 +21,7 @@
 	const levelId = $derived(`farp${levelNum}`);
 	const levelInfo = $derived((settings?.levels ?? []).find((l: any) => l.id === levelId) ?? null);
 	const isPilot = $derived((settings?.pilot_level_ids ?? []).includes(levelId));
+	const isWave = $derived(waveLevel(levelNum));
 	const runLimits = $derived(
 		settings?.pilot_run_limits?.[levelId] ?? {
 			max_seconds: settings?.pilot_time_limit_seconds,
@@ -116,7 +118,9 @@
 <p class="meta">
 	{levelInfo?.name ?? levelId} — {isPilot
 		? 'pilot level: the player flies the evader themselves against the best submitted level 2 algorithm. Nothing is simulated for this level, so there are no benchmark parameters to tune.'
-		: 'defense level (the submitted algorithm drives the defenders against the incoming evader).'}
+		: isWave
+			? 'wave level: the submitted algorithm drives the defenders against a wave of evaders, and a run only counts as held if every one of them is destroyed.'
+			: 'defense level (the submitted algorithm drives the defenders against the incoming evader).'}
 </p>
 
 {#if loading}
@@ -170,6 +174,42 @@
 			<div class="stat"><div class="label">XP for a finished run</div><div>{settings.pilot_max_xp}</div></div>
 		</div>
 	{:else}
+	{#if isWave}
+		<h2>How a level {levelNum} entry is benchmarked</h2>
+		<p class="meta">
+			A wave level is not graded against a single evader. Every trial sends several evaders in off
+			the ring and only counts as held if all of them are destroyed before any reaches the planet.
+			{levelNum === 4
+				? 'A capture here destroys the defender as well as the evader, so the line thins as the wave goes on.'
+				: 'A defender that catches an evader survives and carries on to the next.'}
+			The run always plays out until every evader has been sent and resolved, so one getting through
+			early does not cut the trial short.
+		</p>
+		<div class="stat-grid">
+			<div class="stat">
+				<div class="label">Trials</div>
+				<div>{settings.wave_trials ?? 100}</div>
+			</div>
+			<div class="stat">
+				<div class="label">Wave styles</div>
+				<div>Sequential and simultaneous, split evenly</div>
+			</div>
+			<div class="stat">
+				<div class="label">Evaders per trial</div>
+				<div>Varies, never more than the defenders</div>
+			</div>
+			<div class="stat">
+				<div class="label">Defender sweep</div>
+				<div>Grows until {settings.wave_clean_streak ?? 3} consecutive clean counts</div>
+			</div>
+		</div>
+		<p class="meta">
+			Each trial gets its own seeded defender scatter, spawn angles and evader count, so the same
+			entry and seed always reproduce the same result. The sweep stops early rather than running
+			out to the ring-sweep maximum, which is only a ceiling here.
+		</p>
+	{/if}
+
 	<p class="meta">The benchmark parameters below are shared across all benchmarked levels so every entry is tested under identical conditions.</p>
 
 	<h2>Enemy start coordinate</h2>

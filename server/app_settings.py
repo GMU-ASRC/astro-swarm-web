@@ -35,6 +35,8 @@ PILOT_LEVELS = [
 ]
 
 WAVE_LEVELS = ["farp3", "farp4"]
+WAVE_TRIALS = 100
+WAVE_CLEAN_STREAK = 3
 
 LEVEL_ALIASES = {
     "farp1": ["farp1", "farp"],

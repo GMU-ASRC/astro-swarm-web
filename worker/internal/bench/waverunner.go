@@ -11,7 +11,6 @@ const (
 	WaveSequentialSeedOffset   = 1100000
 	WaveSimultaneousSeedOffset = 2200000
 	WaveSweepSeedOffset        = 3300000
-	WaveReplayTrials           = 6
 	WaveReplaySweepNMax        = 20
 	WaveReplaySweepTrials      = 4
 )
@@ -38,7 +37,7 @@ func waveTrialLayout(seed int64, trial int, defenders int) []Placement {
 	return ScatterLayout(seed+int64(trial)*SweepSeedStride, defenders)
 }
 
-func buildWaveTrials(options Options, simultaneous bool) []waveJob {
+func buildWaveTrials(options Options, simultaneous bool, count int) []waveJob {
 	offset := int64(WaveSequentialSeedOffset)
 	if simultaneous {
 		offset = WaveSimultaneousSeedOffset
@@ -47,8 +46,8 @@ func buildWaveTrials(options Options, simultaneous bool) []waveJob {
 	if defenders < 1 {
 		defenders = RingCount
 	}
-	jobs := make([]waveJob, 0, options.TrialCount)
-	for index := 0; index < options.TrialCount; index++ {
+	jobs := make([]waveJob, 0, count)
+	for index := 0; index < count; index++ {
 		trial := options.TrialStart + index
 		evaders := WaveEvaderCount(trial, defenders)
 		jobs = append(jobs, waveJob{
@@ -59,7 +58,7 @@ func buildWaveTrials(options Options, simultaneous bool) []waveJob {
 			seed:         options.Seed + offset + int64(trial),
 			placements:   waveTrialLayout(options.Seed+offset, trial, defenders),
 			angles:       WaveSpawnAngles(options.Seed+offset, trial, evaders),
-			record:       options.Record && index < WaveReplayTrials,
+			record:       options.Record,
 		})
 	}
 	return jobs
@@ -80,7 +79,7 @@ func buildWaveSweepStep(options Options, defenders int) []waveJob {
 			seed:         seed,
 			placements:   RingPlacements(options.Seed+WaveSweepSeedOffset, trial, options.SweepTrials, defenders),
 			angles:       WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, evaders),
-			record:       options.Record && defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials,
+			record:       options.Record && (trial == 0 || (defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials)),
 		})
 	}
 	return jobs
@@ -141,8 +140,11 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		options.Placements = ScatterLayout(options.Seed, RingCount)
 	}
 
+	sequentialCount := options.TrialCount / 2
+	simultaneousCount := options.TrialCount - sequentialCount
+
 	var done int64
-	estimate := int64(options.TrialCount*2 + options.SweepMax*options.SweepTrials)
+	estimate := int64(options.TrialCount + options.SweepMax*options.SweepTrials)
 	tick := func() {
 		if options.Progress == nil {
 			return
@@ -150,8 +152,8 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		options.Progress(int(atomic.AddInt64(&done, 1)), int(estimate))
 	}
 
-	sequential := runWaveJobs(buildWaveTrials(options, false), options, matchFrames, destroysDefenders, tick)
-	simultaneous := runWaveJobs(buildWaveTrials(options, true), options, matchFrames, destroysDefenders, tick)
+	sequential := runWaveJobs(buildWaveTrials(options, false, sequentialCount), options, matchFrames, destroysDefenders, tick)
+	simultaneous := runWaveJobs(buildWaveTrials(options, true, simultaneousCount), options, matchFrames, destroysDefenders, tick)
 
 	sweep, sweepPoints := runWaveSweep(options, matchFrames, destroysDefenders, tick)
 
@@ -355,6 +357,7 @@ func packWaveRuns(trials []waveResult) []ReplayRun {
 			Stats: map[string]float64{
 				"evaders":      float64(item.output.EvaderCount),
 				"destroyed":    float64(item.output.Destroyed),
+				"breaches":     float64(item.output.Breaches),
 				"defenders":    float64(len(item.job.placements)),
 				"lost":         float64(item.output.DefendersLost),
 				"simultaneous": boolStat(item.job.simultaneous),
