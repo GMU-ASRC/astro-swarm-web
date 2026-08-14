@@ -46,6 +46,11 @@ type Results struct {
 	EvaderDestroyedRate float64 `json:"evader_destroyed_rate"`
 	TrialDestroyed      []int   `json:"trial_destroyed,omitempty"`
 	TrialEvaders        []int   `json:"trial_evaders,omitempty"`
+	TrialDetectedFirst  []int   `json:"trial_detected_first,omitempty"`
+	TrialDetectedSecond []int   `json:"trial_detected_second,omitempty"`
+	TrialsHeldRate      float64 `json:"trials_held_rate"`
+	SequentialDetection float64 `json:"sequential_detection_rate"`
+	SimultaneousDetect  float64 `json:"simultaneous_detection_rate"`
 }
 
 type Report struct {

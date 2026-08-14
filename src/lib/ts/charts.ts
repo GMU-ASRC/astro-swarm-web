@@ -178,6 +178,58 @@ export function waveCaptureConfig(destroyed: number[], evaders: number[]): Chart
 	};
 }
 
+export function waveDetectionConfig(first: number[], second: number[]): ChartConfiguration {
+	const labels: number[] = [];
+	const firstRate: number[] = [];
+	const secondRate: number[] = [];
+	let firstHits = 0;
+	let secondHits = 0;
+	first.forEach((flag, index) => {
+		labels.push(index + 1);
+		firstHits += flag;
+		secondHits += second[index] ?? 0;
+		firstRate.push((100 * firstHits) / (index + 1));
+		secondRate.push((100 * secondHits) / (index + 1));
+	});
+
+	const options = baseOptions(
+		'Detection Rate by Wave',
+		'Trials with a detection (%)',
+		'Trial',
+		true,
+		placementSource(first.length)
+	);
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels,
+			datasets: [
+				{
+					label: 'One after another',
+					data: firstRate,
+					borderColor: DETECTION,
+					backgroundColor: DETECTION,
+					pointRadius: 0,
+					borderWidth: 2,
+					tension: 0.1
+				},
+				{
+					label: 'All at once',
+					data: secondRate,
+					borderColor: CAPTURE,
+					backgroundColor: CAPTURE,
+					pointRadius: 0,
+					borderWidth: 2,
+					tension: 0.1
+				}
+			]
+		},
+		options
+	};
+}
+
 export function barConfig(outcomes: string[]): ChartConfiguration {
 	const counts = { win: 0, lose: 0, timeout: 0 };
 	for (const outcome of outcomes) {

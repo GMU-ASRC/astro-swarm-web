@@ -5,7 +5,7 @@
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig, waveCaptureConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig, waveCaptureConfig, waveDetectionConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
 
@@ -61,6 +61,10 @@
 	let captureTimes = $derived(ev?.results?.capture_times ?? []);
 	let detectionRate = $derived(ev?.results?.detection_rate ?? rateOf(detectionTimes));
 	let captureRate = $derived(ev?.results?.capture_rate ?? rateOf(captureTimes));
+
+	function wavePct(value: number | undefined): string {
+		return value == null ? '—' : `${value}%`;
+	}
 
 	function rateOf(times: number[]): number {
 		if (times.length === 0) return 0;
@@ -370,7 +374,7 @@
 		{:else}
 			<div class="stat-grid">
 				<div class="stat">
-					<div class="label">{isWave ? 'Both waves held' : 'Detection rate'}</div>
+					<div class="label">{isWave ? 'Evaders destroyed' : 'Detection rate'}</div>
 					<div>{successRate}%</div>
 				</div>
 				<div class="stat">
@@ -415,6 +419,14 @@
 				{#if isWave && (ev.results?.trial_destroyed ?? []).length > 0}
 					<ChartCard
 						config={waveCaptureConfig(ev.results?.trial_destroyed ?? [], ev.results?.trial_evaders ?? [])}
+					/>
+				{/if}
+				{#if isWave && (ev.results?.trial_detected_first ?? []).length > 0}
+					<ChartCard
+						config={waveDetectionConfig(
+							ev.results?.trial_detected_first ?? [],
+							ev.results?.trial_detected_second ?? []
+						)}
 					/>
 				{/if}
 				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />

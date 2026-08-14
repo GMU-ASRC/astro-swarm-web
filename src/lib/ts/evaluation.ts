@@ -14,6 +14,11 @@ export interface EvalSummary {
 	evader_destroyed_rate?: number;
 	trial_destroyed?: number[];
 	trial_evaders?: number[];
+	trial_detected_first?: number[];
+	trial_detected_second?: number[];
+	trials_held_rate?: number;
+	sequential_detection_rate?: number;
+	simultaneous_detection_rate?: number;
 	sweep?: { n: number; success_rate: number }[];
 	stats?: RunStats;
 }

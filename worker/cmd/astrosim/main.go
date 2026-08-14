@@ -273,7 +273,9 @@ func printSummary(report bench.Report, checked verify.Result, wave bool) {
 		label, results.Trials, report.DurationSeconds, report.MatchesRun)
 
 	if wave {
-		fmt.Printf("  %-7s Trials held — both waves stopped with nothing through\n", formatPercent(results.SuccessRate))
+		fmt.Printf("  %-7s Score — evaders destroyed (%d of %d across both waves)\n",
+			formatPercent(results.SuccessRate), results.EvadersDestroyed, results.EvadersTotal)
+		fmt.Printf("  %-7s Trials held — both waves stopped with nothing through\n", formatPercent(results.TrialsHeldRate))
 		breakdown := fmt.Sprintf("%d held, %d let an evader through", counts.Captured, counts.ReachedPlanet)
 		if counts.TimedOut > 0 {
 			breakdown += fmt.Sprintf(", %d timeouts", counts.TimedOut)
@@ -281,9 +283,8 @@ func printSummary(report bench.Report, checked verify.Result, wave bool) {
 		fmt.Printf("  %-7s %s\n", "", breakdown)
 		fmt.Printf("  %-7s First wave held — the evaders one after another\n", formatPercent(results.SequentialRate))
 		fmt.Printf("  %-7s Second wave held — the evaders all at once\n", formatPercent(results.SimultaneousRate))
-		fmt.Printf("  %-7s Evaders destroyed (%d of %d across both waves)\n",
-			formatPercent(results.EvaderDestroyedRate), results.EvadersDestroyed, results.EvadersTotal)
-		fmt.Printf("  %-7s Detection rate — a defender saw an evader\n", formatPercent(results.DetectionRate))
+		fmt.Printf("  %-7s Detected in the first wave\n", formatPercent(results.SequentialDetection))
+		fmt.Printf("  %-7s Detected in the all-at-once wave\n", formatPercent(results.SimultaneousDetect))
 		fmt.Printf("  %-7s Capture rate — a defender touched an evader\n", formatPercent(results.CaptureRate))
 		fmt.Printf("  %-7d Defenders placed\n", report.Defenders)
 		if len(results.Sweep) > 0 {

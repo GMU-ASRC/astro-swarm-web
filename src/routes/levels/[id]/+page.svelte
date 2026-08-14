@@ -8,7 +8,7 @@
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig, waveCaptureConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig, waveCaptureConfig, waveDetectionConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 	import { FARP_LEVELS, levelById } from '$lib/ts/levels';
@@ -415,6 +415,14 @@
 						{#if isWave && (ev.results?.trial_destroyed ?? []).length > 0}
 							<ChartCard
 								config={waveCaptureConfig(ev.results?.trial_destroyed ?? [], ev.results?.trial_evaders ?? [])}
+							/>
+						{/if}
+						{#if isWave && (ev.results?.trial_detected_first ?? []).length > 0}
+							<ChartCard
+								config={waveDetectionConfig(
+									ev.results?.trial_detected_first ?? [],
+									ev.results?.trial_detected_second ?? []
+								)}
 							/>
 						{/if}
 						<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />

@@ -36,6 +36,7 @@ type WaveOutput struct {
 	DefendersLost int
 	WaveTwoTime   float64
 	PhaseHeld     [WavePhases]bool
+	PhaseDetected [WavePhases]bool
 	DetectionTime float64
 	CaptureTime   float64
 	GoalTime      float64
@@ -168,8 +169,11 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 			if !entry.alive {
 				continue
 			}
-			if output.DetectionTime < 0.0 && anyDefenderSees(live, entry.ship) {
-				output.DetectionTime = frameToTime(*frame)
+			if !output.PhaseDetected[phase] && anyDefenderSees(live, entry.ship) {
+				output.PhaseDetected[phase] = true
+				if output.DetectionTime < 0.0 {
+					output.DetectionTime = frameToTime(*frame)
+				}
 			}
 			if !entry.breached && entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
 				if output.GoalTime < 0.0 {
@@ -240,9 +244,18 @@ func killDefender(defenders []*waveDefender, target *sim.Ship) {
 	}
 }
 
-func WaveSpawnAngles(seed int64, trial int, count int) []float64 {
-	rng := godot.NewRNGFromInt(seed + int64(trial)*SweepSeedStride)
-	base := rng.Randf() * godot.Tau
+// Each trial owns a sector of the ring and jitters inside it, so the wave walks
+// the whole circle across a run instead of clustering wherever the raw first
+// draw of a freshly seeded rng happens to land.
+func WaveSpawnAngles(seed int64, trial int, trials int, count int) []float64 {
+	rng := godot.NewRNGFromInt(seed + int64(trial+1)*SweepSeedStride)
+	rng.Randf()
+	rng.Randf()
+	if trials < 1 {
+		trials = 1
+	}
+	sector := (float64(trial%trials) + 0.15 + rng.Randf()*0.7) / float64(trials)
+	base := sector * godot.Tau
 	angles := make([]float64, 0, count)
 	for index := 0; index < count; index++ {
 		angles = append(angles, base+WaveSpreadRadians*float64(index)+rng.RandfRange(-0.15, 0.15))

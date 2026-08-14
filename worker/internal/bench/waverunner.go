@@ -51,7 +51,7 @@ func buildWaveTrials(options Options) []waveJob {
 			evaders:    evaders,
 			seed:       options.Seed + offset + int64(trial),
 			placements: waveTrialLayout(options.Seed+offset, trial, defenders),
-			angles:     WaveSpawnAngles(options.Seed+offset, trial, evaders),
+			angles:     WaveSpawnAngles(options.Seed+offset, trial, options.TrialCount, evaders),
 			record:     options.Record,
 		})
 	}
@@ -70,7 +70,7 @@ func buildWaveSweepStep(options Options, defenders int) []waveJob {
 			evaders:    evaders,
 			seed:       seed,
 			placements: RingPlacements(options.Seed+WaveSweepSeedOffset, trial, options.SweepTrials, defenders),
-			angles:     WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, evaders),
+			angles:     WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, options.SweepTrials, evaders),
 			record:     options.Record && (trial == 0 || (defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials)),
 		})
 	}
@@ -247,6 +247,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 	evaderTotal := 0
 	trialDestroyed := make([]int, 0, len(trials))
 	trialEvaders := make([]int, 0, len(trials))
+	detectedFirst := make([]int, 0, len(trials))
+	detectedSecond := make([]int, 0, len(trials))
 
 	for _, item := range trials {
 		if !item.ran {
@@ -273,6 +275,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		evaderTotal += item.output.EvaderCount * WavePhases
 		trialDestroyed = append(trialDestroyed, item.output.Destroyed)
 		trialEvaders = append(trialEvaders, item.output.EvaderCount*WavePhases)
+		detectedFirst = append(detectedFirst, boolCount(item.output.PhaseDetected[0]))
+		detectedSecond = append(detectedSecond, boolCount(item.output.PhaseDetected[WavePhaseSimultaneous]))
 		switch item.output.Outcome {
 		case OutcomeWin:
 			counts.Captured++
@@ -290,7 +294,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 
 	report.Results = Results{
 		Trials:              len(outcomes),
-		SuccessRate:         round1(100.0 * float64(counts.Captured) / float64(total)),
+		SuccessRate:         waveDestroyRate(destroyed, evaderTotal),
+		TrialsHeldRate:      round1(100.0 * float64(counts.Captured) / float64(total)),
 		DetectionRate:       rate(detectionTimes),
 		CaptureRate:         rate(captureTimes),
 		OutcomeCounts:       counts,
@@ -305,6 +310,10 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		EvaderDestroyedRate: waveDestroyRate(destroyed, evaderTotal),
 		TrialDestroyed:      trialDestroyed,
 		TrialEvaders:        trialEvaders,
+		TrialDetectedFirst:  detectedFirst,
+		TrialDetectedSecond: detectedSecond,
+		SequentialDetection: shareOf(detectedFirst),
+		SimultaneousDetect:  shareOf(detectedSecond),
 	}
 }
 
@@ -427,6 +436,24 @@ func packWaveSweepRuns(sweep []waveResult) []ReplaySweepRun {
 		runs = append(runs, run)
 	}
 	return runs
+}
+
+func boolCount(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func shareOf(flags []int) float64 {
+	if len(flags) == 0 {
+		return 0.0
+	}
+	hits := 0
+	for _, flag := range flags {
+		hits += flag
+	}
+	return round1(100.0 * float64(hits) / float64(len(flags)))
 }
 
 func boolStat(value bool) float64 {

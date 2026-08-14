@@ -81,6 +81,7 @@ the same four formulas under `derived_seeds` on that settings endpoint:
 | Ring-sweep match at `n` | `sweep_seed[trial] + 500000 + n` |
 | Level 2 scatter fallback | `seed + 700000` |
 | Wave trial | `seed + 1100000 + trial` |
+| Wave spawn angles | `trial seed + (trial + 1) * 1000000`, stratified over the trial count |
 | Second wave of a trial | `trial seed + 770000` |
 | Wave defender sweep at `n` | `seed + 3300000 + n * 1000000 + trial` |
 
@@ -157,15 +158,24 @@ evaders (three, capped at the defender count), so every replay shows the same wa
 one after another, then three together. The same entry and seed always reproduce the same
 result.
 
+Each trial owns a sector of the spawn ring and jitters inside it, the same way the level 1 and
+2 placement runs do, so a run walks the whole circle. Taking the angle straight from a freshly
+seeded rng does not work here: the first `Randf()` after seeding barely moves with the seed, so
+every wave spawned within a few degrees of the same bearing whatever seed was set.
+
 An evader that reaches the planet is counted as a breach once and keeps flying, so it can still
 be run down afterwards. A capture only counts as destroyed if that evader had not already got
 through, which keeps `destroyed + through` equal to the number of evaders sent.
 
 The report keeps the combined outcome arrays the existing charts read, and adds
 `sequential_rate` and `simultaneous_rate` (how often each of the two waves held on its own),
-`evaders_destroyed`, `evaders_total`, `evader_destroyed_rate`, and `trial_destroyed` /
-`trial_evaders` so the site can plot capture rate across the trials. The held rate alone is a
-poor read on these levels: an algorithm can destroy most of the wave and still hold nothing.
+`evaders_destroyed`, `evaders_total`, `evader_destroyed_rate`, per-wave detection rates, and the
+per-trial arrays (`trial_destroyed`, `trial_evaders`, `trial_detected_first`,
+`trial_detected_second`) the site charts.
+
+`success_rate` on a wave level is the share of evaders destroyed, not the share of trials held
+outright: stopping two of three evaders is not the same result as stopping none. The strict
+all-or-nothing number is reported alongside it as `trials_held_rate`.
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
 a defender lost to a trade in level 4 does not shift every slot after it. Each wave keeps
