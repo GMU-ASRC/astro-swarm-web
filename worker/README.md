@@ -167,6 +167,20 @@ a defender lost to a trade in level 4 does not shift every slot after it. Each w
 recording for four seconds after its last evader is resolved, so a replay does not cut off on
 the frame of the final capture, and `stats.wave_two_time` marks where the second wave begins.
 
+### Running a wave entry
+
+`astrosim` re-simulates level 3 and 4 entries the same way it does levels 1 and 2:
+
+```
+./astrosim 0940aa30-d79c-4406-9fcb-002a547413f2
+```
+
+The banner, the progress line and the summary switch to wave wording, and the summary reports
+trials held, each wave's own hold rate, and how many evaders were destroyed across both waves.
+`-n-max` becomes a ceiling rather than a target, since the sweep stops as soon as the algorithm
+holds, and the sweep curves are left out of the pass/fail verdict for the same reason: a
+published entry and a fresh run can stop at different `n`.
+
 ### Adaptive defender sweep
 
 The ring sweep for these levels does not run out to a fixed `n-max`. It starts at one

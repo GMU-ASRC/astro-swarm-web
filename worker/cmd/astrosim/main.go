@@ -175,12 +175,18 @@ func run(options CommandOptions, explicit map[string]bool) error {
 		Workers:          options.Workers,
 	}
 	if !options.Quiet {
-		benchOptions.Progress = progressPrinter()
+		benchOptions.Progress = progressPrinter(bench.IsWaveLevel(levelID), trials)
 	}
 
 	fmt.Printf("simulating %s\n", published.Label())
-	fmt.Printf("  level %s, %d defenders, %d placement trials, ring sweep n=1..%d x %d trials\n",
-		levelID, len(benchOptions.Placements), trials, options.SweepMax, options.SweepTrials)
+	if bench.IsWaveLevel(levelID) {
+		fmt.Printf("  level %s, %d defenders, %d wave trials of up to %d evaders, defender sweep from n=1 up to %d x %d trials\n",
+			levelID, len(benchOptions.Placements), trials, bench.WaveMaxEvaders, options.SweepMax, options.SweepTrials)
+		fmt.Printf("  each trial runs both waves: one after another, then all at once against the same layout\n")
+	} else {
+		fmt.Printf("  level %s, %d defenders, %d placement trials, ring sweep n=1..%d x %d trials\n",
+			levelID, len(benchOptions.Placements), trials, options.SweepMax, options.SweepTrials)
+	}
 	fmt.Printf("  seed %d, sweep spawn %s, %d workers\n", options.Seed, options.SweepSpawn, benchOptions.Workers)
 
 	report := bench.Run(benchOptions)
@@ -189,7 +195,7 @@ func run(options CommandOptions, explicit map[string]bool) error {
 	}
 
 	checked := verify.Compare(published, report, options.Tolerance)
-	printSummary(report, checked)
+	printSummary(report, checked, bench.IsWaveLevel(levelID))
 
 	payload := map[string]any{
 		"entry": map[string]any{
@@ -232,7 +238,7 @@ func chartSubtitle(published *entry.Entry) string {
 	return strings.Join(parts, " ")
 }
 
-func progressPrinter() func(done, total int) {
+func progressPrinter(wave bool, trials int) func(done, total int) {
 	var last int64
 	return func(done, total int) {
 		now := time.Now().UnixMilli()
@@ -243,16 +249,49 @@ func progressPrinter() func(done, total int) {
 		if !atomic.CompareAndSwapInt64(&last, previous, now) {
 			return
 		}
+		if wave {
+			if done <= trials {
+				fmt.Printf("\r  wave trial %d/%d          ", done, trials)
+			} else {
+				fmt.Printf("\r  defender sweep: %d runs   ", done-trials)
+			}
+			return
+		}
 		fmt.Printf("\r  %d/%d matches", done, total)
 	}
 }
 
-func printSummary(report bench.Report, checked verify.Result) {
+func printSummary(report bench.Report, checked verify.Result, wave bool) {
 	results := report.Results
 	counts := results.OutcomeCounts
 
-	fmt.Printf("\nplacement trials: %d in %.1fs (%d matches total)\n\n",
-		results.Trials, report.DurationSeconds, report.MatchesRun)
+	label := "placement trials"
+	if wave {
+		label = "wave trials"
+	}
+	fmt.Printf("\n%s: %d in %.1fs (%d matches total)\n\n",
+		label, results.Trials, report.DurationSeconds, report.MatchesRun)
+
+	if wave {
+		fmt.Printf("  %-7s Trials held — both waves stopped with nothing through\n", formatPercent(results.SuccessRate))
+		breakdown := fmt.Sprintf("%d held, %d let an evader through", counts.Captured, counts.ReachedPlanet)
+		if counts.TimedOut > 0 {
+			breakdown += fmt.Sprintf(", %d timeouts", counts.TimedOut)
+		}
+		fmt.Printf("  %-7s %s\n", "", breakdown)
+		fmt.Printf("  %-7s First wave held — the evaders one after another\n", formatPercent(results.SequentialRate))
+		fmt.Printf("  %-7s Second wave held — the evaders all at once\n", formatPercent(results.SimultaneousRate))
+		fmt.Printf("  %-7s Evaders destroyed (%d of %d across both waves)\n",
+			formatPercent(results.EvaderDestroyedRate), results.EvadersDestroyed, results.EvadersTotal)
+		fmt.Printf("  %-7s Detection rate — a defender saw an evader\n", formatPercent(results.DetectionRate))
+		fmt.Printf("  %-7s Capture rate — a defender touched an evader\n", formatPercent(results.CaptureRate))
+		fmt.Printf("  %-7d Defenders placed\n", report.Defenders)
+		if len(results.Sweep) > 0 {
+			last := results.Sweep[len(results.Sweep)-1]
+			fmt.Printf("  %-7d Defenders the sweep reached before it stopped\n", last.N)
+		}
+		return
+	}
 
 	fmt.Printf("  %-7s Success rate\n", formatPercent(results.SuccessRate))
 	breakdown := fmt.Sprintf("%d captured, %d reached the planet", counts.Captured, counts.ReachedPlanet)

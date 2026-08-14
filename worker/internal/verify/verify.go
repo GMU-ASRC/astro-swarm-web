@@ -49,9 +49,16 @@ func Compare(published *entry.Entry, report bench.Report, tolerance float64) Res
 		result.Comparisons = append(result.Comparisons, comparison)
 	}
 
+	wave := bench.IsWaveLevel(report.LevelID)
+
 	add("success_rate", source.SuccessRate, report.Results.SuccessRate)
 	add("detection_rate", source.DetectionRate, report.Results.DetectionRate)
 	add("capture_rate", source.CaptureRate, report.Results.CaptureRate)
+	if wave {
+		add("sequential_rate", source.SequentialRate, report.Results.SequentialRate)
+		add("simultaneous_rate", source.SimultaneousRate, report.Results.SimultaneousRate)
+		add("evader_destroyed_rate", source.EvaderDestroyedRate, report.Results.EvaderDestroyedRate)
+	}
 
 	if source.Trials != 0 && source.Trials != report.Results.Trials {
 		result.Notes = append(result.Notes, fmt.Sprintf(
@@ -77,15 +84,23 @@ func Compare(published *entry.Entry, report bench.Report, tolerance float64) Res
 			mismatched++
 		}
 	}
-	comparableSweep := report.SweepSpawn != bench.SweepSpawnVaried
+	comparableSweep := report.SweepSpawn != bench.SweepSpawnVaried && !wave
+	sweepName := "ring sweep"
+	if wave {
+		sweepName = "defender sweep"
+	}
 	if len(source.Sweep) > 0 {
 		result.Notes = append(result.Notes, fmt.Sprintf(
-			"ring sweep: %d of %d points outside tolerance, worst delta %.1f", mismatched, len(source.Sweep), worst))
+			"%s: %d of %d points outside tolerance, worst delta %.1f", sweepName, mismatched, len(source.Sweep), worst))
 		if mismatched > 0 && comparableSweep {
 			result.Passed = false
 		}
 	}
-	if !comparableSweep {
+	switch {
+	case wave:
+		result.Notes = append(result.Notes,
+			"the defender sweep stops as soon as the algorithm holds, so the published and simulated curves end at different n and were not counted in the verdict")
+	case !comparableSweep:
 		result.Notes = append(result.Notes,
 			"ring sweep used a per-trial evader spawn while the server uses one fixed spawn, so the sweep curves are not a like-for-like comparison and were not counted in the verdict")
 	}
