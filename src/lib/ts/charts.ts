@@ -8,7 +8,7 @@ const DETECTION = '#2563eb';
 const CAPTURE = '#dc2626';
 const SUCCESS = '#4ade80';
 
-const PERCENT_CEILING = 108;
+const PERCENT_CEILING = 100;
 const PERCENT_TICK_STEP = 25;
 const VALUE_HEADROOM = '8%';
 

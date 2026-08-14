@@ -75,14 +75,14 @@ func percentTicks(p *plot.Plot) {
 }
 
 func percentAxis(p *plot.Plot) {
-	p.Y.Min = -6
-	p.Y.Max = 112
+	p.Y.Min = 0
+	p.Y.Max = 100
 	percentTicks(p)
 }
 
 func percentAxisFromBaseline(p *plot.Plot) {
 	p.Y.Min = 0
-	p.Y.Max = 112
+	p.Y.Max = 100
 	percentTicks(p)
 }
 

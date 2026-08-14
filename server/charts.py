@@ -7,7 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-PERCENT_CEILING = 108
+PERCENT_CEILING = 100
 PERCENT_TICKS = [0, 25, 50, 75, 100]
 AXIS_PADDING = 0.04
 
@@ -17,7 +17,6 @@ def _caption(username, level_id, eval_id, date_label):
 
 
 def _percent_axis(ax):
-    # Leave headroom above 100% so a maxed-out line does not sit on the frame.
     ax.set_ylim(0, PERCENT_CEILING)
     ax.set_yticks(PERCENT_TICKS)
 
