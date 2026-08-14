@@ -6,6 +6,8 @@ from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 import merge
 from auth import require_admin
 from app_settings import (
+    WAVE_SWEEP_MAX,
+    WAVE_SWEEP_TRIALS,
     get_enemy_start,
     get_seed,
     get_sweep_max,
@@ -47,10 +49,9 @@ def _total_units(evaluation):
     if _pending_run(evaluation) is not None:
         return 1
     trials = int(evaluation.trials or 0)
-    sweep = get_sweep_max() * get_sweep_trials()
     if is_wave_level(evaluation.level_id):
-        return max(1, trials * 2 + sweep)
-    return max(1, trials + sweep)
+        return max(1, trials + WAVE_SWEEP_MAX * WAVE_SWEEP_TRIALS)
+    return max(1, trials + get_sweep_max() * get_sweep_trials())
 
 
 def _reap_stale():
@@ -99,8 +100,17 @@ def _keep_pending_run(evaluation, replays):
     return replays
 
 
+def _sweep_params(evaluation):
+    # A wave match runs two full waves, so the level 1 and 2 sweep budget would
+    # put a wave job past the job timeout on a modest worker.
+    if is_wave_level(evaluation.level_id):
+        return WAVE_SWEEP_MAX, WAVE_SWEEP_TRIALS
+    return get_sweep_max(), get_sweep_trials()
+
+
 def _job_payload(evaluation):
     enemy_x, enemy_y = get_enemy_start()
+    sweep_max, sweep_trials = _sweep_params(evaluation)
     return {
         "job_id": evaluation.id,
         "evaluation_id": evaluation.id,
@@ -111,8 +121,8 @@ def _job_payload(evaluation):
         "total_units": evaluation.total_units or 1,
         "config": {
             "seed": get_seed(),
-            "sweep_max": get_sweep_max(),
-            "sweep_trials": get_sweep_trials(),
+            "sweep_max": sweep_max,
+            "sweep_trials": sweep_trials,
             "match_seconds": Config.EVAL_MATCH_CAP_SECONDS,
             "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
             "enemy_x": enemy_x,

@@ -195,18 +195,22 @@
 				<div>Sequential and simultaneous, split evenly</div>
 			</div>
 			<div class="stat">
-				<div class="label">Evaders per trial</div>
-				<div>Varies, never more than the defenders</div>
+				<div class="label">Evaders per wave</div>
+				<div>{settings.wave_evaders ?? 3}, never more than the defenders</div>
 			</div>
 			<div class="stat">
 				<div class="label">Defender sweep</div>
-				<div>Grows until {settings.wave_clean_streak ?? 3} consecutive clean counts</div>
+				<div>
+					Grows until {settings.wave_clean_streak ?? 3} consecutive clean counts, capped at n={settings.wave_sweep_max ?? 40}
+					x {settings.wave_sweep_trials ?? 20} trials
+				</div>
 			</div>
 		</div>
 		<p class="meta">
-			Each trial gets its own seeded defender scatter, spawn angles and evader count, so the same
-			entry and seed always reproduce the same result. The sweep stops early rather than running
-			out to the ring-sweep maximum, which is only a ceiling here.
+			Each trial gets its own seeded defender scatter and spawn angles, so the same entry and seed
+			always reproduce the same result. A wave match runs two full waves, so these levels use their
+			own sweep budget rather than the ring-sweep one, which would put a job past the worker
+			timeout. The sweep stops as soon as the algorithm holds, so the cap is only a ceiling.
 		</p>
 	{/if}
 

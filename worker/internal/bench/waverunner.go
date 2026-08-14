@@ -44,7 +44,7 @@ func buildWaveTrials(options Options) []waveJob {
 	jobs := make([]waveJob, 0, options.TrialCount)
 	for index := 0; index < options.TrialCount; index++ {
 		trial := options.TrialStart + index
-		evaders := WaveEvaderCount(trial, defenders)
+		evaders := WaveEvaderCount(defenders)
 		jobs = append(jobs, waveJob{
 			trial:      trial,
 			defenders:  defenders,
@@ -61,7 +61,7 @@ func buildWaveTrials(options Options) []waveJob {
 func buildWaveSweepStep(options Options, defenders int) []waveJob {
 	jobs := make([]waveJob, 0, options.SweepTrials)
 	for trial := 0; trial < options.SweepTrials; trial++ {
-		evaders := WaveEvaderCount(trial, defenders)
+		evaders := WaveEvaderCount(defenders)
 		seed := options.Seed + WaveSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial)
 		jobs = append(jobs, waveJob{
 			sweep:      true,

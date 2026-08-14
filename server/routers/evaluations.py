@@ -16,7 +16,10 @@ import rating
 from app_settings import (
     PILOT_LEVELS,
     WAVE_CLEAN_STREAK,
+    WAVE_EVADERS,
     WAVE_LEVELS,
+    WAVE_SWEEP_MAX,
+    WAVE_SWEEP_TRIALS,
     WAVE_TRIALS,
     SWEEP_MATCH_OFFSET,
     SWEEP_SEED_OFFSET,
@@ -504,6 +507,9 @@ def settings():
         "wave_levels": WAVE_LEVELS,
         "wave_trials": WAVE_TRIALS,
         "wave_clean_streak": WAVE_CLEAN_STREAK,
+        "wave_sweep_max": WAVE_SWEEP_MAX,
+        "wave_sweep_trials": WAVE_SWEEP_TRIALS,
+        "wave_evaders": WAVE_EVADERS,
         "derived_seeds": _derived_seeds(seed),
     })
 

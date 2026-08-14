@@ -192,9 +192,11 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 			}
 			entry.alive = false
 			world.Remove(entry.ship)
-			destroyed++
-			output.Destroyed++
 			resolved++
+			if !entry.breached {
+				destroyed++
+				output.Destroyed++
+			}
 			if output.CaptureTime < 0.0 {
 				output.CaptureTime = frameToTime(*frame)
 			}
@@ -248,15 +250,14 @@ func WaveSpawnAngles(seed int64, trial int, count int) []float64 {
 	return angles
 }
 
-func WaveEvaderCount(trial int, defenders int) int {
-	most := WaveMaxEvaders
-	if defenders < most {
-		most = defenders
+func WaveEvaderCount(defenders int) int {
+	if defenders < WaveMaxEvaders {
+		if defenders < 1 {
+			return 1
+		}
+		return defenders
 	}
-	if most < 1 {
-		return 1
-	}
-	return 1 + trial%most
+	return WaveMaxEvaders
 }
 
 func defenderTouching(defenders []*sim.Ship, evader *sim.Ship) *sim.Ship {
