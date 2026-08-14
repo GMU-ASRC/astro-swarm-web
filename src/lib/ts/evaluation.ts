@@ -17,6 +17,7 @@ export interface EvalSummary {
 }
 
 export interface RunStats {
+	wave_two_time?: number;
 	merge_time?: number;
 	deliver_time?: number;
 	escape_time?: number;

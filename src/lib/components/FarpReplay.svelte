@@ -291,7 +291,8 @@
 		const events = [
 			{ kind: 'detect', label: 'Detected', time: replay.detection_time },
 			{ kind: 'capture', label: 'Captured', time: replay.capture_time },
-			{ kind: 'goal', label: 'Reached planet', time: replay.goal_time }
+			{ kind: 'goal', label: 'Reached planet', time: replay.goal_time },
+			{ kind: 'wave', label: 'Second wave', time: replay.stats?.wave_two_time ?? -1 }
 		];
 		const span = lastFrame / (replay.fps || 1);
 		if (span <= 0) return [];
@@ -511,16 +512,21 @@
 			Loop
 		</label>
 
-		{#if markers.length > 0}
-			<div class="legend">
-				{#each markers as marker}
-					<span class="legend-item"><span class="dot dot-{marker.kind}"></span>{marker.label}</span>
-				{/each}
-			</div>
-		{/if}
-
-		<span class="hint">Click the stage, then space to play, arrows to step. Click a ship to inspect it.</span>
+		<span class="hint">Click the stage, then space to play, arrows to step</span>
 	</div>
+
+	{#if markers.length > 0}
+		<div class="player-bar player-bar-legend">
+			{#each markers as marker}
+				<span class="legend-item">
+					<span class="dot dot-{marker.kind}"></span>
+					{marker.label}
+					<span class="legend-time">{marker.time.toFixed(2)}s</span>
+				</span>
+			{/each}
+			<span class="hint">Click a ship to inspect it</span>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -633,6 +639,17 @@
 		background: var(--color-loss);
 	}
 
+	.marker-wave,
+	.dot-wave {
+		background: var(--color-brand);
+	}
+
+	.marker-wave {
+		height: 100%;
+		width: 1px;
+		opacity: 0.7;
+	}
+
 	.clock {
 		font-size: 0.72rem;
 		font-variant-numeric: tabular-nums;
@@ -653,17 +670,24 @@
 		color: var(--color-faint);
 	}
 
-	.legend {
-		display: flex;
-		gap: 0.7rem;
+	.player-bar-legend {
+		flex-wrap: wrap;
+		gap: 0.35rem 1rem;
 		font-size: 0.7rem;
 		color: var(--color-faint);
 	}
 
 	.legend-item {
 		display: inline-flex;
+		flex: 0 0 auto;
 		align-items: center;
-		gap: 0.3rem;
+		gap: 0.35rem;
+		white-space: nowrap;
+	}
+
+	.legend-time {
+		font-variant-numeric: tabular-nums;
+		color: var(--color-dim);
 	}
 
 	.dot {
@@ -674,7 +698,9 @@
 
 	.hint {
 		margin-left: auto;
+		flex: 0 0 auto;
 		font-size: 0.7rem;
+		white-space: nowrap;
 		color: var(--color-faint);
 	}
 

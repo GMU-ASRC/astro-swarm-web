@@ -12,6 +12,7 @@ const (
 	WavePhases            = 2      // count of waves in one trial: one after another, then all at once
 	WavePhaseSimultaneous = 1      // index of the all-at-once wave
 	WavePhaseSeedOffset   = 770000 // rng seed offset between the two waves of a trial
+	WaveTailSeconds       = 4.0    // seconds recorded after the last evader of a wave is resolved
 )
 
 type WaveInput struct {
@@ -31,6 +32,7 @@ type WaveOutput struct {
 	Destroyed     int
 	Breaches      int
 	DefendersLost int
+	WaveTwoTime   float64
 	PhaseHeld     [WavePhases]bool
 	DetectionTime float64
 	CaptureTime   float64
@@ -64,6 +66,7 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 
 	output := WaveOutput{
 		EvaderCount:   len(input.SpawnAngles),
+		WaveTwoTime:   -1.0,
 		DetectionTime: -1.0,
 		CaptureTime:   -1.0,
 		GoalTime:      -1.0,
@@ -76,6 +79,9 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 
 	frame := 0
 	for phase := 0; phase < WavePhases; phase++ {
+		if phase == WavePhaseSimultaneous {
+			output.WaveTwoTime = frameToTime(frame)
+		}
 		runWavePhase(input, config, phase, &output, &frame)
 	}
 
@@ -136,10 +142,12 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 	}
 
 	delta := 1.0 / float64(PhysicsTicksPerSecond)
+	tailFrames := int(WaveTailSeconds * PhysicsTicksPerSecond)
 	destroyed := 0
 	breaches := 0
 	resolved := 0
 	phaseFrames := 0
+	endFrame := -1
 
 	if input.Record {
 		output.Frames = append(output.Frames, waveSnapshot(defenders, evaders, len(input.SpawnAngles)))
@@ -190,13 +198,16 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 			}
 		}
 
-		if resolved >= len(input.SpawnAngles) {
+		if resolved >= len(input.SpawnAngles) && endFrame < 0 {
 			if destroyed >= len(input.SpawnAngles) && output.ClearTime < 0.0 {
 				output.ClearTime = frameToTime(*frame)
 			}
+			endFrame = phaseFrames + tailFrames
+		}
+		if endFrame >= 0 && phaseFrames >= endFrame {
 			break
 		}
-		if !simultaneous && launched < len(input.SpawnAngles) && !anyAlive(evaders) {
+		if endFrame < 0 && !simultaneous && launched < len(input.SpawnAngles) && !anyAlive(evaders) {
 			launch()
 		}
 		if phaseFrames >= input.MatchFrames {

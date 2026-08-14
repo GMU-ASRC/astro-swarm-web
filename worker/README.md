@@ -161,7 +161,9 @@ The report keeps the combined outcome arrays the existing charts read, and adds
 `evaders_destroyed`, `evaders_total` and `evader_destroyed_rate`.
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
-a defender lost to a trade in level 4 does not shift every slot after it.
+a defender lost to a trade in level 4 does not shift every slot after it. Each wave keeps
+recording for four seconds after its last evader is resolved, so a replay does not cut off on
+the frame of the final capture, and `stats.wave_two_time` marks where the second wave begins.
 
 ### Adaptive defender sweep
 

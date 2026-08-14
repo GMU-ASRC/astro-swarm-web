@@ -341,13 +341,14 @@ func packWaveRuns(trials []waveResult) []ReplayRun {
 			CaptureTime:   item.output.CaptureTime,
 			GoalTime:      item.output.GoalTime,
 			Stats: map[string]float64{
-				"evaders":     float64(item.output.EvaderCount),
-				"destroyed":   float64(item.output.Destroyed),
-				"breaches":    float64(item.output.Breaches),
-				"defenders":   float64(len(item.job.placements)),
-				"lost":        float64(item.output.DefendersLost),
-				"held_first":  boolStat(item.output.PhaseHeld[0]),
-				"held_second": boolStat(item.output.PhaseHeld[WavePhaseSimultaneous]),
+				"evaders":       float64(item.output.EvaderCount),
+				"destroyed":     float64(item.output.Destroyed),
+				"breaches":      float64(item.output.Breaches),
+				"defenders":     float64(len(item.job.placements)),
+				"lost":          float64(item.output.DefendersLost),
+				"held_first":    boolStat(item.output.PhaseHeld[0]),
+				"held_second":   boolStat(item.output.PhaseHeld[WavePhaseSimultaneous]),
+				"wave_two_time": item.output.WaveTwoTime,
 			},
 		}
 		if len(item.output.Frames) > 0 {
