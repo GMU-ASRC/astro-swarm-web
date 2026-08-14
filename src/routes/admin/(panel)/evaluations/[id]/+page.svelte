@@ -393,22 +393,33 @@
 			{#if isWave}
 				<div class="stat-grid">
 					<div class="stat">
+						<div class="label">Evaders stopped</div>
+						<div>{ev.results?.evaders_destroyed ?? '—'} / {ev.results?.evaders_total ?? '—'}</div>
+					</div>
+					<div class="stat">
+						<div class="label">Both waves held</div>
+						<div>{wavePct(ev.results?.trials_held_rate)}</div>
+					</div>
+					<div class="stat">
 						<div class="label">First wave held</div>
-						<div>{ev.results?.sequential_rate ?? 0}%</div>
+						<div>{wavePct(ev.results?.sequential_rate)}</div>
 					</div>
 					<div class="stat">
 						<div class="label">All-at-once wave held</div>
-						<div>{ev.results?.simultaneous_rate ?? 0}%</div>
+						<div>{wavePct(ev.results?.simultaneous_rate)}</div>
 					</div>
 					<div class="stat">
-						<div class="label">Evaders destroyed</div>
-						<div>{ev.results?.evaders_destroyed ?? 0} / {ev.results?.evaders_total ?? 0}</div>
+						<div class="label">Detected in the first wave</div>
+						<div>{wavePct(ev.results?.sequential_detection_rate)}</div>
 					</div>
 					<div class="stat">
-						<div class="label">Evader kill rate</div>
-						<div>{ev.results?.evader_destroyed_rate ?? 0}%</div>
+						<div class="label">Detected all at once</div>
+						<div>{wavePct(ev.results?.simultaneous_detection_rate)}</div>
 					</div>
 				</div>
+				{#if ev.results?.evaders_total == null}
+					<div class="message">This entry was benchmarked before the wave stats existed. Re-simulate it once the workers are on the current build to fill them in.</div>
+				{/if}
 			{/if}
 		{/if}
 
