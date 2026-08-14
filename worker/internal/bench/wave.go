@@ -13,6 +13,7 @@ const (
 	WavePhaseSimultaneous = 1      // index of the all-at-once wave
 	WavePhaseSeedOffset   = 770000 // rng seed offset between the two waves of a trial
 	WaveTailSeconds       = 4.0    // seconds recorded after the last evader of a wave is resolved
+	WaveMaxEvaders        = 3      // count, evaders in one wave, matching the level in game
 )
 
 type WaveInput struct {
@@ -240,10 +241,14 @@ func WaveSpawnAngles(seed int64, trial int, count int) []float64 {
 }
 
 func WaveEvaderCount(trial int, defenders int) int {
-	if defenders < 1 {
+	most := WaveMaxEvaders
+	if defenders < most {
+		most = defenders
+	}
+	if most < 1 {
 		return 1
 	}
-	return 1 + trial%defenders
+	return 1 + trial%most
 }
 
 func defenderTouching(defenders []*sim.Ship, evader *sim.Ship) *sim.Ship {

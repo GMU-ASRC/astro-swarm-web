@@ -39,11 +39,11 @@ type Results struct {
 	GoalTimes       []float64     `json:"goal_times"`
 	Sweep           []SweepPoint  `json:"sweep"`
 
-	SequentialRate      float64 `json:"sequential_rate,omitempty"`
-	SimultaneousRate    float64 `json:"simultaneous_rate,omitempty"`
-	EvadersDestroyed    int     `json:"evaders_destroyed,omitempty"`
-	EvadersTotal        int     `json:"evaders_total,omitempty"`
-	EvaderDestroyedRate float64 `json:"evader_destroyed_rate,omitempty"`
+	SequentialRate      float64 `json:"sequential_rate"`
+	SimultaneousRate    float64 `json:"simultaneous_rate"`
+	EvadersDestroyed    int     `json:"evaders_destroyed"`
+	EvadersTotal        int     `json:"evaders_total"`
+	EvaderDestroyedRate float64 `json:"evader_destroyed_rate"`
 }
 
 type Report struct {

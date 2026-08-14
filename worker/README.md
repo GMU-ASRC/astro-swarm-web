@@ -152,9 +152,11 @@ One trial is **two waves back to back**, matching what the level plays in game:
 The reset rebuilds the defenders from the same placements, so both waves face the same line
 from the same starting positions, and in level 4 the bodies traded away in the first wave are
 back for the second. A trial is held only if both waves are held. Every trial gets its own
-seeded defender scatter, its own seeded spawn angles, and an evader count of
-`1 + trial % defenders`, so counts vary across the run and never exceed the defender count.
-The same entry and seed always reproduce the same result.
+seeded defender scatter, its own seeded spawn angles, and an evader count that cycles
+`1, 2, 3` (`WaveMaxEvaders`, capped at the defender count), so the algorithm is measured
+against a light wave as well as a full one. Both waves of a trial carry the same count, so a
+trial with two evaders shows two in each wave of its replay. The same entry and seed always
+reproduce the same result.
 
 The report keeps the combined outcome arrays the existing charts read, and adds
 `sequential_rate` and `simultaneous_rate` (how often each of the two waves held on its own),

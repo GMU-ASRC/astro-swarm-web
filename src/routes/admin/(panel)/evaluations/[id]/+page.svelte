@@ -95,11 +95,15 @@
 		}
 	]);
 
-	let placementMeta = $derived(
-		selectedReplay
-			? `${isPilot ? 'Recorded flight' : `Trial ${(selectedTrial ?? 0) + 1}`} · outcome: ${selectedReplay.outcome} · detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`
-			: ''
-	);
+	let placementMeta = $derived.by(() => {
+		if (!selectedReplay) return '';
+		const label = isPilot ? 'Recorded flight' : `Trial ${(selectedTrial ?? 0) + 1}`;
+		const times = `detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`;
+		if (!isWave) return `${label} · outcome: ${selectedReplay.outcome} · ${times}`;
+		const stats = selectedReplay.stats ?? {};
+		const evaders = stats.evaders ?? 0;
+		return `${label} · ${evaders} ${evaders === 1 ? 'evader' : 'evaders'} per wave · destroyed ${stats.destroyed ?? 0} of ${evaders * 2} · through ${stats.breaches ?? 0} · ${times}`;
+	});
 
 	let sweepGroups = $derived<ReplayGroup[]>([
 		{
@@ -370,11 +374,11 @@
 					<div>{successRate}%</div>
 				</div>
 				<div class="stat">
-					<div class="label">Intercepts</div>
+					<div class="label">{isWave ? 'Trials held' : 'Intercepts'}</div>
 					<div>{counts.win}</div>
 				</div>
 				<div class="stat">
-					<div class="label">Planet hits</div>
+					<div class="label">{isWave ? 'Trials breached' : 'Planet hits'}</div>
 					<div>{counts.lose}</div>
 				</div>
 				<div class="stat">

@@ -268,7 +268,7 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		captureTimes = append(captureTimes, item.output.CaptureTime)
 		goalTimes = append(goalTimes, item.output.GoalTime)
 		destroyed += item.output.Destroyed
-		evaderTotal += item.output.EvaderCount
+		evaderTotal += item.output.EvaderCount * WavePhases
 		switch item.output.Outcome {
 		case OutcomeWin:
 			counts.Captured++
