@@ -68,10 +68,12 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 		Progress:         jobProgress(job, report),
 	}
 
-	_, result := bench.RunJob(options)
+	benchReport, result := bench.RunJob(options)
 	if ctx.Err() != nil {
 		return bench.JobResult{}, ErrCancelled
 	}
+	results := benchReport.Results
+	result.Results = &results
 	return result, nil
 }
 

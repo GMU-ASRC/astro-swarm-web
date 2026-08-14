@@ -42,6 +42,13 @@ def summarize(result):
     stats = next((run.get("stats") for run in runs if run.get("stats")), None)
     if stats:
         results["stats"] = stats
+
+    reported = result.get("results")
+    if isinstance(reported, dict):
+        for key, value in reported.items():
+            if value is not None:
+                results[key] = value
+
     return results, replays
 
 

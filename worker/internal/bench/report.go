@@ -110,6 +110,7 @@ type JobResult struct {
 	Runs      []ReplayRun      `json:"runs"`
 	SweepRuns []ReplaySweepRun `json:"sweep_runs"`
 	Meta      JobMeta          `json:"meta"`
+	Results   *Results         `json:"results,omitempty"`
 }
 
 const (

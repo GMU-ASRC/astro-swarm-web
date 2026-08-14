@@ -415,7 +415,9 @@
 		{#if !isPilot}
 			<div class="charts">
 				<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
-				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+				{#if !isWave}
+					<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+				{/if}
 				{#if isWave && (ev.results?.trial_destroyed ?? []).length > 0}
 					<ChartCard
 						config={waveCaptureConfig(ev.results?.trial_destroyed ?? [], ev.results?.trial_evaders ?? [])}
