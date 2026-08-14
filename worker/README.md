@@ -138,7 +138,9 @@ Levels 3 and 4 are not single-evader matches, so they take a different path
 (`internal/bench/wave.go` and `internal/bench/waverunner.go`). Several evaders come in off the
 same ring and the run is a win only if every one of them is destroyed before any reaches the
 planet. Level 3 removes the captured evader; Level 4 removes the defender that caught it as
-well, so the line thins as the wave goes on. Running out of defenders ends the run.
+well, so the line thins as the wave goes on. A trial always plays out until every evader has
+been sent and resolved: an evader that reaches the planet is removed and counted as a breach,
+and the wave carries on.
 
 Each entry is graded twice over, once per wave style:
 
@@ -147,8 +149,9 @@ Each entry is graded twice over, once per wave style:
 | Sequential | The next evader launches only once the previous one is gone |
 | Simultaneous | Every evader is in the air from the first frame |
 
-Each style runs the full trial count (100 by default). Every trial gets its own seeded
-defender scatter, its own seeded spawn angles, and an evader count of `1 + trial % defenders`,
+The trial count (100 by default) is split evenly between the two styles. Every trial gets its
+own seeded defender scatter, its own seeded spawn angles, and an evader count of
+`1 + trial % defenders`,
 so counts vary across the run and never exceed the defender count. The two styles use separate
 seed offsets, so they are independent but both reproducible: the same entry and seed always
 produce the same result.
