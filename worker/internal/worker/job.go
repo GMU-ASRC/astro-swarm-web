@@ -87,11 +87,18 @@ func (w *Worker) variedSweepSpawn(config JobConfig) bool {
 
 func jobProgress(job Job, report progressReporter) func(done, total int) {
 	placementUnits := job.Trials
+	wave := bench.IsWaveLevel(job.Config.LevelID)
 	return func(done, total int) {
 		stage := ""
-		if done <= placementUnits {
+		switch {
+		case done <= placementUnits && wave:
+			stage = fmt.Sprintf("Waves: trial %d/%d", done, placementUnits)
+		case done <= placementUnits:
 			stage = fmt.Sprintf("Placement: trial %d/%d", done, placementUnits)
-		} else {
+		case wave:
+			stage = fmt.Sprintf("Defender sweep: %d runs, growing n until it holds",
+				done-placementUnits)
+		default:
 			stage = fmt.Sprintf("Ring sweep: %d/%d runs over n=1..%d",
 				done-placementUnits, total-placementUnits, job.Config.SweepMax)
 		}

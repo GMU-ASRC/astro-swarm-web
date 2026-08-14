@@ -427,8 +427,8 @@
 						<h2 class="section-title">Runs ({outcomes.length})</h2>
 						<p class="block-note">
 							{#if isWave}
-								Each cell is one wave — green held every evader, red let one through. Half the
-								trials send the evaders one after another, half send them together.
+								Each cell is one trial: both waves back to back, the evaders one after another
+								and then all at once. Green held both, red let one through.
 							{:else}
 								Each cell is one trial — green intercepted, red reached the planet. Pick a run to
 								replay it.

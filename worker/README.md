@@ -80,8 +80,8 @@ the same four formulas under `derived_seeds` on that settings endpoint:
 | Ring-sweep trial | `seed + 100000 + trial * 1000000` |
 | Ring-sweep match at `n` | `sweep_seed[trial] + 500000 + n` |
 | Level 2 scatter fallback | `seed + 700000` |
-| Wave trial, sequential | `seed + 1100000 + trial` |
-| Wave trial, simultaneous | `seed + 2200000 + trial` |
+| Wave trial | `seed + 1100000 + trial` |
+| Second wave of a trial | `trial seed + 770000` |
 | Wave defender sweep at `n` | `seed + 3300000 + n * 1000000 + trial` |
 
 **The seed a given entry was graded with is not recorded.** `PlayerEvaluation` has no seed
@@ -142,23 +142,26 @@ well, so the line thins as the wave goes on. A trial always plays out until ever
 been sent and resolved: an evader that reaches the planet is removed and counted as a breach,
 and the wave carries on.
 
-Each entry is graded twice over, once per wave style:
+One trial is **two waves back to back**, matching what the level plays in game:
 
-| Wave style | Behaviour |
+| Wave | Behaviour |
 |---|---|
-| Sequential | The next evader launches only once the previous one is gone |
-| Simultaneous | Every evader is in the air from the first frame |
+| First | The next evader launches only once the previous one is gone |
+| Second | The arena resets to the launch layout and every evader arrives at once |
 
-The trial count (100 by default) is split evenly between the two styles. Every trial gets its
-own seeded defender scatter, its own seeded spawn angles, and an evader count of
-`1 + trial % defenders`,
-so counts vary across the run and never exceed the defender count. The two styles use separate
-seed offsets, so they are independent but both reproducible: the same entry and seed always
-produce the same result.
+The reset rebuilds the defenders from the same placements, so both waves face the same line
+from the same starting positions, and in level 4 the bodies traded away in the first wave are
+back for the second. A trial is held only if both waves are held. Every trial gets its own
+seeded defender scatter, its own seeded spawn angles, and an evader count of
+`1 + trial % defenders`, so counts vary across the run and never exceed the defender count.
+The same entry and seed always reproduce the same result.
 
 The report keeps the combined outcome arrays the existing charts read, and adds
-`sequential_rate`, `simultaneous_rate`, `evaders_destroyed`, `evaders_total` and
-`evader_destroyed_rate`.
+`sequential_rate` and `simultaneous_rate` (how often each of the two waves held on its own),
+`evaders_destroyed`, `evaders_total` and `evader_destroyed_rate`.
+
+Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
+a defender lost to a trade in level 4 does not shift every slot after it.
 
 ### Adaptive defender sweep
 

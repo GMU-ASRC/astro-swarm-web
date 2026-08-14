@@ -366,7 +366,7 @@
 		{:else}
 			<div class="stat-grid">
 				<div class="stat">
-					<div class="label">{isWave ? 'Waves held' : 'Detection rate'}</div>
+					<div class="label">{isWave ? 'Both waves held' : 'Detection rate'}</div>
 					<div>{successRate}%</div>
 				</div>
 				<div class="stat">
@@ -385,11 +385,11 @@
 			{#if isWave}
 				<div class="stat-grid">
 					<div class="stat">
-						<div class="label">Sequential waves held</div>
+						<div class="label">First wave held</div>
 						<div>{ev.results?.sequential_rate ?? 0}%</div>
 					</div>
 					<div class="stat">
-						<div class="label">Simultaneous waves held</div>
+						<div class="label">All-at-once wave held</div>
 						<div>{ev.results?.simultaneous_rate ?? 0}%</div>
 					</div>
 					<div class="stat">
@@ -425,7 +425,7 @@
 			<p class="meta">The player's own piloted run, rendered from the movement recorded in game.</p>
 		{:else if isWave}
 			<h2>Run Data ({outcomes.length})</h2>
-			<p class="meta">{outcomes.length} waves against the submitted defender scatter, split evenly between sequential and simultaneous arrivals — green held every evader, red let one through. Each trial varies the scatter, the spawn angles and the evader count. Click a run to replay it.</p>
+			<p class="meta">{outcomes.length} trials against the submitted defender scatter. Each one plays both waves back to back — the evaders one after another, then the arena resets and the same evaders come all at once — and is green only if both waves held. Each trial varies the scatter, the spawn angles and the evader count. Click a run to replay it.</p>
 		{:else}
 			<h2>Run Data ({outcomes.length})</h2>
 			<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>

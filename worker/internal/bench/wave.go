@@ -7,16 +7,17 @@ import (
 )
 
 const (
-	WaveSpreadRadians  = 0.7 // radians between two evader spawn angles in a wave
-	WaveSequentialGap  = 0.0 // seconds held between one evader dying and the next launching
-	WaveConsecutiveMax = 3   // count of consecutive clean defender counts that ends the sweep
+	WaveSpreadRadians     = 0.7    // radians between two evader spawn angles in a wave
+	WaveConsecutiveMax    = 3      // count of consecutive clean defender counts that ends the sweep
+	WavePhases            = 2      // count of waves in one trial: one after another, then all at once
+	WavePhaseSimultaneous = 1      // index of the all-at-once wave
+	WavePhaseSeedOffset   = 770000 // rng seed offset between the two waves of a trial
 )
 
 type WaveInput struct {
 	Algorithm         []blocks.Script
 	Placements        []Placement
 	SpawnAngles       []float64
-	Simultaneous      bool
 	DestroysDefenders bool
 	Seed              int64
 	MatchFrames       int
@@ -30,6 +31,7 @@ type WaveOutput struct {
 	Destroyed     int
 	Breaches      int
 	DefendersLost int
+	PhaseHeld     [WavePhases]bool
 	DetectionTime float64
 	CaptureTime   float64
 	GoalTime      float64
@@ -46,9 +48,12 @@ type waveEvader struct {
 	alive bool
 }
 
-func RunWaveMatch(input WaveInput) WaveOutput {
-	world := sim.NewWorld(godot.NewRNGFromInt(input.Seed), input.SinglePrecision)
+type waveDefender struct {
+	ship  *sim.Ship
+	alive bool
+}
 
+func RunWaveMatch(input WaveInput) WaveOutput {
 	config := blocks.ConfigFromScripts(input.Algorithm, blocks.ShipConfig{
 		ViewDistance: sim.DefaultViewDistance,
 		FovDegrees:   sim.DefaultFovDegrees,
@@ -56,18 +61,6 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 		TurnSpeed:    sim.DefaultTurnRate,
 		HullRadius:   sim.DefaultHullRadius,
 	})
-
-	defenders := make([]*sim.Ship, 0, len(input.Placements))
-	for _, placement := range input.Placements {
-		ship := sim.NewShip(sim.TeamDefender, input.Algorithm)
-		ship.ArenaSize = ArenaSize
-		ship.CollisionsEnabled = false
-		ship.ApplyConfig(config)
-		ship.Position = placement.Position
-		ship.Rotation = placement.Rotation
-		world.Add(ship)
-		defenders = append(defenders, ship)
-	}
 
 	output := WaveOutput{
 		EvaderCount:   len(input.SpawnAngles),
@@ -79,6 +72,40 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 		FovDegrees:    config.FovDegrees,
 		Speed:         config.Speed,
 		HullRadius:    config.HullRadius,
+	}
+
+	frame := 0
+	for phase := 0; phase < WavePhases; phase++ {
+		runWavePhase(input, config, phase, &output, &frame)
+	}
+
+	switch {
+	case output.Breaches > 0:
+		output.Outcome = OutcomeLose
+	case output.Destroyed >= len(input.SpawnAngles)*WavePhases:
+		output.Outcome = OutcomeWin
+	default:
+		output.Outcome = OutcomeTimeout
+	}
+	return output
+}
+
+func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *WaveOutput, frame *int) {
+	simultaneous := phase == WavePhaseSimultaneous
+	world := sim.NewWorld(godot.NewRNGFromInt(input.Seed+int64(phase)*WavePhaseSeedOffset), input.SinglePrecision)
+
+	defenders := make([]*waveDefender, 0, len(input.Placements))
+	live := make([]*sim.Ship, 0, len(input.Placements))
+	for _, placement := range input.Placements {
+		ship := sim.NewShip(sim.TeamDefender, input.Algorithm)
+		ship.ArenaSize = ArenaSize
+		ship.CollisionsEnabled = false
+		ship.ApplyConfig(config)
+		ship.Position = placement.Position
+		ship.Rotation = placement.Rotation
+		world.Add(ship)
+		defenders = append(defenders, &waveDefender{ship: ship, alive: true})
+		live = append(live, ship)
 	}
 
 	evaders := make([]*waveEvader, 0, len(input.SpawnAngles))
@@ -100,7 +127,7 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 		launched++
 	}
 
-	if input.Simultaneous {
+	if simultaneous {
 		for range input.SpawnAngles {
 			launch()
 		}
@@ -109,86 +136,86 @@ func RunWaveMatch(input WaveInput) WaveOutput {
 	}
 
 	delta := 1.0 / float64(PhysicsTicksPerSecond)
-	frame := 0
 	destroyed := 0
+	breaches := 0
 	resolved := 0
-	breached := false
+	phaseFrames := 0
 
 	if input.Record {
-		output.Frames = append(output.Frames, waveSnapshot(defenders, evaders))
+		output.Frames = append(output.Frames, waveSnapshot(defenders, evaders, len(input.SpawnAngles)))
 	}
 
 	for {
-		frame++
+		*frame++
+		phaseFrames++
 		if input.Record {
-			output.Frames = append(output.Frames, waveSnapshot(defenders, evaders))
+			output.Frames = append(output.Frames, waveSnapshot(defenders, evaders, len(input.SpawnAngles)))
 		}
 
 		for _, entry := range evaders {
 			if !entry.alive {
 				continue
 			}
-			if output.DetectionTime < 0.0 && anyDefenderSees(defenders, entry.ship) {
-				output.DetectionTime = frameToTime(frame)
+			if output.DetectionTime < 0.0 && anyDefenderSees(live, entry.ship) {
+				output.DetectionTime = frameToTime(*frame)
 			}
 			if entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
 				if output.GoalTime < 0.0 {
-					output.GoalTime = frameToTime(frame)
+					output.GoalTime = frameToTime(*frame)
 				}
 				entry.alive = false
 				world.Remove(entry.ship)
-				breached = true
 				output.Breaches++
+				breaches++
 				resolved++
 				continue
 			}
-			catcher := defenderTouching(defenders, entry.ship)
+			catcher := defenderTouching(live, entry.ship)
 			if catcher == nil {
 				continue
 			}
 			entry.alive = false
 			world.Remove(entry.ship)
 			destroyed++
+			output.Destroyed++
 			resolved++
 			if output.CaptureTime < 0.0 {
-				output.CaptureTime = frameToTime(frame)
+				output.CaptureTime = frameToTime(*frame)
 			}
 			if input.DestroysDefenders {
-				defenders = removeShip(defenders, catcher)
+				live = removeShip(live, catcher)
 				world.Remove(catcher)
+				killDefender(defenders, catcher)
 				output.DefendersLost++
 			}
 		}
 
 		if resolved >= len(input.SpawnAngles) {
-			if destroyed >= len(input.SpawnAngles) {
-				output.ClearTime = frameToTime(frame)
+			if destroyed >= len(input.SpawnAngles) && output.ClearTime < 0.0 {
+				output.ClearTime = frameToTime(*frame)
 			}
 			break
 		}
-		if !input.Simultaneous && launched < len(input.SpawnAngles) && !anyAlive(evaders) {
+		if !simultaneous && launched < len(input.SpawnAngles) && !anyAlive(evaders) {
 			launch()
 		}
-		if len(defenders) == 0 && launched >= len(input.SpawnAngles) && !anyAlive(evaders) {
-			break
-		}
-		if frame >= input.MatchFrames {
+		if phaseFrames >= input.MatchFrames {
 			break
 		}
 
 		world.Step(delta)
 	}
 
-	output.Destroyed = destroyed
-	switch {
-	case destroyed >= len(input.SpawnAngles) && !breached:
-		output.Outcome = OutcomeWin
-	case breached:
-		output.Outcome = OutcomeLose
-	default:
-		output.Outcome = OutcomeTimeout
+	output.PhaseHeld[phase] = breaches == 0 && destroyed >= len(input.SpawnAngles)
+}
+
+func killDefender(defenders []*waveDefender, target *sim.Ship) {
+	for _, entry := range defenders {
+		if entry.ship == target {
+			entry.alive = false
+			return
+		}
 	}
-	return output
 }
 
 func WaveSpawnAngles(seed int64, trial int, count int) []float64 {
@@ -236,16 +263,23 @@ func anyAlive(evaders []*waveEvader) bool {
 	return false
 }
 
-func waveSnapshot(defenders []*sim.Ship, evaders []*waveEvader) []int {
-	frame := make([]int, 0, (len(defenders)+len(evaders))*3)
-	for _, defender := range defenders {
-		frame = append(frame, int(defender.Position.X), int(defender.Position.Y), int(godot.RadToDeg(defender.Rotation)))
-	}
-	for _, entry := range evaders {
+// Every frame carries the same slots in the same order, dead ships included as
+// -1, so the delta packing and the player never have to guess what moved.
+func waveSnapshot(defenders []*waveDefender, evaders []*waveEvader, evaderSlots int) []int {
+	frame := make([]int, 0, (len(defenders)+evaderSlots)*3)
+	for _, entry := range defenders {
 		if !entry.alive {
 			frame = append(frame, -1, -1, 0)
 			continue
 		}
+		frame = append(frame, int(entry.ship.Position.X), int(entry.ship.Position.Y), int(godot.RadToDeg(entry.ship.Rotation)))
+	}
+	for slot := 0; slot < evaderSlots; slot++ {
+		if slot >= len(evaders) || !evaders[slot].alive {
+			frame = append(frame, -1, -1, 0)
+			continue
+		}
+		entry := evaders[slot]
 		frame = append(frame, int(entry.ship.Position.X), int(entry.ship.Position.Y), int(godot.RadToDeg(entry.ship.Rotation)))
 	}
 	return frame

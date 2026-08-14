@@ -8,23 +8,21 @@ import (
 )
 
 const (
-	WaveSequentialSeedOffset   = 1100000
-	WaveSimultaneousSeedOffset = 2200000
-	WaveSweepSeedOffset        = 3300000
-	WaveReplaySweepNMax        = 20
-	WaveReplaySweepTrials      = 4
+	WaveTrialSeedOffset   = 1100000
+	WaveSweepSeedOffset   = 3300000
+	WaveReplaySweepNMax   = 20
+	WaveReplaySweepTrials = 4
 )
 
 type waveJob struct {
-	sweep        bool
-	trial        int
-	defenders    int
-	evaders      int
-	simultaneous bool
-	seed         int64
-	placements   []Placement
-	angles       []float64
-	record       bool
+	sweep      bool
+	trial      int
+	defenders  int
+	evaders    int
+	seed       int64
+	placements []Placement
+	angles     []float64
+	record     bool
 }
 
 type waveResult struct {
@@ -37,28 +35,24 @@ func waveTrialLayout(seed int64, trial int, defenders int) []Placement {
 	return ScatterLayout(seed+int64(trial)*SweepSeedStride, defenders)
 }
 
-func buildWaveTrials(options Options, simultaneous bool, count int) []waveJob {
-	offset := int64(WaveSequentialSeedOffset)
-	if simultaneous {
-		offset = WaveSimultaneousSeedOffset
-	}
+func buildWaveTrials(options Options) []waveJob {
+	offset := int64(WaveTrialSeedOffset)
 	defenders := len(options.Placements)
 	if defenders < 1 {
 		defenders = RingCount
 	}
-	jobs := make([]waveJob, 0, count)
-	for index := 0; index < count; index++ {
+	jobs := make([]waveJob, 0, options.TrialCount)
+	for index := 0; index < options.TrialCount; index++ {
 		trial := options.TrialStart + index
 		evaders := WaveEvaderCount(trial, defenders)
 		jobs = append(jobs, waveJob{
-			trial:        trial,
-			defenders:    defenders,
-			evaders:      evaders,
-			simultaneous: simultaneous,
-			seed:         options.Seed + offset + int64(trial),
-			placements:   waveTrialLayout(options.Seed+offset, trial, defenders),
-			angles:       WaveSpawnAngles(options.Seed+offset, trial, evaders),
-			record:       options.Record,
+			trial:      trial,
+			defenders:  defenders,
+			evaders:    evaders,
+			seed:       options.Seed + offset + int64(trial),
+			placements: waveTrialLayout(options.Seed+offset, trial, defenders),
+			angles:     WaveSpawnAngles(options.Seed+offset, trial, evaders),
+			record:     options.Record,
 		})
 	}
 	return jobs
@@ -67,19 +61,17 @@ func buildWaveTrials(options Options, simultaneous bool, count int) []waveJob {
 func buildWaveSweepStep(options Options, defenders int) []waveJob {
 	jobs := make([]waveJob, 0, options.SweepTrials)
 	for trial := 0; trial < options.SweepTrials; trial++ {
-		simultaneous := trial%2 == 1
 		evaders := WaveEvaderCount(trial, defenders)
 		seed := options.Seed + WaveSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial)
 		jobs = append(jobs, waveJob{
-			sweep:        true,
-			trial:        trial,
-			defenders:    defenders,
-			evaders:      evaders,
-			simultaneous: simultaneous,
-			seed:         seed,
-			placements:   RingPlacements(options.Seed+WaveSweepSeedOffset, trial, options.SweepTrials, defenders),
-			angles:       WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, evaders),
-			record:       options.Record && (trial == 0 || (defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials)),
+			sweep:      true,
+			trial:      trial,
+			defenders:  defenders,
+			evaders:    evaders,
+			seed:       seed,
+			placements: RingPlacements(options.Seed+WaveSweepSeedOffset, trial, options.SweepTrials, defenders),
+			angles:     WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, evaders),
+			record:     options.Record && (trial == 0 || (defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials)),
 		})
 	}
 	return jobs
@@ -103,7 +95,6 @@ func runWaveJobs(jobs []waveJob, options Options, matchFrames int, destroysDefen
 					Algorithm:         options.Algorithm,
 					Placements:        current.placements,
 					SpawnAngles:       current.angles,
-					Simultaneous:      current.simultaneous,
 					DestroysDefenders: destroysDefenders,
 					Seed:              current.seed,
 					MatchFrames:       matchFrames,
@@ -140,9 +131,6 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		options.Placements = ScatterLayout(options.Seed, RingCount)
 	}
 
-	sequentialCount := options.TrialCount / 2
-	simultaneousCount := options.TrialCount - sequentialCount
-
 	var done int64
 	estimate := int64(options.TrialCount + options.SweepMax*options.SweepTrials)
 	tick := func() {
@@ -152,8 +140,7 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		options.Progress(int(atomic.AddInt64(&done, 1)), int(estimate))
 	}
 
-	sequential := runWaveJobs(buildWaveTrials(options, false, sequentialCount), options, matchFrames, destroysDefenders, tick)
-	simultaneous := runWaveJobs(buildWaveTrials(options, true, simultaneousCount), options, matchFrames, destroysDefenders, tick)
+	trials := runWaveJobs(buildWaveTrials(options), options, matchFrames, destroysDefenders, tick)
 
 	sweep, sweepPoints := runWaveSweep(options, matchFrames, destroysDefenders, tick)
 
@@ -166,11 +153,10 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		Collisions:      options.Collisions,
 		SinglePrecision: options.SinglePrecision,
 		MatchSeconds:    options.MatchSeconds,
-		MatchesRun:      len(sequential) + len(simultaneous) + len(sweep),
+		MatchesRun:      len(trials) + len(sweep),
 	}
 
-	trials := append(append([]waveResult{}, sequential...), simultaneous...)
-	fillWaveResults(&report, trials, sequential, simultaneous)
+	fillWaveResults(&report, trials)
 	report.Results.Sweep = sweepPoints
 	report.DurationSeconds = time.Since(started).Seconds()
 
@@ -251,7 +237,7 @@ func runWaveSweep(options Options, matchFrames int, destroysDefenders bool, tick
 	return all, points
 }
 
-func fillWaveResults(report *Report, trials []waveResult, sequential []waveResult, simultaneous []waveResult) {
+func fillWaveResults(report *Report, trials []waveResult) {
 	outcomes := make([]string, 0, len(trials))
 	detectionTimes := make([]float64, 0, len(trials))
 	captureTimes := make([]float64, 0, len(trials))
@@ -308,30 +294,30 @@ func fillWaveResults(report *Report, trials []waveResult, sequential []waveResul
 		DetectionTimes:      detectionTimes,
 		CaptureTimes:        captureTimes,
 		GoalTimes:           goalTimes,
-		SequentialRate:      waveWinRate(sequential),
-		SimultaneousRate:    waveWinRate(simultaneous),
+		SequentialRate:      wavePhaseRate(trials, 0),
+		SimultaneousRate:    wavePhaseRate(trials, WavePhaseSimultaneous),
 		EvadersDestroyed:    destroyed,
 		EvadersTotal:        evaderTotal,
 		EvaderDestroyedRate: waveDestroyRate(destroyed, evaderTotal),
 	}
 }
 
-func waveWinRate(results []waveResult) float64 {
+func wavePhaseRate(results []waveResult, phase int) float64 {
 	ran := 0
-	wins := 0
+	held := 0
 	for _, item := range results {
 		if !item.ran {
 			continue
 		}
 		ran++
-		if item.output.Outcome == OutcomeWin {
-			wins++
+		if item.output.PhaseHeld[phase] {
+			held++
 		}
 	}
 	if ran < 1 {
 		return 0.0
 	}
-	return round1(100.0 * float64(wins) / float64(ran))
+	return round1(100.0 * float64(held) / float64(ran))
 }
 
 func waveDestroyRate(destroyed int, total int) float64 {
@@ -355,12 +341,13 @@ func packWaveRuns(trials []waveResult) []ReplayRun {
 			CaptureTime:   item.output.CaptureTime,
 			GoalTime:      item.output.GoalTime,
 			Stats: map[string]float64{
-				"evaders":      float64(item.output.EvaderCount),
-				"destroyed":    float64(item.output.Destroyed),
-				"breaches":     float64(item.output.Breaches),
-				"defenders":    float64(len(item.job.placements)),
-				"lost":         float64(item.output.DefendersLost),
-				"simultaneous": boolStat(item.job.simultaneous),
+				"evaders":     float64(item.output.EvaderCount),
+				"destroyed":   float64(item.output.Destroyed),
+				"breaches":    float64(item.output.Breaches),
+				"defenders":   float64(len(item.job.placements)),
+				"lost":        float64(item.output.DefendersLost),
+				"held_first":  boolStat(item.output.PhaseHeld[0]),
+				"held_second": boolStat(item.output.PhaseHeld[WavePhaseSimultaneous]),
 			},
 		}
 		if len(item.output.Frames) > 0 {
