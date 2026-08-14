@@ -245,6 +245,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 	counts := OutcomeCounts{}
 	destroyed := 0
 	evaderTotal := 0
+	trialDestroyed := make([]int, 0, len(trials))
+	trialEvaders := make([]int, 0, len(trials))
 
 	for _, item := range trials {
 		if !item.ran {
@@ -269,6 +271,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		goalTimes = append(goalTimes, item.output.GoalTime)
 		destroyed += item.output.Destroyed
 		evaderTotal += item.output.EvaderCount * WavePhases
+		trialDestroyed = append(trialDestroyed, item.output.Destroyed)
+		trialEvaders = append(trialEvaders, item.output.EvaderCount*WavePhases)
 		switch item.output.Outcome {
 		case OutcomeWin:
 			counts.Captured++
@@ -299,6 +303,8 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		EvadersDestroyed:    destroyed,
 		EvadersTotal:        evaderTotal,
 		EvaderDestroyedRate: waveDestroyRate(destroyed, evaderTotal),
+		TrialDestroyed:      trialDestroyed,
+		TrialEvaders:        trialEvaders,
 	}
 }
 

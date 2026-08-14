@@ -12,6 +12,8 @@ export interface EvalSummary {
 	evaders_destroyed?: number;
 	evaders_total?: number;
 	evader_destroyed_rate?: number;
+	trial_destroyed?: number[];
+	trial_evaders?: number[];
 	sweep?: { n: number; success_rate: number }[];
 	stats?: RunStats;
 }

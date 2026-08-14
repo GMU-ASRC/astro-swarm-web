@@ -163,7 +163,9 @@ through, which keeps `destroyed + through` equal to the number of evaders sent.
 
 The report keeps the combined outcome arrays the existing charts read, and adds
 `sequential_rate` and `simultaneous_rate` (how often each of the two waves held on its own),
-`evaders_destroyed`, `evaders_total` and `evader_destroyed_rate`.
+`evaders_destroyed`, `evaders_total`, `evader_destroyed_rate`, and `trial_destroyed` /
+`trial_evaders` so the site can plot capture rate across the trials. The held rate alone is a
+poor read on these levels: an algorithm can destroy most of the wave and still hold nothing.
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
 a defender lost to a trade in level 4 does not shift every slot after it. Each wave keeps

@@ -44,6 +44,8 @@ type Results struct {
 	EvadersDestroyed    int     `json:"evaders_destroyed"`
 	EvadersTotal        int     `json:"evaders_total"`
 	EvaderDestroyedRate float64 `json:"evader_destroyed_rate"`
+	TrialDestroyed      []int   `json:"trial_destroyed,omitempty"`
+	TrialEvaders        []int   `json:"trial_evaders,omitempty"`
 }
 
 type Report struct {

@@ -125,6 +125,59 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 	};
 }
 
+export function waveCaptureConfig(destroyed: number[], evaders: number[]): ChartConfiguration {
+	const labels: number[] = [];
+	const perTrial: number[] = [];
+	const running: number[] = [];
+	let killed = 0;
+	let sent = 0;
+	destroyed.forEach((count, index) => {
+		const total = evaders[index] ?? 0;
+		labels.push(index + 1);
+		perTrial.push(total > 0 ? (100 * count) / total : 0);
+		killed += count;
+		sent += total;
+		running.push(sent > 0 ? (100 * killed) / sent : 0);
+	});
+
+	const options = baseOptions(
+		'Evader Capture Rate Across Trials',
+		'Evaders destroyed (%)',
+		'Trial',
+		true,
+		placementSource(destroyed.length)
+	);
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels,
+			datasets: [
+				{
+					label: 'This trial',
+					data: perTrial,
+					borderColor: CAPTURE,
+					backgroundColor: CAPTURE,
+					pointRadius: 0,
+					borderWidth: 1,
+					tension: 0
+				},
+				{
+					label: 'Cumulative',
+					data: running,
+					borderColor: DETECTION,
+					backgroundColor: DETECTION,
+					pointRadius: 0,
+					borderWidth: 2,
+					tension: 0.1
+				}
+			]
+		},
+		options
+	};
+}
+
 export function barConfig(outcomes: string[]): ChartConfiguration {
 	const counts = { win: 0, lose: 0, timeout: 0 };
 	for (const outcome of outcomes) {

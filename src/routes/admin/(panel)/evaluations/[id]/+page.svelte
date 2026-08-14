@@ -5,7 +5,7 @@
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
+	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig, waveCaptureConfig } from '$lib/ts/charts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
 
@@ -412,6 +412,11 @@
 			<div class="charts">
 				<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
 				<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
+				{#if isWave && (ev.results?.trial_destroyed ?? []).length > 0}
+					<ChartCard
+						config={waveCaptureConfig(ev.results?.trial_destroyed ?? [], ev.results?.trial_evaders ?? [])}
+					/>
+				{/if}
 				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
 				{#if sweepRuns.length > 0}
 					<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
