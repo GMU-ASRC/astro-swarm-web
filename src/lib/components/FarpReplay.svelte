@@ -91,6 +91,7 @@
 			const x = frame[s * 3];
 			const y = frame[s * 3 + 1];
 			const rot = (frame[s * 3 + 2] * Math.PI) / 180;
+			if (x < 0) continue;
 			const cone = mode === 'swarm' ? coneColor(shipColor(s)) : 'rgba(124,158,255,0.16)';
 			drawCone(ctx, x * sx, y * sy, rot, coneRadius, half, cone);
 		}
