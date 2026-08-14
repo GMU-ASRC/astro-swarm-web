@@ -119,12 +119,12 @@ func run(options CommandOptions, explicit map[string]bool) error {
 	if levelID == "" {
 		levelID = "farp1"
 	}
-	if bench.LevelNumber(levelID) >= 3 {
+	if bench.IsPilotLevel(levelID) {
 		return fmt.Errorf("level %d entries are piloted recordings, there is nothing to re-simulate", bench.LevelNumber(levelID))
 	}
 
 	placements := published.BenchPlacements()
-	if len(placements) == 0 && bench.LevelNumber(levelID) != 2 {
+	if len(placements) == 0 && bench.LevelNumber(levelID) != 2 && !bench.IsWaveLevel(levelID) {
 		return fmt.Errorf("entry carries no defender placements")
 	}
 

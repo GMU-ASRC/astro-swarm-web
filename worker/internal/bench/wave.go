@@ -32,6 +32,7 @@ type WaveOutput struct {
 	EvaderCount   int
 	Destroyed     int
 	Breaches      int
+	Escaped       int
 	DefendersLost int
 	WaveTwoTime   float64
 	PhaseHeld     [WavePhases]bool
@@ -47,8 +48,9 @@ type WaveOutput struct {
 }
 
 type waveEvader struct {
-	ship  *sim.Ship
-	alive bool
+	ship     *sim.Ship
+	alive    bool
+	breached bool
 }
 
 type waveDefender struct {
@@ -146,6 +148,7 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 	tailFrames := int(WaveTailSeconds * PhysicsTicksPerSecond)
 	destroyed := 0
 	breaches := 0
+	escaped := 0
 	resolved := 0
 	phaseFrames := 0
 	endFrame := -1
@@ -168,14 +171,18 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 			if output.DetectionTime < 0.0 && anyDefenderSees(live, entry.ship) {
 				output.DetectionTime = frameToTime(*frame)
 			}
-			if entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
+			if !entry.breached && entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
 				if output.GoalTime < 0.0 {
 					output.GoalTime = frameToTime(*frame)
 				}
-				entry.alive = false
-				world.Remove(entry.ship)
+				entry.breached = true
 				output.Breaches++
 				breaches++
+			}
+			if evaderReachedFarEdge(entry.ship, phaseFrames) {
+				entry.alive = false
+				world.Remove(entry.ship)
+				escaped++
 				resolved++
 				continue
 			}
@@ -218,6 +225,7 @@ func runWavePhase(input WaveInput, config blocks.ShipConfig, phase int, output *
 		world.Step(delta)
 	}
 
+	output.Escaped += escaped
 	output.PhaseHeld[phase] = breaches == 0 && destroyed >= len(input.SpawnAngles)
 }
 
