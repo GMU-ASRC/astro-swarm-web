@@ -145,7 +145,7 @@ and the wave carries on.
 
 One trial is **two waves back to back**, matching what the level plays in game:
 
-| Wave | Behaviour |
+| Wave | Behavior |
 |---|---|
 | First | The next evader launches only once the previous one is gone |
 | Second | The arena resets to the launch layout and every evader arrives at once |
@@ -259,7 +259,7 @@ listed because they are the likely reasons a published entry looks slightly off.
    round.
 2. **The hull shape never resizes.** `Set size` changes `hull_radius`, which is what the
    capture test uses, but the `CollisionShape2D` in `Spaceship.tscn` stays at radius 9, which
-   is what vision uses. Both behaviours are reproduced.
+   is what vision uses. Both behaviors are reproduced.
 3. **The first replay frame is recorded twice.** `_start_match` snapshots the initial state
    and the first `_physics_process` snapshots it again before anything has moved.
 4. **Vision lags one frame.** Godot's area signals land after the physics step, so a ship

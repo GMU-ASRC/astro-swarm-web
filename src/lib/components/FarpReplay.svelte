@@ -3,7 +3,7 @@
 	import Icon from '@iconify/svelte';
 	import type { Replay } from '$lib/ts/evaluation';
 
-	let { replay, mode = 'defence' }: { replay: Replay; mode?: 'defence' | 'swarm' } = $props();
+	let { replay, mode = 'defense' }: { replay: Replay; mode?: 'defense' | 'swarm' } = $props();
 
 	// The ship icons are drawn far larger than the ships really are, so the hull
 	// each one actually collides with is drawn underneath at true scale.
@@ -14,7 +14,7 @@
 	const LEADER = '#ffd54a';
 
 	// In swarm mode the recorded ships are two milling groups followed by the
-	// player-flown leader, so they are coloured by group instead of by team.
+	// player-flown leader, so they are colored by group instead of by team.
 	function shipColor(slot: number): string {
 		if (mode !== 'swarm') return slot >= replay.defenders ? '#ff6a52' : '#7c9eff';
 		if (slot >= replay.defenders) return LEADER;

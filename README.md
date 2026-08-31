@@ -9,7 +9,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-1.3.14-FBF0DF?logo=bun&logoColor=black)
 
-The companion website for AstroSwarm, a pixel-art swarm-behaviour simulator built in Godot 4. The site lets players share simulator configurations and recorded runs, view a community gallery, check the leaderboard, and download the game.
+The companion website for AstroSwarm, a pixel-art swarm-behavior simulator built in Godot 4. The site lets players share simulator configurations and recorded runs, view a community gallery, check the leaderboard, and download the game.
 
 ---
 
@@ -73,7 +73,7 @@ Three events are measured, and they mean different things:
 |---|---|
 | **Detected** | The first time any defender sees the evader inside its vision cone. |
 | **Captured** | The first time any defender physically touches (collides with) the evader. |
-| **Reached planet** | The time the evader reaches the centre planet (`T_goal` in the admin panel). |
+| **Reached planet** | The time the evader reaches the center planet (`T_goal` in the admin panel). |
 
 **Levels 3 and 4** are benchmarked as *waves*. Three evaders come in off the ring instead of one, and the run only counts as held if every one of them is destroyed before any reaches the planet. Level 3 destroys the captured evader alone; Level 4 destroys the defender that caught it as well, so each kill costs a body. Each entry is graded over 100 trials, and one trial is both waves back to back exactly as the level plays them: the evaders one after another, then the arena resets to the launch layout and the same evaders arrive all at once. A trial is held only if both waves are. Every trial has its own seeded defender scatter, spawn angles and evader count (never more evaders than defenders), and always plays out until every evader has been sent and resolved, so one getting through early does not cut it short. A defender sweep follows. The detail page adds per-style hold rates and an evader kill rate to the usual tiles.
 
@@ -93,7 +93,7 @@ Clicking a match opens its detail page: the headline result, a per-player breakd
 An action is a movement input changing state — a key going down or up, or a controller stick crossing into a new direction — plus every power-up activation. Samples are taken every 5 seconds and scaled to a per-minute rate. Matches are submitted automatically by the game when the clock runs out.
 
 ### Admin CMS (`/admin`)
-API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-grey UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, requeueing it for the workers to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you rename a worker or connect/disconnect/remove it.
+API-key gated management panel (client-side session stored in `localStorage`) with a flat, light-gray UI. It lists evaluations, leaderboard entries, and simulator runs with pagination, per-entry viewer pages, and a one-click ZIP export of each entry (metadata plus per-run JSON). The evaluations list adds search and status/level/date/sort filters. The evaluation viewer can **re-simulate** an entry, requeueing it for the workers to refresh its results and replays. A **Workers** page shows every connected worker node with live status, and lets you rename a worker or connect/disconnect/remove it.
 
 Row actions on the evaluations and players tables are icon buttons, and both tables support **multi-select**: tick any number of rows and delete them in bulk, or requeue a selection of evaluations for re-simulation. Every destructive bulk action confirms first and warns separately when the selection is large.
 

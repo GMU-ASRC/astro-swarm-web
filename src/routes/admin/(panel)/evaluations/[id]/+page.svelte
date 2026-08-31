@@ -141,7 +141,7 @@
 	);
 
 	function sweepTone(run: { outcome: string; capture_rate?: number }): 'win' | 'loss' | 'timeout' {
-		// Colour an n by how its trials went overall, not by the one trial kept
+		// Color an n by how its trials went overall, not by the one trial kept
 		// for replay.
 		if (run.capture_rate != null) return run.capture_rate > 50 ? 'win' : 'loss';
 		return toneOf(run.outcome);

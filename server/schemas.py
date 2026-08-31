@@ -77,7 +77,7 @@ VALID_RUN_OUTCOMES = ("win", "lose", "timeout")
 DEFAULT_RUN_LIMITS = {"max_ships": 6, "max_seconds": MAX_RUN_SECONDS}
 
 # Level 4 flies a leader against two milling swarms, so it records far more
-# ships than the defence levels and runs for longer.
+# ships than the defense levels and runs for longer.
 RUN_LIMITS = {
     "farp4": {"max_ships": 24, "max_seconds": 300},
 }

@@ -26,7 +26,7 @@
 			name: 'Survive',
 			tagline: 'Two players · three minutes',
 			blurb:
-				'Two commanders herd wandering ships into planetary defences while waves of evaders close in on both bases. Whoever lets fewest evaders through wins the match.',
+				'Two commanders herd wandering ships into planetary defenses while waves of evaders close in on both bases. Whoever lets fewest evaders through wins the match.',
 			facts: ['Head to head', 'Match reports', 'APM telemetry']
 		}
 	];

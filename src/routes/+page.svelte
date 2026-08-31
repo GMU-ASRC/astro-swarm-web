@@ -21,7 +21,7 @@
 			name: 'Survive',
 			tagline: 'Two players · three minutes',
 			blurb:
-				'Two commanders herd wandering ships into planetary defences while waves of evaders close in. Fewest evaders through the line wins.'
+				'Two commanders herd wandering ships into planetary defenses while waves of evaders close in. Fewest evaders through the line wins.'
 		}
 	];
 
@@ -64,7 +64,7 @@
 	<div class="hero-content">
 		<h1 class="hero-title">ASTROSWARM</h1>
 		<p class="hero-tagline">
-			Design your fleet, program its behaviour, and send it against the swarm.
+			Design your fleet, program its behavior, and send it against the swarm.
 		</p>
 
 		<div class="hero-actions">

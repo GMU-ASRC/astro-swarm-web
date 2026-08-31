@@ -7,13 +7,13 @@
 		groups,
 		replay,
 		meta = '',
-		mode = 'defence',
+		mode = 'defense',
 		empty = 'Pick a run to replay it.'
 	}: {
 		groups: ReplayGroup[];
 		replay: Replay | null;
 		meta?: string;
-		mode?: 'defence' | 'swarm';
+		mode?: 'defense' | 'swarm';
 		empty?: string;
 	} = $props();
 </script>
@@ -84,7 +84,7 @@
 	}
 
 	.cell {
-		/* Centred by the component, since the admin panel pads every button. */
+		/* Centered by the component, since the admin panel pads every button. */
 		display: flex;
 		align-items: center;
 		justify-content: center;

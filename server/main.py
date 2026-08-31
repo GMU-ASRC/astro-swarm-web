@@ -21,7 +21,7 @@ from routers.version import version_bp
 from routers.workers import workers_bp
 
 SITE_DESCRIPTION = (
-    "Design your fleet, program its behaviour, and send it against the swarm. "
+    "Design your fleet, program its behavior, and send it against the swarm. "
     "AstroSwarm is a swarm strategy game built in Godot 4."
 )
 
