@@ -7,6 +7,7 @@ from database import db
 logger = logging.getLogger(__name__)
 
 LEVEL_SHIFT_KEY = "level_ids_shifted_v2"
+PILOT_SHIFT_KEY = "level_ids_shifted_v3"
 
 STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
@@ -35,6 +36,19 @@ STATEMENTS = [
     "UPDATE player_evaluations SET level_id = 'farp5' WHERE level_id = 'farp3'"
     " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % LEVEL_SHIFT_KEY,
     "UPDATE player_evaluations SET level_id = 'farp1' WHERE level_id = 'farp' OR level_id IS NULL",
+    # Levels 3 and 4 became continuous-wave levels and a new siege level took
+    # slot 5, so the two piloted levels moved up one. This only runs once the
+    # earlier shift has been recorded, so a database that is behind on both
+    # never gets shifted twice in one pass.
+    "UPDATE player_evaluations SET level_id = 'farp7' WHERE level_id = 'farp6'"
+    " AND EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')"
+    " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % (LEVEL_SHIFT_KEY, PILOT_SHIFT_KEY),
+    "UPDATE player_evaluations SET level_id = 'farp6' WHERE level_id = 'farp5'"
+    " AND EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')"
+    " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % (LEVEL_SHIFT_KEY, PILOT_SHIFT_KEY),
+    "INSERT INTO app_settings (key, value)"
+    " SELECT '%s', '1' WHERE EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')"
+    " ON CONFLICT (key) DO NOTHING" % (PILOT_SHIFT_KEY, LEVEL_SHIFT_KEY),
     "INSERT INTO app_settings (key, value) VALUES ('%s', '1')"
     " ON CONFLICT (key) DO NOTHING" % LEVEL_SHIFT_KEY,
     "ALTER TABLE player_evaluations ALTER COLUMN level_id SET DEFAULT 'farp1'",

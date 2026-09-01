@@ -11,7 +11,7 @@ SWEEP_TRIALS_KEY = "sweep_trials"
 SEED_KEY = "eval_seed"
 GAME_VERSION_KEY = "required_game_version"
 
-CURRENT_GAME_VERSION = "v0.0.7"
+CURRENT_GAME_VERSION = "v0.0.8"
 
 SEED_MIN = 1
 SEED_MAX = 2147483647
@@ -24,22 +24,26 @@ LEVELS = [
     {"id": "farp1", "name": "Level 1 - Defense (Place)"},
     {"id": "farp2", "name": "Level 2 - Defense (Ring)"},
     {"id": "farp3", "name": "Level 3 - Defense (Waves)"},
-    {"id": "farp4", "name": "Level 4 - Defense (Trade)"},
+    {"id": "farp4", "name": "Level 4 - Defense (Attrition)"},
+    {"id": "farp5", "name": "Level 5 - Defense (Siege)"},
 ]
 
 # Levels whose entries are player-piloted runs: the worker renders the recorded
 # run into a replay instead of simulating anything.
 PILOT_LEVELS = [
-    {"id": "farp5", "name": "Level 5 - Evasion (Pilot)"},
-    {"id": "farp6", "name": "Level 6 - Swarm (Merge)"},
+    {"id": "farp6", "name": "Level 6 - Evasion (Pilot)"},
+    {"id": "farp7", "name": "Level 7 - Swarm (Merge)"},
 ]
 
-WAVE_LEVELS = ["farp3", "farp4"]
-WAVE_TRIALS = 100
-WAVE_CLEAN_STREAK = 3
-WAVE_SWEEP_MAX = 40
-WAVE_SWEEP_TRIALS = 20
-WAVE_EVADERS = 3
+# Levels 3 to 5 grade a stream of evaders against one line rather than a single
+# approach, so they get their own trial and sweep budget.
+ASSAULT_LEVELS = ["farp3", "farp4", "farp5"]
+ATTRITION_LEVELS = ["farp4", "farp5"]
+ASSAULT_TRIALS = 100
+ASSAULT_CLEAN_STREAK = 3
+ASSAULT_SWEEP_MAX = 40
+ASSAULT_SWEEP_TRIALS = 20
+SIEGE_EVADERS = 5
 
 LEVEL_ALIASES = {
     "farp1": ["farp1", "farp"],
@@ -77,12 +81,12 @@ def is_pilot_level(level_id):
     return any(level["id"] == level_id for level in PILOT_LEVELS)
 
 
-def is_wave_level(level_id):
-    return level_id in WAVE_LEVELS
+def is_assault_level(level_id):
+    return level_id in ASSAULT_LEVELS
 
 
-def wave_destroys_defender(level_id):
-    return level_id == "farp4"
+def has_attrition(level_id):
+    return level_id in ATTRITION_LEVELS
 
 
 def _get(key):

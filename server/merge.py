@@ -1,5 +1,3 @@
-WAVE_PHASES = 2
-
 META_KEYS = ("fps", "defenders", "view", "fov", "speed", "hull", "planet", "arena")
 
 
@@ -21,10 +19,7 @@ def summarize(result):
     wins = sum(1 for outcome in outcomes if outcome == "win")
     total = max(1, len(outcomes))
     success_rate = round(100.0 * wins / total, 1)
-    sweep = [
-        {"n": run.get("n"), "success_rate": run.get("capture_rate", 100.0 if run.get("outcome") == "win" else 0.0)}
-        for run in sweep_runs
-    ]
+    sweep = [_sweep_point(run) for run in sweep_runs]
 
     replays = dict(meta)
     replays["runs"] = runs
@@ -45,9 +40,9 @@ def summarize(result):
     if stats:
         results["stats"] = stats
 
-    wave = _wave_summary(runs)
-    if wave:
-        results.update(wave)
+    assault = _assault_summary(runs)
+    if assault:
+        results.update(assault)
 
     reported = result.get("results")
     if isinstance(reported, dict):
@@ -58,53 +53,62 @@ def summarize(result):
     return results, replays
 
 
-def _wave_summary(runs):
-    waves = [run for run in runs if isinstance(run.get("stats"), dict) and "evaders" in run["stats"]]
-    if not waves:
+# Levels 3 to 5 send a stream of evaders at one line, so the headline is the
+# share destroyed rather than the share of trials won, and the run also has to
+# account for the defenders it spent.
+def _assault_summary(runs):
+    assaults = [run for run in runs if isinstance(run.get("stats"), dict) and "resolved" in run["stats"]]
+    if not assaults:
         return {}
 
     destroyed_per_trial = []
-    evaders_per_trial = []
-    detected_first = []
-    detected_second = []
-    held_first = 0
-    held_second = 0
-    held_both = 0
+    resolved_per_trial = []
+    breaches_per_trial = []
+    lost_per_trial = []
+    held = 0
 
-    for run in waves:
+    for run in assaults:
         stats = run["stats"]
-        sent = int(stats.get("evaders", 0)) * WAVE_PHASES
         destroyed_per_trial.append(int(stats.get("destroyed", 0)))
-        evaders_per_trial.append(sent)
-        detected_first.append(int(stats.get("detected_first", 0)))
-        detected_second.append(int(stats.get("detected_second", 0)))
-        held_first += int(stats.get("held_first", 0))
-        held_second += int(stats.get("held_second", 0))
+        resolved_per_trial.append(int(stats.get("resolved", 0)))
+        breaches_per_trial.append(int(stats.get("breaches", 0)))
+        lost_per_trial.append(int(stats.get("lost", 0)))
         if run.get("outcome") == "win":
-            held_both += 1
+            held += 1
 
-    trials = len(waves)
+    trials = len(assaults)
     destroyed = sum(destroyed_per_trial)
-    sent = sum(evaders_per_trial)
-    kill_rate = round(100.0 * destroyed / sent, 1) if sent else 0.0
+    resolved = sum(resolved_per_trial)
+    capture_rate = round(100.0 * destroyed / resolved, 1) if resolved else 0.0
 
-    summary = {
-        "success_rate": kill_rate,
-        "evader_destroyed_rate": kill_rate,
+    return {
+        "success_rate": capture_rate,
+        "evader_destroyed_rate": capture_rate,
         "evaders_destroyed": destroyed,
-        "evaders_total": sent,
-        "trials_held_rate": round(100.0 * held_both / trials, 1),
-        "sequential_rate": round(100.0 * held_first / trials, 1),
-        "simultaneous_rate": round(100.0 * held_second / trials, 1),
+        "evaders_resolved": resolved,
+        "breaches": sum(breaches_per_trial),
+        "defenders_lost": sum(lost_per_trial),
+        "risk": round(100.0 - capture_rate, 1),
+        "trials_held_rate": round(100.0 * held / trials, 1),
         "trial_destroyed": destroyed_per_trial,
-        "trial_evaders": evaders_per_trial,
+        "trial_resolved": resolved_per_trial,
+        "trial_breaches": breaches_per_trial,
+        "trial_lost": lost_per_trial,
     }
-    if any(detected_first) or any(detected_second):
-        summary["trial_detected_first"] = detected_first
-        summary["trial_detected_second"] = detected_second
-        summary["sequential_detection_rate"] = round(100.0 * sum(detected_first) / trials, 1)
-        summary["simultaneous_detection_rate"] = round(100.0 * sum(detected_second) / trials, 1)
-    return summary
+
+
+def _sweep_point(run):
+    rate = run.get("capture_rate")
+    if rate is None:
+        rate = 100.0 if run.get("outcome") == "win" else 0.0
+    rate = round(float(rate), 1)
+    return {
+        "n": run.get("n"),
+        "success_rate": rate,
+        "capture_rate": rate,
+        "detection_rate": run.get("detection_rate"),
+        "risk": round(100.0 - rate, 1),
+    }
 
 
 def _rate(times):

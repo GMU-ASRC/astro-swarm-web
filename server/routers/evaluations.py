@@ -15,12 +15,13 @@ import merge
 import rating
 from app_settings import (
     PILOT_LEVELS,
-    WAVE_CLEAN_STREAK,
-    WAVE_EVADERS,
-    WAVE_LEVELS,
-    WAVE_SWEEP_MAX,
-    WAVE_SWEEP_TRIALS,
-    WAVE_TRIALS,
+    ASSAULT_CLEAN_STREAK,
+    ASSAULT_LEVELS,
+    ASSAULT_SWEEP_MAX,
+    ASSAULT_SWEEP_TRIALS,
+    ASSAULT_TRIALS,
+    ATTRITION_LEVELS,
+    SIEGE_EVADERS,
     SWEEP_MATCH_OFFSET,
     SWEEP_SEED_OFFSET,
     SWEEP_SEED_STRIDE,
@@ -258,6 +259,132 @@ def _weighted_level_rate(player, level_number):
         if entry["level_number"] == level_number:
             return entry["weighted_rate"]
     return 0.0
+
+
+# One level's own board, so a level page can rank the commanders who played it
+# without pulling every entry on the site through the client.
+@evaluations_bp.get("/level-leaderboard")
+def level_leaderboard():
+    level_id = (request.args.get("level_id") or "farp1").strip()
+    entries = (
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+        )
+        .filter(
+            PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
+            PlayerEvaluation.status == "done",
+        )
+        .all()
+    )
+
+    players = {}
+    for item in entries:
+        results = item.results if isinstance(item.results, dict) else {}
+        rate = results.get("success_rate")
+        if rate is None:
+            continue
+        rate = float(rate)
+        player = players.get(item.player_id)
+        if player is None:
+            player = {
+                "player_id": item.player_id,
+                "username": item.username,
+                "entries": 0,
+                "rate_sum": 0.0,
+                "best_rate": rate,
+                "best_entry_id": item.id,
+                "best_defenders": item.defender_count or 0,
+                "last_active": item.created_at,
+            }
+            players[item.player_id] = player
+        player["entries"] += 1
+        player["rate_sum"] += rate
+        if rate > player["best_rate"]:
+            player["best_rate"] = rate
+            player["best_entry_id"] = item.id
+            player["best_defenders"] = item.defender_count or 0
+        if item.created_at is not None and (player["last_active"] is None or item.created_at >= player["last_active"]):
+            player["username"] = item.username
+            player["last_active"] = item.created_at
+
+    rows = sorted(players.values(), key=lambda player: player["best_rate"], reverse=True)
+    return jsonify([
+        {
+            "rank": index + 1,
+            "player_id": player["player_id"],
+            "username": player["username"],
+            "entries": player["entries"],
+            "best_rate": round(player["best_rate"], 1),
+            "average_rate": round(player["rate_sum"] / player["entries"], 1),
+            "best_entry_id": player["best_entry_id"],
+            "best_defenders": player["best_defenders"],
+            "last_active": player["last_active"].isoformat() if player["last_active"] else None,
+        }
+        for index, player in enumerate(rows)
+    ])
+
+
+# The curves behind the level page's comparison graphs: the strongest entries on
+# a level, each with its own capture rate against defender count.
+@evaluations_bp.get("/level-sweep")
+def level_sweep():
+    level_id = (request.args.get("level_id") or "farp1").strip()
+    try:
+        limit = max(1, min(12, int(request.args.get("limit", 6))))
+    except (TypeError, ValueError):
+        limit = 6
+
+    entries = (
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+        )
+        .filter(
+            PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
+            PlayerEvaluation.status == "done",
+        )
+        .all()
+    )
+
+    scored = []
+    for item in entries:
+        results = item.results if isinstance(item.results, dict) else {}
+        sweep = results.get("sweep") or []
+        rate = results.get("success_rate")
+        if not sweep or rate is None:
+            continue
+        scored.append((float(rate), item, sweep))
+    scored.sort(key=lambda row: row[0], reverse=True)
+
+    return jsonify([
+        {
+            "id": item.id,
+            "username": item.username,
+            "player_id": item.player_id,
+            "success_rate": round(rate, 1),
+            "defenders": item.defender_count or 0,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "sweep": [_sweep_row(point) for point in sweep],
+            "attrition": results_attrition(item),
+        }
+        for rate, item, sweep in scored[:limit]
+    ])
+
+
+def _sweep_row(point):
+    rate = point.get("capture_rate")
+    if rate is None:
+        rate = point.get("success_rate", 0.0)
+    rate = round(float(rate or 0.0), 1)
+    return {"n": point.get("n"), "capture_rate": rate, "risk": round(100.0 - rate, 1)}
+
+
+def results_attrition(evaluation):
+    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    return results.get("attrition") or []
 
 
 @evaluations_bp.get("/players/<player_id>")
@@ -504,12 +631,13 @@ def settings():
         "pilot_max_xp": PILOT_LEVEL_MAX_XP,
         "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
         "required_game_version": get_required_game_version(),
-        "wave_levels": WAVE_LEVELS,
-        "wave_trials": WAVE_TRIALS,
-        "wave_clean_streak": WAVE_CLEAN_STREAK,
-        "wave_sweep_max": WAVE_SWEEP_MAX,
-        "wave_sweep_trials": WAVE_SWEEP_TRIALS,
-        "wave_evaders": WAVE_EVADERS,
+        "assault_levels": ASSAULT_LEVELS,
+        "attrition_levels": ATTRITION_LEVELS,
+        "assault_trials": ASSAULT_TRIALS,
+        "assault_clean_streak": ASSAULT_CLEAN_STREAK,
+        "assault_sweep_max": ASSAULT_SWEEP_MAX,
+        "assault_sweep_trials": ASSAULT_SWEEP_TRIALS,
+        "siege_evaders": SIEGE_EVADERS,
         "derived_seeds": _derived_seeds(seed),
     })
 
@@ -723,6 +851,12 @@ def chart(eval_id: str, kind: str):
         png = charts.render_detection_rate_png(evaluation.sweep_index(), *meta)
     elif kind == "capture":
         png = charts.render_capture_rate_png(evaluation.sweep_index(), *meta)
+    elif kind == "risk":
+        png = charts.render_risk_png(evaluation.sweep_index(), *meta)
+    elif kind == "attrition":
+        png = charts.render_attrition_png(results.get("attrition", []), *meta)
+    elif kind == "sweep-attrition":
+        png = charts.render_sweep_attrition_png(results.get("sweep_attrition", []), *meta)
     elif kind == "times":
         png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:

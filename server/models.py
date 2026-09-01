@@ -225,7 +225,7 @@ class PlayerEvaluation(db.Model):
         return 1
 
     def is_attack_level(self):
-        return self.level_number() >= 5
+        return self.level_number() >= 6
 
     def to_dict(self):
         results = self._results_dict()

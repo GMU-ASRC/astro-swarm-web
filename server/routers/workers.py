@@ -6,13 +6,13 @@ from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 import merge
 from auth import require_admin
 from app_settings import (
-    WAVE_SWEEP_MAX,
-    WAVE_SWEEP_TRIALS,
+    ASSAULT_SWEEP_MAX,
+    ASSAULT_SWEEP_TRIALS,
     get_enemy_start,
     get_seed,
     get_sweep_max,
     get_sweep_trials,
-    is_wave_level,
+    is_assault_level,
 )
 from config import Config
 from database import db
@@ -49,8 +49,8 @@ def _total_units(evaluation):
     if _pending_run(evaluation) is not None:
         return 1
     trials = int(evaluation.trials or 0)
-    if is_wave_level(evaluation.level_id):
-        return max(1, trials + WAVE_SWEEP_MAX * WAVE_SWEEP_TRIALS)
+    if is_assault_level(evaluation.level_id):
+        return max(1, trials + ASSAULT_SWEEP_MAX * ASSAULT_SWEEP_TRIALS)
     return max(1, trials + get_sweep_max() * get_sweep_trials())
 
 
@@ -101,10 +101,10 @@ def _keep_pending_run(evaluation, replays):
 
 
 def _sweep_params(evaluation):
-    # A wave match runs two full waves, so the level 1 and 2 sweep budget would
-    # put a wave job past the job timeout on a modest worker.
-    if is_wave_level(evaluation.level_id):
-        return WAVE_SWEEP_MAX, WAVE_SWEEP_TRIALS
+    # An assault match runs a whole stream of evaders, so the level 1 and 2 sweep
+    # budget would put an assault job past the job timeout on a modest worker.
+    if is_assault_level(evaluation.level_id):
+        return ASSAULT_SWEEP_MAX, ASSAULT_SWEEP_TRIALS
     return get_sweep_max(), get_sweep_trials()
 
 

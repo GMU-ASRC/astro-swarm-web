@@ -144,6 +144,94 @@ def render_capture_rate_png(rows, username, level_id, eval_id, date_label):
     )
 
 
+def _sweep_risk(point):
+    risk = point.get("risk")
+    if risk is not None:
+        return risk
+    return 100.0 - _sweep_rate(point, "capture_rate", "capture_time")
+
+
+def render_risk_png(rows, username, level_id, eval_id, date_label):
+    points = sorted(rows, key=lambda point: point.get("n", 0))
+    xs = [point.get("n", 0) for point in points]
+    risks = [_sweep_risk(point) for point in points]
+    captures = [_sweep_rate(point, "capture_rate", "capture_time") for point in points]
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk")
+    ax.plot(xs, captures, color="#16a34a", linewidth=2, label="Capture success rate")
+    ax.set_title("Risk vs Number of Defenders")
+    ax.set_xlabel("Defenders in ring (n)")
+    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+    _percent_axis(ax)
+    _padded_xlim(ax, xs)
+    ax.grid(True, color="#e5e7eb")
+    ax.legend(loc="upper right", fontsize=8)
+    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return _save(fig)
+
+
+# The attrition curve reads right to left: a full line sits at the high end of
+# the axis, and every trade moves the algorithm one rung down it.
+def render_attrition_png(points, username, level_id, eval_id, date_label):
+    rows = sorted(points, key=lambda point: point.get("defenders", 0))
+    xs = [point.get("defenders", 0) for point in rows]
+    ys = [point.get("risk", 0.0) for point in rows]
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    ax.plot(xs, ys, color="#dc2626", linewidth=2, marker="o", markersize=4)
+    ax.set_title("Risk as the Defender Line Thins")
+    ax.set_xlabel("Defenders still standing when the evader launched")
+    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+    _percent_axis(ax)
+    _padded_xlim(ax, xs)
+    ax.grid(True, color="#e5e7eb")
+    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return _save(fig)
+
+
+SERIES_COLORS = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#0891b2", "#db2777"]
+MAX_ATTRITION_SERIES = 6
+
+
+# Ring sizes are consecutive, so drawing every one of them is unreadable. Take an
+# even spread across the sweep and always keep the largest ring, which is the one
+# the sweep stopped at.
+def _spread(series, limit=MAX_ATTRITION_SERIES):
+    if len(series) <= limit:
+        return series
+    step = (len(series) - 1) / (limit - 1)
+    return [series[round(index * step)] for index in range(limit)]
+
+
+# One curve per ring size: a line that started at n and traded itself down, so
+# two algorithms can be compared on what their risk does as the line thins.
+def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
+    chosen = _spread(sorted(series, key=lambda entry: entry.get("n", 0)))
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    everything = []
+    for index, entry in enumerate(chosen):
+        points = sorted(entry.get("points", []), key=lambda point: point.get("defenders", 0))
+        xs = [point.get("defenders", 0) for point in points]
+        ys = [point.get("risk", 0.0) for point in points]
+        everything.extend(xs)
+        ax.plot(xs, ys, color=SERIES_COLORS[index % len(SERIES_COLORS)], linewidth=2, label=f"n = {entry.get('n')}")
+    ax.set_title("Risk as the Line Thins, by Ring Size")
+    ax.set_xlabel("Defenders still standing when the evader launched")
+    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+    _percent_axis(ax)
+    _padded_xlim(ax, everything)
+    ax.grid(True, color="#e5e7eb")
+    if chosen:
+        ax.legend(loc="upper right", fontsize=8)
+    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return _save(fig)
+
+
 def render_times_png(detection_times, capture_times, username, level_id, eval_id, date_label):
     count = max(len(detection_times), len(capture_times))
     trials = list(range(1, count + 1))
