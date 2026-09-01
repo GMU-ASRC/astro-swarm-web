@@ -195,7 +195,7 @@ single rung and is left out, which is every ring on level 3.
 
 `sweep_progress` reads each ring size **wave by wave rather than in total**. For every ring
 size it walks its trials in launch order and reports, at each evader faced, the cumulative
-capture rate, the risk that leaves, and how much of the line was still standing. That is what
+capture rate, the risk that leaves, and how many defenders were still standing. That is what
 gives all three ring-sweep charts a line per `n` on levels 3, 4 *and* 5 — including level 3,
 where the line never thins and the attrition curve is flat by definition. Each rung averages
 only the trials that got that far, and the curve stops once fewer than half of them are still
@@ -265,7 +265,7 @@ Written with gonum/plot into the output directory:
 | `risk_vs_attrition_by_ring.png` | The same curve taken across the ring sweep, one line per ring size |
 | `capture_rate_by_ring.png` | Cumulative capture success rate against evaders faced, one line per ring size |
 | `risk_by_ring.png` | The risk that leaves, against evaders faced, one line per ring size |
-| `attrition_by_ring.png` | Defenders still standing as a share of the ring, against evaders faced, one line per ring size |
+| `attrition_by_ring.png` | Defenders still standing, as a count, against evaders faced, one line per ring size |
 
 The published overlay on the two sweep charts comes from `/api/evaluations/<id>/sweep-replays`,
 which carries a real `detection_rate` and `capture_rate` for every `n`. Prefer it over
