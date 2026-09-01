@@ -6,6 +6,7 @@ import {
 	RISK,
 	SUCCESS,
 	baseOptions,
+	countScale,
 	percentScale,
 	rateOf,
 	riskOf,
@@ -216,17 +217,18 @@ export function ringProgressConfig(
 		true,
 		ringSource(series, chosen.length)
 	);
-	options.scales.y = percentScale(options.scales.y) as never;
+	// The line left is a count of ships; the other two curves are rates.
+	const counting = key === 'defenders';
+	options.scales.y = (
+		counting ? countScale(options.scales.y) : percentScale(options.scales.y)
+	) as never;
 
 	return {
 		type: 'line',
 		data: {
 			labels,
 			datasets: chosen.map((entry, index) => {
-				// Defenders are shown as a share of the ring so rings of
-				// different sizes sit on one axis.
-				const scale = key === 'defenders' && entry.n > 0 ? 100 / entry.n : 1;
-				const byFaced = new Map(entry.points.map((point) => [point.faced, point[key] * scale]));
+				const byFaced = new Map(entry.points.map((point) => [point.faced, point[key]]));
 				const color = colors[index];
 				return {
 					label: `n = ${entry.n}`,

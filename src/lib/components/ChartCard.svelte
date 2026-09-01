@@ -36,8 +36,8 @@
 	}
 
 	.chart-plot {
-		height: 300px;
-		padding: 0.85rem;
+		height: 320px;
+		padding: 1.4rem;
 		background: #ffffff;
 		border: 1px solid var(--color-line);
 		border-radius: var(--radius-panel);

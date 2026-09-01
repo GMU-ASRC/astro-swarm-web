@@ -253,10 +253,12 @@ func riskByRing(input Input) (*plot.Plot, error) {
 		func(point bench.SweepProgressPoint) float64 { return point.Risk })
 }
 
+// A count of ships rather than a rate, so the biggest ring sets the axis and the
+// smaller ones sit low on it, which is the comparison worth seeing.
 func attritionByRing(input Input) (*plot.Plot, error) {
 	return progressChart(input,
-		"Line remaining, wave by wave"+suffix(input.Subtitle),
-		"Line remaining (%)",
+		"Defenders remaining, wave by wave"+suffix(input.Subtitle),
+		"Defenders remaining",
 		nil)
 }
 
@@ -268,20 +270,21 @@ func progressChart(input Input, title string, yLabel string, pick func(bench.Swe
 	colors := seriesRamp(len(series))
 	anchors := legendAnchors(len(series))
 	p := newPlot(title, "Evaders faced", yLabel)
-	percentAxis(p)
+	counting := pick == nil
+	if !counting {
+		percentAxis(p)
+	}
 
+	ceiling := 0.0
 	drawn := make([]plotter.XYs, 0, len(series))
 	for index, entry := range series {
 		points := make(plotter.XYs, 0, len(entry.Points))
 		for _, point := range entry.Points {
-			value := 0.0
+			value := point.Defenders
 			if pick != nil {
 				value = pick(point)
-			} else if entry.N > 0 {
-				// Shown as a share of the ring so rings of different sizes sit
-				// on one axis.
-				value = 100.0 * point.Defenders / float64(entry.N)
 			}
+			ceiling = math.Max(ceiling, value)
 			points = append(points, plotter.XY{X: float64(point.Faced), Y: value})
 		}
 		line, err := addSeries(p, points, colors[index])
@@ -292,6 +295,9 @@ func progressChart(input Input, title string, yLabel string, pick func(bench.Swe
 			p.Legend.Add(fmt.Sprintf("n = %d", entry.N), line)
 		}
 		drawn = append(drawn, points)
+	}
+	if counting {
+		countAxis(p, ceiling)
 	}
 	marginX(p, drawn...)
 	legendRoom(p)

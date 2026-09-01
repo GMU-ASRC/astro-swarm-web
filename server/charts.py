@@ -6,11 +6,17 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 
 PERCENT_CEILING = 100
 PERCENT_TICKS = [0, 25, 50, 75, 100]
 PERCENT_HEADROOM = 3
+COUNT_HEADROOM = 0.08
+
+# Left, bottom, right and top of the area the axes are laid out in, so the figure
+# keeps a clear border rather than running its labels to the image edge.
+OUTER_EDGE = (0.02, 0.06, 0.98, 0.96)
 AXIS_PADDING = 0.05
 
 
@@ -102,7 +108,7 @@ def render_line_png(outcomes, username, level_id, eval_id, date_label):
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -128,7 +134,7 @@ def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
     fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -172,7 +178,7 @@ def render_risk_png(rows, username, level_id, eval_id, date_label):
     ax.grid(True, color="#e5e7eb")
     ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -203,7 +209,7 @@ def render_trial_risk_png(destroyed, resolved, username, level_id, eval_id, date
     ax.grid(True, color="#e5e7eb")
     ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -223,7 +229,7 @@ def render_attrition_png(points, username, level_id, eval_id, date_label):
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -295,35 +301,46 @@ def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
     ax.grid(True, color="#e5e7eb")
     _ramp_legend(ax, len(chosen))
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
 # The three ring-sweep curves the site draws side by side, read wave by wave
 # rather than in total. Every ring size gets its own line.
-def _render_progress_png(series, pick, title, ylabel, meta):
+def _count_axis(ax, values):
+    ceiling = max(values) if values else 1.0
+    ax.set_ylim(0, ceiling * (1.0 + COUNT_HEADROOM))
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+def _render_progress_png(series, pick, title, ylabel, meta, percent=True):
     chosen = sorted(series, key=lambda entry: entry.get("n", 0))
     colors = _ramp(len(chosen))
     anchors = _legend_anchors(len(chosen))
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     everything = []
+    drawn = []
     for index, entry in enumerate(chosen):
         points = sorted(entry.get("points", []), key=lambda point: point.get("faced", 0))
         xs = [point.get("faced", 0) for point in points]
         ys = [pick(point, entry) for point in points]
         everything.extend(xs)
         label = f"n = {entry.get('n')}" if index in anchors else None
+        drawn.extend(ys)
         ax.plot(xs, ys, color=colors[index], linewidth=2, label=label)
     ax.set_title(title)
     ax.set_xlabel("Evaders faced")
     ax.set_ylabel(ylabel)
-    _percent_axis(ax)
+    if percent:
+        _percent_axis(ax)
+    else:
+        _count_axis(ax, drawn)
     _padded_xlim(ax, everything)
     ax.grid(True, color="#e5e7eb")
     _ramp_legend(ax, len(chosen))
     fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -343,16 +360,13 @@ def render_ring_risk_png(series, username, level_id, eval_id, date_label):
     )
 
 
-# Shown as a share of the ring so rings of different sizes sit on one axis.
+# A count of ships rather than a rate, so the biggest ring sets the axis and the
+# smaller ones sit low on it, which is the comparison worth seeing.
 def render_ring_attrition_png(series, username, level_id, eval_id, date_label):
-    def share(point, entry):
-        size = entry.get("n", 0)
-        return 100.0 * point.get("defenders", 0.0) / size if size else 0.0
-
     return _render_progress_png(
-        series, share,
-        "Line Remaining, Wave by Wave", "Line remaining (%)",
-        (username, level_id, eval_id, date_label),
+        series, lambda point, entry: point.get("defenders", 0.0),
+        "Defenders Remaining, Wave by Wave", "Defenders remaining",
+        (username, level_id, eval_id, date_label), percent=False,
     )
 
 
@@ -385,7 +399,7 @@ def render_times_png(detection_times, capture_times, username, level_id, eval_id
     ax.grid(True, axis="y", color="#e5e7eb")
     ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
 
 
@@ -409,5 +423,5 @@ def render_bar_png(outcomes, username, level_id, eval_id, date_label):
     for index, value in enumerate(values):
         ax.text(index, value + 1.5, f"{value:.0f}%", ha="center", fontsize=9, color="#374151")
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
-    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)

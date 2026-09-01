@@ -29,7 +29,7 @@ const PERCENT_HEADROOM = 3;
 
 // Breathing room between the plot area and the edge of the card, so a line that
 // runs to the last point does not touch the frame.
-const CONTENT_PADDING = { top: 4, right: 14, bottom: 4, left: 6 };
+const CONTENT_PADDING = { top: 12, right: 24, bottom: 12, left: 12 };
 const RAMP_START_HUE = 220;
 const RAMP_END_HUE = 0;
 
@@ -143,6 +143,17 @@ export function percentScale(scale: object) {
 		afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
 			axis.ticks = PERCENT_TICKS.map((value) => ({ value }));
 		}
+	};
+}
+
+// Counts, not percentages: the axis starts at zero, keeps the headroom the
+// percent scale has, and never labels a tick with a fraction of a ship.
+export function countScale(scale: object) {
+	return {
+		...scale,
+		min: 0,
+		grace: VALUE_HEADROOM,
+		ticks: { color: TEXT, precision: 0 }
 	};
 }
 

@@ -51,7 +51,7 @@ func WriteAll(directory string, input Input) ([]string, error) {
 			continue
 		}
 		path := filepath.Join(directory, step.name)
-		if err := figure.Save(chartWidth, chartHeight, path); err != nil {
+		if err := savePlot(figure, path); err != nil {
 			return written, err
 		}
 		written = append(written, path)

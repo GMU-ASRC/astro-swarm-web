@@ -3,12 +3,14 @@ package charts
 import (
 	"image/color"
 	"math"
+	"os"
 	"strconv"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
+	"gonum.org/v1/plot/vg/vgimg"
 )
 
 var (
@@ -25,10 +27,12 @@ const (
 	chartWidth  = 9 * vg.Inch
 	chartHeight = 5 * vg.Inch
 	markWidth   = vg.Length(2)
+	outerEdge   = vg.Length(14) // border kept clear between the plot and the edge of the png
 
 	percentHeadroom = 3.0  // percentage points the axis runs past 0 and 100
 	contentMargin   = 0.05 // fraction of the x range left clear at each end
 	legendRoomShare = 0.2  // extra fraction of the x range kept clear for the legend
+	countHeadroom   = 0.08 // fraction of the tallest line left clear above a count axis
 )
 
 func newPlot(title, xLabel, yLabel string) *plot.Plot {
@@ -93,10 +97,34 @@ func percentAxisFromBaseline(p *plot.Plot) {
 	percentTicks(p)
 }
 
-// Every x axis these charts use is a count - trials, evaders faced, ring size,
-// defenders standing - so its ticks are whole numbers however the range falls.
-func countTicks(p *plot.Plot) {
-	p.X.Tick.Marker = plot.TickerFunc(func(low, high float64) []plot.Tick {
+// gonum draws a plot right out to the edge of the image, so the canvas is cropped
+// by a fixed border first and the plot laid out inside what is left. Without it
+// the axis labels sit flush against the edge of the png.
+func savePlot(p *plot.Plot, path string) error {
+	image := vgimg.PngCanvas{Canvas: vgimg.New(chartWidth, chartHeight)}
+	p.Draw(draw.Crop(draw.New(image), outerEdge, -outerEdge, outerEdge, -outerEdge))
+
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	if _, err := image.WriteTo(file); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+// A count axis starts at zero and is labelled in whole ships, with the same
+// headroom above the tallest line that the percent axis keeps above 100.
+func countAxis(p *plot.Plot, ceiling float64) {
+	p.Y.Min = 0
+	p.Y.Max = math.Max(ceiling, 1) * (1 + countHeadroom)
+	p.Y.Tick.Marker = wholeNumbers()
+}
+
+func wholeNumbers() plot.TickerFunc {
+	return plot.TickerFunc(func(low, high float64) []plot.Tick {
 		ticks := plot.DefaultTicks{}.Ticks(low, high)
 		for index, tick := range ticks {
 			if tick.Label == "" {
@@ -104,12 +132,19 @@ func countTicks(p *plot.Plot) {
 			}
 			rounded := math.Round(tick.Value)
 			if math.Abs(tick.Value-rounded) > 1e-9 {
+				ticks[index].Label = ""
 				continue
 			}
 			ticks[index].Label = strconv.FormatFloat(rounded, 'f', -1, 64)
 		}
 		return ticks
 	})
+}
+
+// Every x axis these charts use is a count - trials, evaders faced, ring size,
+// defenders standing - so its ticks are whole numbers however the range falls.
+func countTicks(p *plot.Plot) {
+	p.X.Tick.Marker = wholeNumbers()
 }
 
 func marginX(p *plot.Plot, series ...plotter.XYs) {

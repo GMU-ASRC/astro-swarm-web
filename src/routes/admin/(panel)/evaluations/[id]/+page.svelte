@@ -479,8 +479,8 @@
 						config={ringProgressConfig(
 							sweepProgress,
 							'defenders',
-							'Line Remaining, Wave by Wave',
-							'Line remaining (%)'
+							'Defenders Remaining, Wave by Wave',
+							'Defenders remaining'
 						)}
 						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
 					/>
