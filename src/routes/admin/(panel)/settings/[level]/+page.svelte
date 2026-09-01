@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { apiUrl } from '$lib/ts/api';
 	import Pagination from '$lib/components/Pagination.svelte';
-	import { isWave as waveLevel } from '$lib/ts/levels';
+	import { isAssault as assaultLevel, hasAttrition as attritionLevel } from '$lib/ts/levels';
 
 	let { data } = $props();
 	let settings = $state<any>(null);
@@ -21,7 +21,8 @@
 	const levelId = $derived(`farp${levelNum}`);
 	const levelInfo = $derived((settings?.levels ?? []).find((l: any) => l.id === levelId) ?? null);
 	const isPilot = $derived((settings?.pilot_level_ids ?? []).includes(levelId));
-	const isWave = $derived(waveLevel(levelNum));
+	const isAssault = $derived(assaultLevel(levelNum));
+	const hasAttrition = $derived(attritionLevel(levelNum));
 	const runLimits = $derived(
 		settings?.pilot_run_limits?.[levelId] ?? {
 			max_seconds: settings?.pilot_time_limit_seconds,
@@ -118,8 +119,8 @@
 <p class="meta">
 	{levelInfo?.name ?? levelId} — {isPilot
 		? 'pilot level: the player flies the evader themselves against the best submitted level 2 algorithm. Nothing is simulated for this level, so there are no benchmark parameters to tune.'
-		: isWave
-			? 'wave level: the submitted algorithm drives the defenders against a wave of evaders, and a run only counts as held if every one of them is destroyed.'
+		: isAssault
+			? 'assault level: the submitted algorithm drives the defenders against a stream of evaders, and the score is the share of them destroyed.'
 			: 'defense level (the submitted algorithm drives the defenders against the incoming evader).'}
 </p>
 
@@ -158,7 +159,7 @@
 			<div class="stat">
 				<div class="label">Scenario</div>
 				<div>
-					{levelNum === 6
+					{levelNum === 7
 						? 'Two milling swarms and one player-flown leader'
 						: 'Best submitted farp2 algorithm'}
 				</div>
@@ -174,43 +175,52 @@
 			<div class="stat"><div class="label">XP for a finished run</div><div>{settings.pilot_max_xp}</div></div>
 		</div>
 	{:else}
-	{#if isWave}
+	{#if isAssault}
 		<h2>How a level {levelNum} entry is benchmarked</h2>
 		<p class="meta">
-			A wave level is not graded against a single evader. Every trial sends several evaders in off
-			the ring and only counts as held if all of them are destroyed before any reaches the planet.
-			{levelNum === 4
-				? 'A capture here destroys the defender as well as the evader, so the line thins as the wave goes on.'
-				: 'A defender that catches an evader survives and carries on to the next.'}
-			The run always plays out until every evader has been sent and resolved, so one getting through
-			early does not cut the trial short.
+			An assault level is not graded against a single evader. Every trial sends a stream of them at
+			the submitted scatter and scores the share the line destroyed, alongside how many reached the
+			planet.
+			{hasAttrition
+				? 'A capture here destroys the defender as well as the evader, so the line thins as the run goes on and ends when it is spent.'
+				: 'A defender that catches an evader survives and carries on to the next, so the run holds until the clock stops.'}
 		</p>
 		<div class="stat-grid">
 			<div class="stat">
 				<div class="label">Trials</div>
-				<div>{settings.wave_trials ?? 100}</div>
+				<div>{settings.assault_trials ?? 100}</div>
 			</div>
 			<div class="stat">
-				<div class="label">Wave styles</div>
-				<div>Sequential and simultaneous, split evenly</div>
+				<div class="label">Arrival</div>
+				<div>
+					{levelNum === 5
+						? `${settings.siege_evaders ?? 5} at once off the arena edges`
+						: 'One at a time, wave after wave off the ring'}
+				</div>
 			</div>
 			<div class="stat">
-				<div class="label">Evaders per wave</div>
-				<div>{settings.wave_evaders ?? 3}, never more than the defenders</div>
+				<div class="label">Ends when</div>
+				<div>
+					{hasAttrition
+						? 'The line is spent or the clock stops'
+						: 'The clock stops'}
+				</div>
 			</div>
 			<div class="stat">
 				<div class="label">Defender sweep</div>
 				<div>
-					Grows until {settings.wave_clean_streak ?? 3} consecutive clean counts, capped at n={settings.wave_sweep_max ?? 40}
-					x {settings.wave_sweep_trials ?? 20} trials
+					Grows until {settings.assault_clean_streak ?? 3} consecutive clean counts, capped at n={settings.assault_sweep_max ??
+						40}
+					x {settings.assault_sweep_trials ?? 20} trials
 				</div>
 			</div>
 		</div>
 		<p class="meta">
-			Each trial gets its own seeded defender scatter and spawn angles, so the same entry and seed
-			always reproduce the same result. A wave match runs two full waves, so these levels use their
-			own sweep budget rather than the ring-sweep one, which would put a job past the worker
-			timeout. The sweep stops as soon as the algorithm holds, so the cap is only a ceiling.
+			Each trial gets its own seeded defender scatter and spawn bearings, so the same entry and seed
+			always reproduce the same result. An assault match runs a whole stream of evaders, so these
+			levels use their own sweep budget rather than the ring-sweep one, which would put a job past
+			the worker timeout. The sweep stops as soon as the algorithm holds, so the cap is only a
+			ceiling.
 		</p>
 	{/if}
 

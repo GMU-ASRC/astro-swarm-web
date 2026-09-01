@@ -6,6 +6,7 @@ export interface ReplayCell {
 	tone: ReplayTone;
 	title: string;
 	selected: boolean;
+	replayable?: boolean;
 	select: () => void;
 }
 

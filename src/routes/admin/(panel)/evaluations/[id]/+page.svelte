@@ -6,8 +6,14 @@
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
+	import { riskConfig, attritionRiskConfig, sweepAttritionConfig } from '$lib/ts/levelCharts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
-	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
+	import {
+		isPilot as pilotLevel,
+		isSwarm as swarmLevel,
+		isAssault as assaultLevel,
+		hasAttrition as attritionLevel
+	} from '$lib/ts/levels';
 
 	let { data } = $props();
 
@@ -45,7 +51,11 @@
 	let levelNumber = $derived(ev?.level_number ?? 1);
 	let isPilot = $derived(pilotLevel(levelNumber));
 	let isSwarm = $derived(swarmLevel(levelNumber));
-	let isWave = $derived(waveLevel(levelNumber));
+	let isAssault = $derived(assaultLevel(levelNumber));
+	let hasAttrition = $derived(attritionLevel(levelNumber));
+	let attrition = $derived(ev?.results?.attrition ?? []);
+	let replayTrials = $derived(ev?.results?.replay_trials ?? 0);
+	let sweepAttrition = $derived(ev?.results?.sweep_attrition ?? []);
 
 	let counts = $derived.by(() => {
 		const c = { win: 0, lose: 0, timeout: 0 };
@@ -94,6 +104,7 @@
 				tone: toneOf(outcome),
 				title: `Trial ${index + 1}: ${outcome}`,
 				selected: selectedTrial === index,
+				replayable: !isAssault || index < replayTrials,
 				select: () => loadReplay(index)
 			}))
 		}
@@ -103,10 +114,11 @@
 		if (!selectedReplay) return '';
 		const label = isPilot ? 'Recorded flight' : `Trial ${(selectedTrial ?? 0) + 1}`;
 		const times = `detected: ${fmtTime(selectedReplay.detection_time)} · captured: ${fmtTime(selectedReplay.capture_time)}`;
-		if (!isWave) return `${label} · outcome: ${selectedReplay.outcome} · ${times}`;
+		if (!isAssault) return `${label} · outcome: ${selectedReplay.outcome} · ${times}`;
 		const stats = selectedReplay.stats ?? {};
-		const evaders = stats.evaders ?? 0;
-		return `${label} · ${evaders} ${evaders === 1 ? 'evader' : 'evaders'} per wave · destroyed ${stats.destroyed ?? 0} of ${evaders * 2} · through ${stats.breaches ?? 0} · ${times}`;
+		const sent = stats.sent ?? 0;
+		const lost = hasAttrition ? ` · defenders lost ${stats.lost ?? 0}` : '';
+		return `${label} · ${sent} sent · destroyed ${stats.destroyed ?? 0} · through ${stats.breaches ?? 0}${lost} · ${times}`;
 	});
 
 	let sweepGroups = $derived<ReplayGroup[]>([
@@ -374,15 +386,15 @@
 		{:else}
 			<div class="stat-grid">
 				<div class="stat">
-					<div class="label">{isWave ? 'Evaders destroyed' : 'Detection rate'}</div>
+					<div class="label">{isAssault ? 'Capture success rate' : 'Detection rate'}</div>
 					<div>{successRate}%</div>
 				</div>
 				<div class="stat">
-					<div class="label">{isWave ? 'Trials held' : 'Intercepts'}</div>
+					<div class="label">{isAssault ? 'Trials held' : 'Intercepts'}</div>
 					<div>{counts.win}</div>
 				</div>
 				<div class="stat">
-					<div class="label">{isWave ? 'Trials breached' : 'Planet hits'}</div>
+					<div class="label">{isAssault ? 'Trials breached' : 'Planet hits'}</div>
 					<div>{counts.lose}</div>
 				</div>
 				<div class="stat">
@@ -390,35 +402,33 @@
 					<div>{counts.timeout}</div>
 				</div>
 			</div>
-			{#if isWave}
+			{#if isAssault}
 				<div class="stat-grid">
 					<div class="stat">
 						<div class="label">Evaders stopped</div>
-						<div>{ev.results?.evaders_destroyed ?? '—'} / {ev.results?.evaders_total ?? '—'}</div>
+						<div>{ev.results?.evaders_destroyed ?? '—'} / {ev.results?.evaders_resolved ?? '—'}</div>
 					</div>
 					<div class="stat">
-						<div class="label">Both waves held</div>
+						<div class="label">Risk</div>
+						<div>{wavePct(ev.results?.risk)}</div>
+					</div>
+					<div class="stat">
+						<div class="label">Trials held</div>
 						<div>{wavePct(ev.results?.trials_held_rate)}</div>
 					</div>
 					<div class="stat">
-						<div class="label">First wave held</div>
-						<div>{wavePct(ev.results?.sequential_rate)}</div>
+						<div class="label">Reached the planet</div>
+						<div>{ev.results?.breaches ?? '—'}</div>
 					</div>
-					<div class="stat">
-						<div class="label">All-at-once wave held</div>
-						<div>{wavePct(ev.results?.simultaneous_rate)}</div>
-					</div>
-					<div class="stat">
-						<div class="label">Detected in the first wave</div>
-						<div>{wavePct(ev.results?.sequential_detection_rate)}</div>
-					</div>
-					<div class="stat">
-						<div class="label">Detected all at once</div>
-						<div>{wavePct(ev.results?.simultaneous_detection_rate)}</div>
-					</div>
+					{#if hasAttrition}
+						<div class="stat">
+							<div class="label">Defenders lost</div>
+							<div>{ev.results?.defenders_lost ?? '—'}</div>
+						</div>
+					{/if}
 				</div>
-				{#if ev.results?.evaders_total == null}
-					<div class="message">This entry was benchmarked before the wave stats existed. Re-simulate it once the workers are on the current build to fill them in.</div>
+				{#if ev.results?.evaders_resolved == null}
+					<div class="message">This entry was benchmarked before the assault stats existed. Re-simulate it once the workers are on the current build to fill them in.</div>
 				{/if}
 			{/if}
 		{/if}
@@ -426,7 +436,7 @@
 		{#if !isPilot}
 			<div class="charts">
 				<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
-				{#if !isWave}
+				{#if !isAssault}
 					<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 				{/if}
 				<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
@@ -434,6 +444,13 @@
 					<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
 					<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
 					<ChartCard config={combinedRatesConfig(sweepRuns)} />
+					<ChartCard config={riskConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/risk.png`)} />
+				{/if}
+				{#if attrition.length > 1}
+					<ChartCard config={attritionRiskConfig(attrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/attrition.png`)} />
+				{/if}
+				{#if sweepAttrition.length > 0}
+					<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />
 				{/if}
 				{#if detectionTimes.length > 0}
 					<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
@@ -444,9 +461,9 @@
 		{#if isPilot}
 			<h2>Recorded Flight</h2>
 			<p class="meta">The player's own piloted run, rendered from the movement recorded in game.</p>
-		{:else if isWave}
+		{:else if isAssault}
 			<h2>Run Data ({outcomes.length})</h2>
-			<p class="meta">{outcomes.length} trials against the submitted defender scatter. Each one plays both waves back to back — the evaders one after another, then the arena resets and the same evaders come all at once — and is green only if both waves held. Each trial varies the scatter, the spawn angles and the evader count. Click a run to replay it.</p>
+			<p class="meta">{outcomes.length} trials against the submitted defender scatter. Each one runs until the line is spent or the clock stops, and is green only if nothing reached the planet. Each trial varies the scatter and the spawn bearings. The first {ev.results?.replay_trials ?? 0} keep a recording you can replay.</p>
 		{:else}
 			<h2>Run Data ({outcomes.length})</h2>
 			<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>

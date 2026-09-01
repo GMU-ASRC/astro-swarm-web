@@ -292,8 +292,7 @@
 		const events = [
 			{ kind: 'detect', label: 'Detected', time: replay.detection_time },
 			{ kind: 'capture', label: 'Captured', time: replay.capture_time },
-			{ kind: 'goal', label: 'Reached planet', time: replay.goal_time },
-			{ kind: 'wave', label: 'Second wave', time: replay.stats?.wave_two_time ?? -1 }
+			{ kind: 'goal', label: 'Reached planet', time: replay.goal_time }
 		];
 		const span = lastFrame / (replay.fps || 1);
 		if (span <= 0) return [];
@@ -638,17 +637,6 @@
 	.marker-goal,
 	.dot-goal {
 		background: var(--color-loss);
-	}
-
-	.marker-wave,
-	.dot-wave {
-		background: var(--color-brand);
-	}
-
-	.marker-wave {
-		height: 100%;
-		width: 1px;
-		opacity: 0.7;
 	}
 
 	.clock {

@@ -1,73 +1,17 @@
 import type { ChartConfiguration } from 'chart.js';
 
-const GRID = '#e5e7eb';
-const TEXT = '#374151';
-const FAINT = '#6b7280';
-
-const DETECTION = '#2563eb';
-const CAPTURE = '#dc2626';
-const SUCCESS = '#4ade80';
-
-const PERCENT_CEILING = 100;
-const PERCENT_TICK_STEP = 25;
-const VALUE_HEADROOM = '8%';
-
-function baseOptions(
-	title: string,
-	yTitle: string,
-	xTitle: string,
-	showLegend = false,
-	subtitle = ''
-) {
-	return {
-		responsive: true,
-		maintainAspectRatio: false,
-		plugins: {
-			title: { display: true, text: title, color: TEXT, font: { size: 15 } },
-			subtitle: {
-				display: subtitle !== '',
-				text: subtitle,
-				color: FAINT,
-				font: { size: 11 },
-				padding: { bottom: 10 }
-			},
-			legend: { display: showLegend, labels: { color: TEXT } }
-		},
-		scales: {
-			y: {
-				title: { display: true, text: yTitle, color: TEXT },
-				ticks: { color: TEXT },
-				grid: { color: GRID },
-				grace: VALUE_HEADROOM
-			},
-			x: {
-				title: { display: true, text: xTitle, color: TEXT },
-				ticks: { color: TEXT },
-				grid: { color: GRID },
-				offset: true
-			}
-		}
-	};
-}
-
-function placementSource(trials: number): string {
-	return `Placement runs · ${trials} ${trials === 1 ? 'trial' : 'trials'}`;
-}
-
-function sweepSource(rows: SweepRow[]): string {
-	if (rows.length === 0) return 'Ring sweep runs';
-	const sizes = rows.map((row) => row.n);
-	return `Ring sweep runs · n = ${Math.min(...sizes)}–${Math.max(...sizes)}`;
-}
-
-function percentScale(scale: object) {
-	return {
-		...scale,
-		min: 0,
-		max: PERCENT_CEILING,
-		ticks: { color: TEXT, stepSize: PERCENT_TICK_STEP }
-	};
-}
+import {
+	CAPTURE,
+	DETECTION,
+	SUCCESS,
+	baseOptions,
+	percentScale,
+	placementSource,
+	rateOf,
+	sweepPoints,
+	sweepSource,
+	type SweepRow
+} from '$lib/ts/chartBase';
 
 export function headlineRatesConfig(
 	detectionRate: number,
@@ -156,30 +100,6 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 		},
 		options
 	};
-}
-
-type SweepRow = {
-	n: number;
-	outcome?: string;
-	detection_time?: number;
-	capture_time?: number;
-	detection_rate?: number;
-	capture_rate?: number;
-};
-
-function sweepPoints(rows: SweepRow[]): SweepRow[] {
-	return [...rows].sort((a, b) => a.n - b.n);
-}
-
-function rateOf(
-	row: SweepRow,
-	rateKey: 'detection_rate' | 'capture_rate',
-	timeKey: 'detection_time' | 'capture_time'
-): number {
-	const averaged = row[rateKey];
-	if (averaged != null) return averaged;
-	const time = row[timeKey];
-	return time != null && time >= 0 ? 100 : 0;
 }
 
 function sweepRateConfig(

@@ -6,9 +6,15 @@
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
-	import { isPilot as pilotLevel, isSwarm as swarmLevel, isWave as waveLevel } from '$lib/ts/levels';
+	import {
+		isPilot as pilotLevel,
+		isSwarm as swarmLevel,
+		isAssault as assaultLevel,
+		hasAttrition as attritionLevel
+	} from '$lib/ts/levels';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
+	import { riskConfig, attritionRiskConfig, sweepAttritionConfig } from '$lib/ts/levelCharts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 	import { FARP_LEVELS, levelById } from '$lib/ts/levels';
@@ -32,7 +38,11 @@
 	let levelNumber = $derived(ev.level_number ?? 1);
 	let isSwarm = $derived(swarmLevel(levelNumber));
 	let isPilot = $derived(pilotLevel(levelNumber));
-	let isWave = $derived(waveLevel(levelNumber));
+	let isAssault = $derived(assaultLevel(levelNumber));
+	let hasAttrition = $derived(attritionLevel(levelNumber));
+	let attrition = $derived(ev.results?.attrition ?? []);
+	let replayTrials = $derived(ev.results?.replay_trials ?? 0);
+	let sweepAttrition = $derived(ev.results?.sweep_attrition ?? []);
 
 	let counts = $derived.by(() => {
 		const tally = { win: 0, lose: 0, timeout: 0 };
@@ -87,6 +97,7 @@
 				tone: toneOf(outcome),
 				title: `Trial ${index + 1}: ${outcome}`,
 				selected: selectedTrial === index,
+				replayable: !isAssault || index < replayTrials,
 				select: () => loadReplay(index)
 			}))
 		}
@@ -350,34 +361,65 @@
 				{:else}
 					<div class="headline">
 						<div class="headline-value won">{successRate}%</div>
-						<div class="headline-label">Success rate</div>
+						<div class="headline-label">{isAssault ? 'Capture success rate' : 'Success rate'}</div>
 						<div class="headline-breakdown">
-							<span class="tally-win">{counts.win} captured</span>
-							<span class="tally-loss">{counts.lose} reached the planet</span>
+							<span class="tally-win">{counts.win} {isAssault ? 'held' : 'captured'}</span>
+							<span class="tally-loss">{counts.lose} {isAssault ? 'breached' : 'reached the planet'}</span>
 							{#if counts.timeout > 0}
 								<span class="tally-warn">{counts.timeout} timeouts</span>
 							{/if}
 						</div>
 					</div>
 
-					<div class="stat-grid">
-						<div class="stat">
-							<div class="stat-value">{detectionRate}%</div>
-							<div class="stat-label">Detection rate — a defender saw the evader</div>
+					{#if isAssault}
+						<div class="stat-grid">
+							<div class="stat">
+								<div class="stat-value">{ev.results?.risk ?? Math.round((100 - successRate) * 10) / 10}%</div>
+								<div class="stat-label">Risk — the share of evaders that was not stopped</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{ev.results?.evaders_destroyed ?? 0} / {ev.results?.evaders_resolved ?? 0}</div>
+								<div class="stat-label">Evaders destroyed out of every one that reached a verdict</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{ev.results?.breaches ?? 0}</div>
+								<div class="stat-label">Evaders that reached the planet</div>
+							</div>
+							{#if hasAttrition}
+								<div class="stat">
+									<div class="stat-value">{ev.results?.defenders_lost ?? 0}</div>
+									<div class="stat-label">Defenders lost — each capture costs the ship that made it</div>
+								</div>
+							{/if}
+							<div class="stat">
+								<div class="stat-value">{ev.results?.trials_held_rate ?? 0}%</div>
+								<div class="stat-label">Trials held — nothing reached the planet</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
+								<div class="stat-label">Defenders placed</div>
+							</div>
 						</div>
-						<div class="stat">
-							<div class="stat-value">{captureRate}%</div>
-							<div class="stat-label">Capture rate — a defender touched the evader</div>
+					{:else}
+						<div class="stat-grid">
+							<div class="stat">
+								<div class="stat-value">{detectionRate}%</div>
+								<div class="stat-label">Detection rate — a defender saw the evader</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{captureRate}%</div>
+								<div class="stat-label">Capture rate — a defender touched the evader</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{meanGoalTime != null ? `${meanGoalTime}s` : '—'}</div>
+								<div class="stat-label">Mean time for the evader to reach the planet</div>
+							</div>
+							<div class="stat">
+								<div class="stat-value">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
+								<div class="stat-label">Defenders placed</div>
+							</div>
 						</div>
-						<div class="stat">
-							<div class="stat-value">{meanGoalTime != null ? `${meanGoalTime}s` : '—'}</div>
-							<div class="stat-label">Mean time for the evader to reach the planet</div>
-						</div>
-						<div class="stat">
-							<div class="stat-value">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
-							<div class="stat-label">Defenders placed</div>
-						</div>
-					</div>
+					{/if}
 				{/if}
 
 				<div class="config-grid">
@@ -411,7 +453,7 @@
 				{#if !isPilot}
 					<div class="chart-grid">
 						<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
-						{#if !isWave}
+						{#if !isAssault}
 							<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 						{/if}
 						<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
@@ -419,6 +461,13 @@
 							<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
 							<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
 							<ChartCard config={combinedRatesConfig(sweepRuns)} />
+							<ChartCard config={riskConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/risk.png`)} />
+						{/if}
+						{#if attrition.length > 1}
+							<ChartCard config={attritionRiskConfig(attrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/attrition.png`)} />
+						{/if}
+						{#if sweepAttrition.length > 0}
+							<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />
 						{/if}
 						{#if detectionTimes.length > 0}
 							<ChartCard config={timesConfig(detectionTimes, captureTimes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/times.png`)} />
@@ -428,9 +477,10 @@
 					<section class="block">
 						<h2 class="section-title">Runs ({outcomes.length})</h2>
 						<p class="block-note">
-							{#if isWave}
-								Each cell is one trial: both waves back to back, the evaders one after another
-								and then all at once. Green held both, red let one through.
+							{#if isAssault}
+								Each cell is one trial: a stream of evaders against the submitted scatter, run
+								until the line is spent or the clock stops. Green held, red let one through.
+								Only the first {ev.results?.replay_trials ?? 0} keep a recording.
 							{:else}
 								Each cell is one trial — green intercepted, red reached the planet. Pick a run to
 								replay it.

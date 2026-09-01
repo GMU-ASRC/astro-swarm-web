@@ -31,6 +31,7 @@
 								title={cell.title}
 								aria-label={cell.title}
 								onclick={cell.select}
+								disabled={cell.replayable === false}
 								class="cell tone-{cell.tone}"
 								class:selected={cell.selected}
 							>
@@ -102,8 +103,13 @@
 			border-color 0.15s;
 	}
 
-	.cell:hover {
+	.cell:hover:not(:disabled) {
 		filter: brightness(1.25);
+	}
+
+	.cell:disabled {
+		cursor: default;
+		opacity: 0.45;
 	}
 
 	.cell.selected {

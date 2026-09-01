@@ -1,12 +1,22 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
-	import type { PlayerListItem } from '$lib/ts/evaluation';
-	import { canonicalLevelId, type LevelInfo } from '$lib/ts/levels';
+	import LevelLeaderboard from '$lib/components/LevelLeaderboard.svelte';
+	import LevelComparison from '$lib/components/LevelComparison.svelte';
+	import type {
+		LevelLeaderboardRow,
+		LevelSweepEntry,
+		PlayerListItem
+	} from '$lib/ts/evaluation';
+	import { canonicalLevelId, hasAttrition, type LevelInfo } from '$lib/ts/levels';
+
+	type View = 'entries' | 'leaderboard' | 'comparison';
 
 	interface PageData {
 		level: LevelInfo;
 		playersPromise: Promise<{ players: PlayerListItem[]; apiError: boolean }>;
+		leaderboardPromise: Promise<LevelLeaderboardRow[]>;
+		comparisonPromise: Promise<LevelSweepEntry[]>;
 	}
 
 	let { data }: { data: PageData } = $props();
@@ -16,6 +26,15 @@
 	let players = $state<PlayerListItem[]>([]);
 	let apiError = $state(false);
 	let loading = $state(true);
+	let leaderboard = $state<LevelLeaderboardRow[]>([]);
+	let comparison = $state<LevelSweepEntry[]>([]);
+	let view = $state<View>('entries');
+
+	const VIEWS: { id: View; label: string; icon: string }[] = [
+		{ id: 'entries', label: 'Entries', icon: 'ph:cards-bold' },
+		{ id: 'leaderboard', label: 'Leaderboard', icon: 'ph:trophy-bold' },
+		{ id: 'comparison', label: 'Comparison', icon: 'ph:chart-line-up-bold' }
+	];
 
 	$effect(() => {
 		let active = true;
@@ -25,6 +44,19 @@
 			players = result.players;
 			apiError = result.apiError;
 			loading = false;
+		});
+		return () => {
+			active = false;
+		};
+	});
+
+	$effect(() => {
+		let active = true;
+		data.leaderboardPromise.then((rows) => {
+			if (active) leaderboard = rows;
+		});
+		data.comparisonPromise.then((rows) => {
+			if (active) comparison = rows;
 		});
 		return () => {
 			active = false;
@@ -138,123 +170,159 @@
 			</div>
 			<Spaceship variant={level.variant} size="80" />
 		</div>
-	</div>
 
-	<div class="shell shell-wide layout">
-		<aside class="filters">
-			<div>
-				<label class="field-label" for="search">Search</label>
-				<input
-					id="search"
-					type="text"
-					placeholder="Username or ID"
-					bind:value={searchQuery}
-					class="field"
-				/>
-			</div>
-
-			<div>
-				<span class="field-label">Min {level.rateLabel}</span>
-				<div class="slider-row">
-					<input type="range" min="0" max="100" step="1" bind:value={minRate} class="slider" />
-					<span class="slider-value">{minRate}%</span>
-				</div>
-			</div>
-
-			<div>
-				<span class="field-label">Date range</span>
-				<div class="date-inputs">
-					<input type="date" bind:value={startDate} class="field" />
-					<input type="date" bind:value={endDate} class="field" />
-				</div>
-			</div>
-
-			<div>
-				<label class="field-label" for="sort">Sort by</label>
-				<select id="sort" bind:value={sortOrder} class="field">
-					<option value="date_desc">Date (newest)</option>
-					<option value="date_asc">Date (oldest)</option>
-					<option value="rate_desc">Success rate (high to low)</option>
-					<option value="rate_asc">Success rate (low to high)</option>
-				</select>
-			</div>
-		</aside>
-
-		<div class="results">
-			{#if loading}
-				<div class="notice">Loading level data...</div>
-			{:else if apiError}
-				<div class="notice notice-error">Communication error. Unable to load level data.</div>
-			{:else if shown.length === 0}
-				<div class="notice">
-					{entries.length === 0
-						? 'No entries yet. Complete this level in game to appear here.'
-						: 'No entries match these filters.'}
-				</div>
-			{:else}
-				<div class="entry-grid">
-					{#each paged as player}
-						<a href={`/levels/${player.id}`} class="card-link entry">
-							<div class="entry-head">
-								<span class="entry-name">{player.username}</span>
-								<span class="badge {statusClass(player.status)}">{player.status}</span>
-							</div>
-
-							<div class="entry-id">{player.id}</div>
-
-							<div class="entry-result">
-								{#if player.status === 'running' || player.status === 'queued'}
-									{level.piloted ? 'Rendering' : 'Benchmarking'} · {Math.round(
-										(player.progress ?? 0) * 100
-									)}%
-								{:else if level.piloted && level.number === 6}
-									{player.success_rate ? 'Swarm delivered' : 'Not delivered'} · piloted run
-								{:else if level.piloted}
-									{player.success_rate ? 'Planet reached' : 'No goal'} · piloted run
-								{:else if player.success_rate !== null && player.success_rate !== undefined}
-									{player.success_rate}% {level.rateLabel} · {player.trials} trials
-								{:else}
-									{player.trials} trials
-								{/if}
-							</div>
-
-							<div class="entry-foot">
-								<span>{when(player.created_at)}</span>
-								<span>{player.game_version ?? 'v0.0.4'}</span>
-							</div>
-						</a>
-					{/each}
-				</div>
-
-				{#if pageCount > 1}
-					<div class="pager">
-						<button
-							type="button"
-							class="btn btn-ghost btn-sm"
-							disabled={page <= 1}
-							onclick={() => (page = Math.max(1, page - 1))}
-						>
-							<Icon icon="ph:caret-left-bold" width="13" />
-							Prev
-						</button>
-						<span class="pager-label">Page {page} of {pageCount}</span>
-						<button
-							type="button"
-							class="btn btn-ghost btn-sm"
-							disabled={page >= pageCount}
-							onclick={() => (page = Math.min(pageCount, page + 1))}
-						>
-							Next
-							<Icon icon="ph:caret-right-bold" width="13" />
-						</button>
-					</div>
-				{/if}
-			{/if}
+		<div class="view-tabs">
+			{#each VIEWS as tab}
+				<button
+					type="button"
+					class="btn btn-sm"
+					class:btn-ghost={view !== tab.id}
+					aria-pressed={view === tab.id}
+					onclick={() => (view = tab.id)}
+				>
+					<Icon icon={tab.icon} width="13" />
+					{tab.label}
+				</button>
+			{/each}
 		</div>
 	</div>
+
+	{#if view === 'leaderboard'}
+		<div class="shell shell-wide panel">
+			<LevelLeaderboard rows={leaderboard} rateLabel={level.rateLabel} />
+		</div>
+	{:else if view === 'comparison'}
+		<div class="shell shell-wide panel">
+			<LevelComparison entries={comparison} attrition={hasAttrition(level.number)} />
+		</div>
+	{:else}
+		<div class="shell shell-wide layout">
+			<aside class="filters">
+				<div>
+					<label class="field-label" for="search">Search</label>
+					<input
+						id="search"
+						type="text"
+						placeholder="Username or ID"
+						bind:value={searchQuery}
+						class="field"
+					/>
+				</div>
+
+				<div>
+					<span class="field-label">Min {level.rateLabel}</span>
+					<div class="slider-row">
+						<input type="range" min="0" max="100" step="1" bind:value={minRate} class="slider" />
+						<span class="slider-value">{minRate}%</span>
+					</div>
+				</div>
+
+				<div>
+					<span class="field-label">Date range</span>
+					<div class="date-inputs">
+						<input type="date" bind:value={startDate} class="field" />
+						<input type="date" bind:value={endDate} class="field" />
+					</div>
+				</div>
+
+				<div>
+					<label class="field-label" for="sort">Sort by</label>
+					<select id="sort" bind:value={sortOrder} class="field">
+						<option value="date_desc">Date (newest)</option>
+						<option value="date_asc">Date (oldest)</option>
+						<option value="rate_desc">Success rate (high to low)</option>
+						<option value="rate_asc">Success rate (low to high)</option>
+					</select>
+				</div>
+			</aside>
+
+			<div class="results">
+				{#if loading}
+					<div class="notice">Loading level data...</div>
+				{:else if apiError}
+					<div class="notice notice-error">Communication error. Unable to load level data.</div>
+				{:else if shown.length === 0}
+					<div class="notice">
+						{entries.length === 0
+							? 'No entries yet. Complete this level in game to appear here.'
+							: 'No entries match these filters.'}
+					</div>
+				{:else}
+					<div class="entry-grid">
+						{#each paged as player}
+							<a href={`/levels/${player.id}`} class="card-link entry">
+								<div class="entry-head">
+									<span class="entry-name">{player.username}</span>
+									<span class="badge {statusClass(player.status)}">{player.status}</span>
+								</div>
+
+								<div class="entry-id">{player.id}</div>
+
+								<div class="entry-result">
+									{#if player.status === 'running' || player.status === 'queued'}
+										{level.piloted ? 'Rendering' : 'Benchmarking'} · {Math.round(
+											(player.progress ?? 0) * 100
+										)}%
+									{:else if level.piloted && level.number === 7}
+										{player.success_rate ? 'Swarm delivered' : 'Not delivered'} · piloted run
+									{:else if level.piloted}
+										{player.success_rate ? 'Planet reached' : 'No goal'} · piloted run
+									{:else if player.success_rate !== null && player.success_rate !== undefined}
+										{player.success_rate}% {level.rateLabel} · {player.trials} trials
+									{:else}
+										{player.trials} trials
+									{/if}
+								</div>
+
+								<div class="entry-foot">
+									<span>{when(player.created_at)}</span>
+									<span>{player.game_version ?? 'v0.0.4'}</span>
+								</div>
+							</a>
+						{/each}
+					</div>
+
+					{#if pageCount > 1}
+						<div class="pager">
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm"
+								disabled={page <= 1}
+								onclick={() => (page = Math.max(1, page - 1))}
+							>
+								<Icon icon="ph:caret-left-bold" width="13" />
+								Prev
+							</button>
+							<span class="pager-label">Page {page} of {pageCount}</span>
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm"
+								disabled={page >= pageCount}
+								onclick={() => (page = Math.min(pageCount, page + 1))}
+							>
+								Next
+								<Icon icon="ph:caret-right-bold" width="13" />
+							</button>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
+	.view-tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.panel {
+		padding-bottom: 6rem;
+	}
+
 	.head-row {
 		display: flex;
 		align-items: center;

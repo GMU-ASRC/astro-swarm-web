@@ -7,28 +7,76 @@ export interface EvalSummary {
 	detection_times?: number[];
 	capture_times?: number[];
 	goal_times?: number[];
-	sequential_rate?: number;
-	simultaneous_rate?: number;
+	risk?: number;
+	evaders_resolved?: number;
 	evaders_destroyed?: number;
-	evaders_total?: number;
 	evader_destroyed_rate?: number;
-	trial_destroyed?: number[];
-	trial_evaders?: number[];
-	trial_detected_first?: number[];
-	trial_detected_second?: number[];
+	breaches?: number;
+	defenders_lost?: number;
 	trials_held_rate?: number;
-	sequential_detection_rate?: number;
-	simultaneous_detection_rate?: number;
-	sweep?: { n: number; success_rate: number }[];
+	replay_trials?: number;
+	trial_destroyed?: number[];
+	trial_resolved?: number[];
+	trial_breaches?: number[];
+	trial_lost?: number[];
+	attrition?: AttritionPoint[];
+	sweep_attrition?: AttritionSeries[];
+	sweep?: SweepRow[];
 	stats?: RunStats;
 }
 
+export interface LevelLeaderboardRow {
+	rank: number;
+	player_id: string;
+	username: string;
+	entries: number;
+	best_rate: number;
+	average_rate: number;
+	best_entry_id: string;
+	best_defenders: number;
+	last_active: string | null;
+}
+
+export interface LevelSweepEntry {
+	id: string;
+	username: string;
+	player_id: string;
+	success_rate: number;
+	defenders: number;
+	created_at: string | null;
+	sweep: { n: number; capture_rate: number; risk: number }[];
+	attrition: AttritionPoint[];
+}
+
+export interface SweepRow {
+	n: number;
+	success_rate: number;
+	capture_rate?: number;
+	detection_rate?: number;
+	risk?: number;
+}
+
+export interface AttritionPoint {
+	defenders: number;
+	launched: number;
+	destroyed: number;
+	capture_rate: number;
+	risk: number;
+}
+
+export interface AttritionSeries {
+	n: number;
+	points: AttritionPoint[];
+}
+
 export interface RunStats {
-	wave_two_time?: number;
-	evaders?: number;
+	sent?: number;
+	resolved?: number;
 	destroyed?: number;
 	breaches?: number;
+	defenders?: number;
 	lost?: number;
+	end_time?: number;
 	merge_time?: number;
 	deliver_time?: number;
 	escape_time?: number;
