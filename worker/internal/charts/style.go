@@ -25,6 +25,10 @@ const (
 	chartWidth  = 9 * vg.Inch
 	chartHeight = 5 * vg.Inch
 	markWidth   = vg.Length(2)
+
+	percentHeadroom = 3.0  // percentage points the axis runs past 0 and 100
+	contentMargin   = 0.05 // fraction of the x range left clear at each end
+	legendRoomShare = 0.2  // extra fraction of the x range kept clear for the legend
 )
 
 func newPlot(title, xLabel, yLabel string) *plot.Plot {
@@ -74,19 +78,42 @@ func percentTicks(p *plot.Plot) {
 	})
 }
 
+// A line sitting exactly on 0 or 100 is drawn half outside the plot area, so the
+// scale runs a little past both ends while the ticks stay on the round numbers.
 func percentAxis(p *plot.Plot) {
-	p.Y.Min = 0
-	p.Y.Max = 100
+	p.Y.Min = -percentHeadroom
+	p.Y.Max = 100 + percentHeadroom
 	percentTicks(p)
 }
 
+// Bars are read against the zero line, so this one only takes headroom on top.
 func percentAxisFromBaseline(p *plot.Plot) {
 	p.Y.Min = 0
-	p.Y.Max = 100
+	p.Y.Max = 100 + percentHeadroom
 	percentTicks(p)
+}
+
+// Every x axis these charts use is a count - trials, evaders faced, ring size,
+// defenders standing - so its ticks are whole numbers however the range falls.
+func countTicks(p *plot.Plot) {
+	p.X.Tick.Marker = plot.TickerFunc(func(low, high float64) []plot.Tick {
+		ticks := plot.DefaultTicks{}.Ticks(low, high)
+		for index, tick := range ticks {
+			if tick.Label == "" {
+				continue
+			}
+			rounded := math.Round(tick.Value)
+			if math.Abs(tick.Value-rounded) > 1e-9 {
+				continue
+			}
+			ticks[index].Label = strconv.FormatFloat(rounded, 'f', -1, 64)
+		}
+		return ticks
+	})
 }
 
 func marginX(p *plot.Plot, series ...plotter.XYs) {
+	countTicks(p)
 	low := math.Inf(1)
 	high := math.Inf(-1)
 	for _, points := range series {
@@ -98,9 +125,19 @@ func marginX(p *plot.Plot, series ...plotter.XYs) {
 	if math.IsInf(low, 1) || high <= low {
 		return
 	}
-	margin := (high - low) * 0.03
+	margin := (high - low) * contentMargin
 	p.X.Min = low - margin
 	p.X.Max = high + margin
+}
+
+// The legend is drawn inside the plot at the top right, where a chart with one
+// line per ring is at its most crowded. Widening the x range past the last point
+// gives it a clear corner to sit in.
+func legendRoom(p *plot.Plot) {
+	if p.X.Max <= p.X.Min {
+		return
+	}
+	p.X.Max += (p.X.Max - p.X.Min) * legendRoomShare
 }
 
 func styleBars(bars *plotter.BarChart, shade color.Color) {

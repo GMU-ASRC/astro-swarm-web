@@ -13,22 +13,35 @@ import {
 	type SweepRow
 } from '$lib/ts/chartBase';
 
+const TRIAL_LABELS = ['Evader detected', 'Evader captured', 'Defenders win'];
+
+// An assault trial is a stream of evaders rather than one approach, so its
+// detection and capture bars are shares of the evaders sent, not of the trials.
+const ASSAULT_LABELS = ['Evader seen', 'Evaders destroyed', 'Trials held'];
+
 export function headlineRatesConfig(
 	detectionRate: number,
 	captureRate: number,
 	successRate: number,
-	trials: number
+	trials: number,
+	assault = false
 ): ChartConfiguration {
-	const options = baseOptions('Outcome Rates', '% of trials', '', false, placementSource(trials));
+	const options = baseOptions(
+		'Outcome Rates',
+		assault ? 'Evaders (%)' : 'Trials (%)',
+		'',
+		false,
+		placementSource(trials)
+	);
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
 		type: 'bar',
 		data: {
-			labels: ['Evader detected', 'Evader captured', 'Defenders win'],
+			labels: assault ? ASSAULT_LABELS : TRIAL_LABELS,
 			datasets: [
 				{
-					label: 'Percent of trials',
+					label: assault ? 'Percent' : 'Trials (%)',
 					data: [detectionRate, captureRate, successRate],
 					backgroundColor: [DETECTION, CAPTURE, SUCCESS]
 				}
@@ -49,8 +62,8 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 	});
 
 	const options = baseOptions(
-		'Cumulative Defender Win Rate',
-		'Defenders win (%)',
+		'Cumulative Win Rate',
+		'Wins (%)',
 		'Trial',
 		false,
 		placementSource(outcomes.length)
@@ -85,7 +98,7 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 
 	const options = baseOptions(
 		'Outcome Breakdown',
-		'% of trials',
+		'Trials (%)',
 		'',
 		false,
 		placementSource(outcomes.length)
@@ -96,7 +109,7 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 		type: 'bar',
 		data: {
 			labels: ['Intercept', 'Planet hit', 'Timeout'],
-			datasets: [{ label: '% of trials', data: values, backgroundColor: ['#4ade80', '#f87171', '#fbbf24'] }]
+			datasets: [{ label: 'Trials (%)', data: values, backgroundColor: ['#4ade80', '#f87171', '#fbbf24'] }]
 		},
 		options
 	};
@@ -113,7 +126,7 @@ function sweepRateConfig(
 	const points = sweepPoints(rows);
 	const rate = (row: SweepRow) => rateOf(row, rateKey, timeKey);
 
-	const options = baseOptions(title, yTitle, 'Defenders in ring (n)', false, sweepSource(rows));
+	const options = baseOptions(title, yTitle, 'Ring size (n)', false, sweepSource(rows));
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
@@ -133,8 +146,8 @@ export function detectionRateConfig(rows: SweepRow[]): ChartConfiguration {
 		rows,
 		'detection_rate',
 		'detection_time',
-		'Detection Success Rate vs Number of Defenders',
-		'Detection success rate (%)',
+		'Detection Rate by Ring Size',
+		'Detection rate (%)',
 		DETECTION
 	);
 }
@@ -144,8 +157,8 @@ export function captureRateConfig(rows: SweepRow[]): ChartConfiguration {
 		rows,
 		'capture_rate',
 		'capture_time',
-		'Capture Success Rate vs Number of Defenders',
-		'Capture success rate (%)',
+		'Capture Rate by Ring Size',
+		'Capture rate (%)',
 		CAPTURE
 	);
 }
@@ -153,9 +166,9 @@ export function captureRateConfig(rows: SweepRow[]): ChartConfiguration {
 export function combinedRatesConfig(rows: SweepRow[]): ChartConfiguration {
 	const points = sweepPoints(rows);
 	const options = baseOptions(
-		'Detection and Capture Rates vs Number of Defenders',
-		'% of ring sweep runs',
-		'Defenders in ring (n)',
+		'Detection and Capture Rates by Ring Size',
+		'Rate (%)',
+		'Ring size (n)',
 		true,
 		sweepSource(rows)
 	);
@@ -167,7 +180,7 @@ export function combinedRatesConfig(rows: SweepRow[]): ChartConfiguration {
 			labels: points.map((point) => point.n),
 			datasets: [
 				{
-					label: 'Seen at least once',
+					label: 'Detected',
 					data: points.map((point) => rateOf(point, 'detection_rate', 'detection_time')),
 					borderColor: DETECTION,
 					backgroundColor: DETECTION,
@@ -207,7 +220,7 @@ export function timesConfig(detection: number[], capture: number[]): ChartConfig
 			]
 		},
 		options: baseOptions(
-			'Detection and Capture Times per Trial',
+			'Detection and Capture Times',
 			'Time (s)',
 			'Trial',
 			true,

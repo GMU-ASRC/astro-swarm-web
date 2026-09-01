@@ -46,16 +46,16 @@
 			config={comparisonConfig(
 				series,
 				'capture_rate',
-				'Capture Success Rate vs Number of Defenders',
-				'Capture success rate (%)'
+				'Capture Rate by Ring Size',
+				'Capture rate (%)'
 			)}
 		/>
 		<ChartCard
 			config={comparisonConfig(
 				series,
 				'risk',
-				'Risk vs Number of Defenders',
-				'Risk = 1 - capture success rate (%)'
+				'Risk by Ring Size',
+				'Risk (%)'
 			)}
 		/>
 	</div>

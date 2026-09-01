@@ -21,6 +21,22 @@ export const COMPARISON_COLORS = [
 ];
 
 const PERCENT_CEILING = 100;
+const PERCENT_TICKS = [0, 25, 50, 75, 100];
+
+// A line sitting exactly on 0 or 100 is drawn half outside the plot area, so the
+// scale runs a little past both ends while the ticks stay on the round numbers.
+const PERCENT_HEADROOM = 3;
+
+// Breathing room between the plot area and the edge of the card, so a line that
+// runs to the last point does not touch the frame.
+const CONTENT_PADDING = { top: 4, right: 14, bottom: 4, left: 6 };
+const RAMP_START_HUE = 220;
+const RAMP_END_HUE = 0;
+
+// Past this many lines the legend is worth calling out in the subtitle, since it
+// wraps into rows. Every line is still named: on the site a legend entry can be
+// clicked to pull one ring out of the group.
+export const LEGEND_MAX = 8;
 const PERCENT_TICK_STEP = 25;
 const VALUE_HEADROOM = '8%';
 
@@ -76,6 +92,7 @@ export function baseOptions(
 	return {
 		responsive: true,
 		maintainAspectRatio: false,
+		layout: { padding: CONTENT_PADDING },
 		plugins: {
 			title: { display: true, text: title, color: TEXT, font: { size: 15 } },
 			subtitle: {
@@ -85,7 +102,10 @@ export function baseOptions(
 				font: { size: 11 },
 				padding: { bottom: 10 }
 			},
-			legend: { display: showLegend, labels: { color: TEXT } }
+			legend: {
+				display: showLegend,
+				labels: { color: TEXT, boxWidth: 10, boxHeight: 10, padding: 8, font: { size: 10 } }
+			}
 		},
 		scales: {
 			y: {
@@ -117,9 +137,12 @@ export function sweepSource(rows: SweepRow[]): string {
 export function percentScale(scale: object) {
 	return {
 		...scale,
-		min: 0,
-		max: PERCENT_CEILING,
-		ticks: { color: TEXT, stepSize: PERCENT_TICK_STEP }
+		min: -PERCENT_HEADROOM,
+		max: PERCENT_CEILING + PERCENT_HEADROOM,
+		ticks: { color: TEXT, stepSize: PERCENT_TICK_STEP },
+		afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
+			axis.ticks = PERCENT_TICKS.map((value) => ({ value }));
+		}
 	};
 }
 
@@ -138,13 +161,16 @@ export function rateOf(
 	return time != null && time >= 0 ? 100 : 0;
 }
 
-// Ring sizes are consecutive, so drawing every one of them is unreadable. Take
-// an even spread across the sweep and always keep the largest ring, which is the
-// one the sweep stopped at.
-export function spreadSeries<T>(series: T[], limit: number): T[] {
-	if (series.length <= limit) return series;
-	const step = (series.length - 1) / (limit - 1);
-	return Array.from({ length: limit }, (_, index) => series[Math.round(index * step)]);
+// Ring size is an ordered quantity, so a chart with one line per n reads as a
+// ramp rather than as a set of unrelated colors: the smallest ring is blue and
+// the largest is red, and a line's color alone says where it sits in the sweep.
+export function seriesRamp(count: number): string[] {
+	if (count < 2) return [`hsl(${RAMP_END_HUE}, 70%, 45%)`];
+	const span = RAMP_START_HUE - RAMP_END_HUE;
+	return Array.from({ length: count }, (_, index) => {
+		const hue = RAMP_START_HUE - (span * index) / (count - 1);
+		return `hsl(${Math.round(hue)}, 70%, 45%)`;
+	});
 }
 
 export function riskOf(row: SweepRow): number {

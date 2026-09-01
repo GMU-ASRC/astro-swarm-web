@@ -1,17 +1,19 @@
 import type { ChartConfiguration } from 'chart.js';
 
 import {
-	CAPTURE,
 	COMPARISON_COLORS,
+	FAINT,
 	RISK,
 	SUCCESS,
 	baseOptions,
 	percentScale,
 	rateOf,
 	riskOf,
+	placementSource,
+	seriesRamp,
 	sweepPoints,
 	sweepSource,
-	spreadSeries,
+	LEGEND_MAX,
 	type AttritionRow,
 	type AttritionSeries,
 	type ProgressSeries,
@@ -19,14 +21,13 @@ import {
 	type SweepRow
 } from '$lib/ts/chartBase';
 
-const MAX_ATTRITION_SERIES = 6;
 
 export function riskConfig(rows: SweepRow[]): ChartConfiguration {
 	const points = sweepPoints(rows);
 	const options = baseOptions(
-		'Risk vs Number of Defenders',
-		'Risk = 1 - capture success rate (%)',
-		'Defenders in ring (n)',
+		'Risk by Ring Size',
+		'Risk (%)',
+		'Ring size (n)',
 		true,
 		sweepSource(rows)
 	);
@@ -46,12 +47,62 @@ export function riskConfig(rows: SweepRow[]): ChartConfiguration {
 					borderWidth: 2
 				},
 				{
-					label: 'Capture success rate',
+					label: 'Capture rate',
 					data: points.map((point) => rateOf(point, 'capture_rate', 'capture_time')),
 					borderColor: SUCCESS,
 					backgroundColor: SUCCESS,
 					pointRadius: 0,
 					borderWidth: 2
+				}
+			]
+		},
+		options
+	};
+}
+
+// Risk trial by trial, so a run that averages well but collapses on a handful of
+// scatters can be told apart from one that holds the same line every time.
+export function trialRiskConfig(destroyed: number[], resolved: number[]): ChartConfiguration {
+	const labels = destroyed.map((_, index) => index + 1);
+	const risks = destroyed.map((count, index) => {
+		const faced = resolved[index] ?? 0;
+		return faced > 0 ? Math.round((100 - (100 * count) / faced) * 10) / 10 : 100;
+	});
+	const totalDestroyed = destroyed.reduce((sum, count) => sum + count, 0);
+	const totalResolved = resolved.reduce((sum, count) => sum + count, 0);
+	const overall =
+		totalResolved > 0 ? Math.round((100 - (100 * totalDestroyed) / totalResolved) * 10) / 10 : 100;
+
+	const options = baseOptions(
+		'Risk per Trial',
+		'Risk (%)',
+		'Trial',
+		true,
+		placementSource(labels.length)
+	);
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels,
+			datasets: [
+				{
+					label: 'Risk in this trial',
+					data: risks,
+					borderColor: RISK,
+					backgroundColor: RISK,
+					pointRadius: 0,
+					borderWidth: 2
+				},
+				{
+					label: `Risk across every trial · ${overall}%`,
+					data: labels.map(() => overall),
+					borderColor: FAINT,
+					backgroundColor: FAINT,
+					pointRadius: 0,
+					borderWidth: 2,
+					borderDash: [6, 4]
 				}
 			]
 		},
@@ -65,9 +116,9 @@ export function attritionRiskConfig(rows: AttritionRow[]): ChartConfiguration {
 	const points = [...rows].sort((a, b) => a.defenders - b.defenders);
 	const launched = points.reduce((total, point) => total + point.launched, 0);
 	const options = baseOptions(
-		'Risk as the Defender Line Thins',
-		'Risk = 1 - capture success rate (%)',
-		'Defenders still standing when the evader launched',
+		'Risk as the Line Thins',
+		'Risk (%)',
+		'Defenders standing',
 		false,
 		`${launched} evaders launched across every trial`
 	);
@@ -79,7 +130,7 @@ export function attritionRiskConfig(rows: AttritionRow[]): ChartConfiguration {
 			labels: points.map((point) => point.defenders),
 			datasets: [
 				{
-					label: 'Risk at this line size',
+					label: 'Risk',
 					data: points.map((point) => point.risk),
 					borderColor: RISK,
 					backgroundColor: RISK,
@@ -98,10 +149,8 @@ export function attritionRiskConfig(rows: AttritionRow[]): ChartConfiguration {
 // two algorithms can be compared on what their risk does as the line thins
 // rather than on a single number at full strength.
 export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfiguration {
-	const chosen = spreadSeries(
-		[...series].sort((a, b) => a.n - b.n),
-		MAX_ATTRITION_SERIES
-	);
+	const chosen = [...series].sort((a, b) => a.n - b.n);
+	const colors = seriesRamp(chosen.length);
 	const sizes = new Set<number>();
 	for (const entry of chosen) {
 		for (const point of entry.points) sizes.add(point.defenders);
@@ -109,11 +158,14 @@ export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfigurat
 	const labels = [...sizes].sort((a, b) => a - b);
 
 	const options = baseOptions(
-		'Risk as the Line Thins, by Ring Size',
-		'Risk = 1 - capture success rate (%)',
-		'Defenders still standing when the evader launched',
+		'Risk as the Line Thins, per Ring',
+		'Risk (%)',
+		'Defenders standing',
 		true,
-		`Ring sweep runs · ${series.length} ${series.length === 1 ? 'ring size' : 'ring sizes'} measured`
+		rampSource(
+			`${series.length} ${series.length === 1 ? 'ring size' : 'ring sizes'} measured`,
+			chosen.length
+		)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
 
@@ -123,7 +175,7 @@ export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfigurat
 			labels,
 			datasets: chosen.map((entry, index) => {
 				const byDefenders = new Map(entry.points.map((point) => [point.defenders, point.risk]));
-				const color = COMPARISON_COLORS[index % COMPARISON_COLORS.length];
+				const color = colors[index];
 				return {
 					label: `n = ${entry.n}`,
 					data: labels.map((defenders) => byDefenders.get(defenders) ?? null),
@@ -149,17 +201,21 @@ export function ringProgressConfig(
 	title: string,
 	yTitle: string
 ): ChartConfiguration {
-	const chosen = spreadSeries(
-		[...series].sort((a, b) => a.n - b.n),
-		MAX_ATTRITION_SERIES
-	);
+	const chosen = [...series].sort((a, b) => a.n - b.n);
+	const colors = seriesRamp(chosen.length);
 	const faced = new Set<number>();
 	for (const entry of chosen) {
 		for (const point of entry.points) faced.add(point.faced);
 	}
 	const labels = [...faced].sort((a, b) => a - b);
 
-	const options = baseOptions(title, yTitle, 'Evaders faced', true, ringSource(series));
+	const options = baseOptions(
+		title,
+		yTitle,
+		'Evaders faced',
+		true,
+		ringSource(series, chosen.length)
+	);
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
@@ -171,7 +227,7 @@ export function ringProgressConfig(
 				// different sizes sit on one axis.
 				const scale = key === 'defenders' && entry.n > 0 ? 100 / entry.n : 1;
 				const byFaced = new Map(entry.points.map((point) => [point.faced, point[key] * scale]));
-				const color = COMPARISON_COLORS[index % COMPARISON_COLORS.length];
+				const color = colors[index];
 				return {
 					label: `n = ${entry.n}`,
 					data: labels.map((value) => byFaced.get(value) ?? null),
@@ -187,10 +243,18 @@ export function ringProgressConfig(
 	};
 }
 
-function ringSource(series: ProgressSeries[]): string {
+function ringSource(series: ProgressSeries[], drawn: number): string {
 	if (series.length === 0) return 'Ring sweep runs';
 	const sizes = series.map((entry) => entry.n);
-	return `Ring sweep runs · n = ${Math.min(...sizes)}–${Math.max(...sizes)}`;
+	return rampSource(`n = ${Math.min(...sizes)}–${Math.max(...sizes)}`, drawn);
+}
+
+// With one line per ring size the legend runs long, so the subtitle says how to
+// read the color and that a legend entry can be clicked to isolate one ring.
+function rampSource(detail: string, drawn: number): string {
+	const source = `Ring sweep runs · ${detail}`;
+	if (drawn <= LEGEND_MAX) return source;
+	return `${source} · blue is the smallest ring, red the largest · click a legend entry to isolate it`;
 }
 
 export const BEST_SERIES_ID = 'best';
@@ -207,7 +271,7 @@ export function comparisonConfig(
 	}
 	const labels = [...sizes].sort((a, b) => a - b);
 
-	const options = baseOptions(title, yTitle, 'Defenders in ring (n)', true, comparisonSource(entries));
+	const options = baseOptions(title, yTitle, 'Ring size (n)', true, comparisonSource(entries));
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {

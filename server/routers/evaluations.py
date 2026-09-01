@@ -853,6 +853,10 @@ def chart(eval_id: str, kind: str):
         png = charts.render_capture_rate_png(evaluation.sweep_index(), *meta)
     elif kind == "risk":
         png = charts.render_risk_png(evaluation.sweep_index(), *meta)
+    elif kind == "trial-risk":
+        png = charts.render_trial_risk_png(
+            results.get("trial_destroyed", []), results.get("trial_resolved", []), *meta
+        )
     elif kind == "attrition":
         png = charts.render_attrition_png(results.get("attrition", []), *meta)
     elif kind == "sweep-attrition":

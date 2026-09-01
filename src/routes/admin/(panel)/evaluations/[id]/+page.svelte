@@ -152,11 +152,12 @@
 		}
 	]);
 
-	let sweepMeta = $derived(
-		selectedSweepReplay
-			? `N = ${selectedN} defenders${selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · outcome: ${selectedSweepReplay.outcome} · detected: ${fmtTime(selectedSweepReplay.detection_time)} · captured: ${fmtTime(selectedSweepReplay.capture_time)}`
-			: ''
-	);
+	let sweepMeta = $derived.by(() => {
+		const replay = selectedSweepReplay;
+		if (replay == null) return '';
+		const trial = selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : '';
+		return `N = ${selectedN} defenders${trial} · outcome: ${replay.outcome} · detected: ${fmtTime(replay.detection_time)} · captured: ${fmtTime(replay.capture_time)}`;
+	});
 
 	function sweepTone(run: { outcome: string; capture_rate?: number }): 'win' | 'loss' | 'timeout' {
 		// Color an n by how its trials went overall, not by the one trial kept
@@ -166,7 +167,7 @@
 	}
 
 	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
-		if (run.capture_rate != null) return `${run.capture_rate}% of trials captured`;
+		if (run.capture_rate != null) return `${run.capture_rate}Trials (%) captured`;
 		return run.outcome;
 	}
 
@@ -460,8 +461,8 @@
 						config={ringProgressConfig(
 							sweepProgress,
 							'capture_rate',
-							'Capture Success Rate by Ring Size',
-							'Capture success rate so far (%)'
+							'Capture Rate, Wave by Wave',
+							'Capture rate (%)'
 						)}
 						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)}
 					/>
@@ -469,8 +470,8 @@
 						config={ringProgressConfig(
 							sweepProgress,
 							'risk',
-							'Risk by Ring Size',
-							'Risk = 1 - capture success rate (%)'
+							'Risk, Wave by Wave',
+							'Risk (%)'
 						)}
 						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)}
 					/>
@@ -478,8 +479,8 @@
 						config={ringProgressConfig(
 							sweepProgress,
 							'defenders',
-							'Defenders Still Standing by Ring Size',
-							'Defenders left, as a share of the ring (%)'
+							'Line Remaining, Wave by Wave',
+							'Line remaining (%)'
 						)}
 						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
 					/>

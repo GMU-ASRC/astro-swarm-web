@@ -33,6 +33,7 @@ func WriteAll(directory string, input Input) ([]string, error) {
 		{"detection_rate_vs_defenders.png", detectionVersusDefenders},
 		{"capture_rate_vs_defenders.png", captureVersusDefenders},
 		{"rates_vs_defenders.png", combinedVersusDefenders},
+		{"risk_per_trial.png", riskPerTrial},
 		{"risk_vs_defenders.png", riskVersusDefenders},
 		{"risk_vs_attrition.png", riskVersusAttrition},
 		{"risk_vs_attrition_by_ring.png", riskVersusSweepAttrition},
@@ -61,9 +62,9 @@ func WriteAll(directory string, input Input) ([]string, error) {
 func detectionRateChart(input Input) (*plot.Plot, error) {
 	results := input.Report.Results
 	p := newPlot(
-		"Placement trials: outcome rates"+suffix(input.Subtitle),
+		"Outcome rates"+suffix(input.Subtitle),
 		"",
-		"Percent of trials",
+		"Trials (%)",
 	)
 	percentAxisFromBaseline(p)
 	p.NominalX("Evader detected", "Evader captured", "Defenders win")
@@ -116,9 +117,9 @@ func detectionVersusDefenders(input Input) (*plot.Plot, error) {
 		return nil, nil
 	}
 	p := newPlot(
-		"Detection rate vs number of defenders"+suffix(input.Subtitle),
-		"Defenders on the ring (n)",
-		"Runs where the evader was seen (%)",
+		"Detection rate by ring size"+suffix(input.Subtitle),
+		"Ring size (n)",
+		"Detection rate (%)",
 	)
 	percentAxis(p)
 
@@ -147,9 +148,9 @@ func captureVersusDefenders(input Input) (*plot.Plot, error) {
 		return nil, nil
 	}
 	p := newPlot(
-		"Capture success rate vs number of defenders"+suffix(input.Subtitle),
-		"Defenders on the ring (n)",
-		"Runs where the evader was captured (%)",
+		"Capture rate by ring size"+suffix(input.Subtitle),
+		"Ring size (n)",
+		"Capture rate (%)",
 	)
 	percentAxis(p)
 
@@ -182,9 +183,9 @@ func combinedVersusDefenders(input Input) (*plot.Plot, error) {
 		return nil, nil
 	}
 	p := newPlot(
-		"Detection and capture rates vs number of defenders"+suffix(input.Subtitle),
-		"Defenders on the ring (n)",
-		"Percent of ring-sweep runs",
+		"Detection and capture rates by ring size"+suffix(input.Subtitle),
+		"Ring size (n)",
+		"Rate (%)",
 	)
 	percentAxis(p)
 
@@ -196,7 +197,7 @@ func combinedVersusDefenders(input Input) (*plot.Plot, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Legend.Add("Seen at least once", detectionLine)
+	p.Legend.Add("Detected", detectionLine)
 	p.Legend.Add("Captured", captureLine)
 	marginX(p, detection, capture)
 	return p, nil

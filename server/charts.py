@@ -1,3 +1,4 @@
+import colorsys
 from io import BytesIO
 
 import matplotlib
@@ -9,15 +10,18 @@ import matplotlib.pyplot as plt
 
 PERCENT_CEILING = 100
 PERCENT_TICKS = [0, 25, 50, 75, 100]
-AXIS_PADDING = 0.04
+PERCENT_HEADROOM = 3
+AXIS_PADDING = 0.05
 
 
 def _caption(username, level_id, eval_id, date_label):
     return f"{username}  ·  level: {level_id}  ·  id: {eval_id[:8]}  ·  {date_label}"
 
 
+# A line sitting exactly on 0 or 100 is drawn half outside the plot area, so the
+# scale runs a little past both ends while the ticks stay on the round numbers.
 def _percent_axis(ax):
-    ax.set_ylim(0, PERCENT_CEILING)
+    ax.set_ylim(-PERCENT_HEADROOM, PERCENT_CEILING + PERCENT_HEADROOM)
     ax.set_yticks(PERCENT_TICKS)
 
 
@@ -118,7 +122,7 @@ def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta)
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     ax.plot(xs, ys, color=color, linewidth=2)
     ax.set_title(title)
-    ax.set_xlabel("Defenders in ring (n)")
+    ax.set_xlabel("Ring size (n)")
     ax.set_ylabel(ylabel)
     _percent_axis(ax)
     _padded_xlim(ax, xs)
@@ -131,7 +135,7 @@ def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta)
 def render_detection_rate_png(rows, username, level_id, eval_id, date_label):
     return _render_sweep_rate_png(
         rows, "detection_rate", "detection_time", "#2563eb",
-        "Detection Success Rate vs Number of Defenders", "Detection success rate (%)",
+        "Detection Rate by Ring Size", "Detection rate (%)",
         (username, level_id, eval_id, date_label),
     )
 
@@ -139,7 +143,7 @@ def render_detection_rate_png(rows, username, level_id, eval_id, date_label):
 def render_capture_rate_png(rows, username, level_id, eval_id, date_label):
     return _render_sweep_rate_png(
         rows, "capture_rate", "capture_time", "#dc2626",
-        "Capture Success Rate vs Number of Defenders", "Capture success rate (%)",
+        "Capture Rate by Ring Size", "Capture rate (%)",
         (username, level_id, eval_id, date_label),
     )
 
@@ -159,10 +163,41 @@ def render_risk_png(rows, username, level_id, eval_id, date_label):
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk")
-    ax.plot(xs, captures, color="#16a34a", linewidth=2, label="Capture success rate")
-    ax.set_title("Risk vs Number of Defenders")
-    ax.set_xlabel("Defenders in ring (n)")
-    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+    ax.plot(xs, captures, color="#16a34a", linewidth=2, label="Capture rate")
+    ax.set_title("Risk by Ring Size")
+    ax.set_xlabel("Ring size (n)")
+    ax.set_ylabel("Risk (%)")
+    _percent_axis(ax)
+    _padded_xlim(ax, xs)
+    ax.grid(True, color="#e5e7eb")
+    ax.legend(loc="upper right", fontsize=8)
+    fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return _save(fig)
+
+
+# Risk trial by trial, so a run that averages well but collapses on a handful of
+# scatters can be told apart from one that holds the same line every time.
+def render_trial_risk_png(destroyed, resolved, username, level_id, eval_id, date_label):
+    xs = list(range(1, len(destroyed) + 1))
+    risks = [
+        100.0 - 100.0 * destroyed[index] / resolved[index]
+        if index < len(resolved) and resolved[index] > 0
+        else 100.0
+        for index in range(len(destroyed))
+    ]
+    total_resolved = sum(resolved)
+    overall = 100.0 - 100.0 * sum(destroyed) / total_resolved if total_resolved else 100.0
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk in this trial")
+    ax.plot(
+        xs, [overall] * len(xs), color="#6b7280", linewidth=2, linestyle="--",
+        label=f"Risk across every trial - {round(overall, 1)}%",
+    )
+    ax.set_title("Risk per Trial")
+    ax.set_xlabel("Trial")
+    ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
@@ -181,9 +216,9 @@ def render_attrition_png(points, username, level_id, eval_id, date_label):
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     ax.plot(xs, ys, color="#dc2626", linewidth=2, marker="o", markersize=4)
-    ax.set_title("Risk as the Defender Line Thins")
-    ax.set_xlabel("Defenders still standing when the evader launched")
-    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+    ax.set_title("Risk as the Line Thins")
+    ax.set_xlabel("Defenders standing")
+    ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
@@ -192,24 +227,56 @@ def render_attrition_png(points, username, level_id, eval_id, date_label):
     return _save(fig)
 
 
-SERIES_COLORS = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#0891b2", "#db2777"]
-MAX_ATTRITION_SERIES = 6
+RAMP_START_HUE = 220.0
+RAMP_END_HUE = 0.0
+
+# Past this many lines a legend costs more room than it gives back, so the ramp
+# itself carries the reading and the subtitle says which end is which.
+LEGEND_MAX = 8
 
 
-# Ring sizes are consecutive, so drawing every one of them is unreadable. Take an
-# even spread across the sweep and always keep the largest ring, which is the one
-# the sweep stopped at.
-def _spread(series, limit=MAX_ATTRITION_SERIES):
-    if len(series) <= limit:
-        return series
-    step = (len(series) - 1) / (limit - 1)
-    return [series[round(index * step)] for index in range(limit)]
+# Ring size is an ordered quantity, so a chart with one line per n reads as a
+# ramp rather than as a set of unrelated colors: the smallest ring is blue and
+# the largest is red.
+def _ramp(count):
+    if count < 2:
+        return [_hue_color(RAMP_END_HUE)]
+    span = RAMP_START_HUE - RAMP_END_HUE
+    return [_hue_color(RAMP_START_HUE - span * index / (count - 1)) for index in range(count)]
+
+
+def _hue_color(hue):
+    red, green, blue = colorsys.hls_to_rgb(hue / 360.0, 0.45, 0.7)
+    return "#%02x%02x%02x" % (round(red * 255), round(green * 255), round(blue * 255))
+
+
+# A legend cannot hold forty entries, but forty unnamed lines are unreadable, so
+# it names an even spread of them instead. They are anchors on the ramp: any line
+# can be placed by the two named ones its color sits between.
+def _legend_anchors(count):
+    if count <= LEGEND_MAX:
+        return set(range(count))
+    step = (count - 1) / (LEGEND_MAX - 1)
+    return {round(index * step) for index in range(LEGEND_MAX)}
+
+
+def _ramp_legend(ax, count):
+    if count == 0:
+        return
+    ax.legend(loc="upper right", fontsize=8, title=None)
+    if count > LEGEND_MAX:
+        ax.text(
+            0.99, 0.02, "%d rings drawn, blue smallest to red largest" % count,
+            transform=ax.transAxes, ha="right", fontsize=8, color="#6b7280",
+        )
 
 
 # One curve per ring size: a line that started at n and traded itself down, so
 # two algorithms can be compared on what their risk does as the line thins.
 def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
-    chosen = _spread(sorted(series, key=lambda entry: entry.get("n", 0)))
+    chosen = sorted(series, key=lambda entry: entry.get("n", 0))
+    colors = _ramp(len(chosen))
+    anchors = _legend_anchors(len(chosen))
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     everything = []
@@ -218,15 +285,15 @@ def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
         xs = [point.get("defenders", 0) for point in points]
         ys = [point.get("risk", 0.0) for point in points]
         everything.extend(xs)
-        ax.plot(xs, ys, color=SERIES_COLORS[index % len(SERIES_COLORS)], linewidth=2, label=f"n = {entry.get('n')}")
-    ax.set_title("Risk as the Line Thins, by Ring Size")
-    ax.set_xlabel("Defenders still standing when the evader launched")
-    ax.set_ylabel("Risk = 1 - capture success rate (%)")
+        label = f"n = {entry.get('n')}" if index in anchors else None
+        ax.plot(xs, ys, color=colors[index], linewidth=2, label=label)
+    ax.set_title("Risk as the Line Thins, per Ring")
+    ax.set_xlabel("Defenders standing")
+    ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, everything)
     ax.grid(True, color="#e5e7eb")
-    if chosen:
-        ax.legend(loc="upper right", fontsize=8)
+    _ramp_legend(ax, len(chosen))
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     return _save(fig)
@@ -235,7 +302,9 @@ def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
 # The three ring-sweep curves the site draws side by side, read wave by wave
 # rather than in total. Every ring size gets its own line.
 def _render_progress_png(series, pick, title, ylabel, meta):
-    chosen = _spread(sorted(series, key=lambda entry: entry.get("n", 0)))
+    chosen = sorted(series, key=lambda entry: entry.get("n", 0))
+    colors = _ramp(len(chosen))
+    anchors = _legend_anchors(len(chosen))
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     everything = []
@@ -244,15 +313,15 @@ def _render_progress_png(series, pick, title, ylabel, meta):
         xs = [point.get("faced", 0) for point in points]
         ys = [pick(point, entry) for point in points]
         everything.extend(xs)
-        ax.plot(xs, ys, color=SERIES_COLORS[index % len(SERIES_COLORS)], linewidth=2, label=f"n = {entry.get('n')}")
+        label = f"n = {entry.get('n')}" if index in anchors else None
+        ax.plot(xs, ys, color=colors[index], linewidth=2, label=label)
     ax.set_title(title)
     ax.set_xlabel("Evaders faced")
     ax.set_ylabel(ylabel)
     _percent_axis(ax)
     _padded_xlim(ax, everything)
     ax.grid(True, color="#e5e7eb")
-    if chosen:
-        ax.legend(loc="upper right", fontsize=8)
+    _ramp_legend(ax, len(chosen))
     fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     return _save(fig)
@@ -261,7 +330,7 @@ def _render_progress_png(series, pick, title, ylabel, meta):
 def render_ring_capture_png(series, username, level_id, eval_id, date_label):
     return _render_progress_png(
         series, lambda point, entry: point.get("capture_rate", 0.0),
-        "Capture Success Rate by Ring Size", "Capture success rate so far (%)",
+        "Capture Rate, Wave by Wave", "Capture rate (%)",
         (username, level_id, eval_id, date_label),
     )
 
@@ -269,7 +338,7 @@ def render_ring_capture_png(series, username, level_id, eval_id, date_label):
 def render_ring_risk_png(series, username, level_id, eval_id, date_label):
     return _render_progress_png(
         series, lambda point, entry: point.get("risk", 0.0),
-        "Risk by Ring Size", "Risk = 1 - capture success rate (%)",
+        "Risk, Wave by Wave", "Risk (%)",
         (username, level_id, eval_id, date_label),
     )
 
@@ -282,7 +351,7 @@ def render_ring_attrition_png(series, username, level_id, eval_id, date_label):
 
     return _render_progress_png(
         series, share,
-        "Defenders Still Standing by Ring Size", "Defenders left, as a share of the ring (%)",
+        "Line Remaining, Wave by Wave", "Line remaining (%)",
         (username, level_id, eval_id, date_label),
     )
 
@@ -307,7 +376,7 @@ def render_times_png(detection_times, capture_times, username, level_id, eval_id
     fig, ax = plt.subplots(figsize=(7.2, 3.8))
     ax.bar(left, detections, width=width, color="#4ade80", label="Detection time")
     ax.bar(right, captures, width=width, color="#f87171", label="Capture time")
-    ax.set_title("Detection and Capture Times per Trial")
+    ax.set_title("Detection and Capture Times")
     ax.set_xlabel("Trial")
     ax.set_ylabel("Time (s)")
     tallest = max(detections + captures + [0.0])
@@ -334,7 +403,7 @@ def render_bar_png(outcomes, username, level_id, eval_id, date_label):
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     ax.bar(labels, values, color=colors)
     ax.set_title("Outcome Breakdown")
-    ax.set_ylabel("% of trials")
+    ax.set_ylabel("Trials (%)")
     _percent_axis(ax)
     ax.grid(True, axis="y", color="#e5e7eb")
     for index, value in enumerate(values):

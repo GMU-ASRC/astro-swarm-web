@@ -16,6 +16,7 @@
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
 	import {
 		riskConfig,
+		trialRiskConfig,
 		attritionRiskConfig,
 		sweepAttritionConfig,
 		ringProgressConfig
@@ -47,6 +48,9 @@
 	let hasAttrition = $derived(attritionLevel(levelNumber));
 	let attrition = $derived(ev.results?.attrition ?? []);
 	let replayTrials = $derived(ev.results?.replay_trials ?? 0);
+	let trialDestroyed = $derived(ev.results?.trial_destroyed ?? []);
+	let trialResolved = $derived(ev.results?.trial_resolved ?? []);
+	let trialsHeldRate = $derived(ev.results?.trials_held_rate ?? successRate);
 	let sweepAttrition = $derived(ev.results?.sweep_attrition ?? []);
 	let sweepProgress = $derived(ev.results?.sweep_progress ?? []);
 
@@ -92,28 +96,50 @@
 	let selectedReplay: Replay | null = $state(null);
 	let loadedReplays = false;
 
-	let stats = $derived(ev.results?.stats ?? selectedReplay?.stats ?? {});
+	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number; trial_count?: number; recorded?: boolean }[]>([]);
+	let sweepTrials = $state<{ trial: number; outcome: string; recorded?: boolean }[]>([]);
+	let selectedN: number | null = $state(null);
+	let selectedSweepTrial: number | null = $state(null);
+	let selectedSweepReplay: Replay | null = $state(null);
+	let loadedSweep = false;
+
+	let stats = $derived.by(() => ev.results?.stats ?? selectedReplay?.stats ?? {});
 
 	let placementGroups = $derived<ReplayGroup[]>([
 		{
 			label: 'Trials',
-			cells: outcomes.map((outcome, index) => ({
-				id: index,
-				label: index + 1,
-				tone: toneOf(outcome),
-				title: `Trial ${index + 1}: ${outcome}`,
-				selected: selectedTrial === index,
-				replayable: !isAssault || index < replayTrials,
-				select: () => loadReplay(index)
-			}))
+			cells: outcomes.map((outcome, index) => {
+				const recorded = !isAssault || index < replayTrials;
+				return {
+					id: index,
+					label: index + 1,
+					tone: toneOf(outcome),
+					title: `Trial ${index + 1}: ${outcome}${recorded ? '' : ' · no recording'}`,
+					selected: selectedTrial === index,
+					replayable: recorded,
+					select: () => loadReplay(index)
+				};
+			})
 		}
 	]);
 
-	let placementMeta = $derived(
-		selectedReplay
-			? `Trial ${(selectedTrial ?? 0) + 1} · ${selectedReplay.outcome} · detected ${fmtTime(selectedReplay.detection_time)} · captured ${fmtTime(selectedReplay.capture_time)} · reached planet ${fmtTime(selectedReplay.goal_time)}`
-			: ''
+	let placementEmpty = $derived(
+		selectedTrial != null && selectedReplay == null
+			? 'That trial was simulated but not recorded, so there is nothing to replay.'
+			: 'Pick a run to replay it.'
 	);
+
+	let sweepEmpty = $derived(
+		selectedN != null && selectedSweepReplay == null
+			? 'That run was simulated but not recorded, so there is nothing to replay.'
+			: 'Pick a ring size to replay it.'
+	);
+
+	let placementMeta = $derived.by(() => {
+		const replay = selectedReplay;
+		if (replay == null) return '';
+		return `Trial ${(selectedTrial ?? 0) + 1} · ${replay.outcome} · detected ${fmtTime(replay.detection_time)} · captured ${fmtTime(replay.capture_time)} · reached planet ${fmtTime(replay.goal_time)}`;
+	});
 
 	let sweepGroups = $derived<ReplayGroup[]>([
 		{
@@ -122,8 +148,9 @@
 				id: `n${run.n}`,
 				label: run.n,
 				tone: sweepTone(run),
-				title: `n=${run.n}: ${sweepLabel(run)}`,
+				title: `n=${run.n}: ${sweepLabel(run)}${run.recorded === false ? ' · no recording' : ''}`,
 				selected: selectedN === run.n,
+				replayable: run.recorded !== false,
 				select: () => loadSweepReplay(run.n)
 			}))
 		},
@@ -133,18 +160,20 @@
 				id: `t${trial.trial}`,
 				label: trial.trial + 1,
 				tone: toneOf(trial.outcome),
-				title: `n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}`,
+				title: `n=${selectedN} trial ${trial.trial + 1}: ${trial.outcome}${trial.recorded === false ? ' · no recording' : ''}`,
 				selected: selectedSweepTrial === trial.trial,
+				replayable: trial.recorded !== false,
 				select: () => loadSweepTrialReplay(selectedN as number, trial.trial)
 			}))
 		}
 	]);
 
-	let sweepMeta = $derived(
-		selectedSweepReplay
-			? `n = ${selectedN} defenders${selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : ''} · ${selectedSweepReplay.outcome} · detected ${fmtTime(selectedSweepReplay.detection_time)} · captured ${fmtTime(selectedSweepReplay.capture_time)} · reached planet ${fmtTime(selectedSweepReplay.goal_time)}`
-			: ''
-	);
+	let sweepMeta = $derived.by(() => {
+		const replay = selectedSweepReplay;
+		if (replay == null) return '';
+		const trial = selectedSweepTrial !== null ? ` · trial ${selectedSweepTrial + 1}` : '';
+		return `n = ${selectedN} defenders${trial} · ${replay.outcome} · detected ${fmtTime(replay.detection_time)} · captured ${fmtTime(replay.capture_time)} · reached planet ${fmtTime(replay.goal_time)}`;
+	});
 
 	function sweepTone(run: { outcome: string; capture_rate?: number }): 'win' | 'loss' | 'timeout' {
 		// Color an n by how its trials went overall, not by the one trial kept
@@ -154,7 +183,7 @@
 	}
 
 	function sweepLabel(run: { outcome: string; capture_rate?: number }): string {
-		if (run.capture_rate != null) return `${run.capture_rate}% of trials captured`;
+		if (run.capture_rate != null) return `${run.capture_rate}Trials (%) captured`;
 		return run.outcome;
 	}
 
@@ -166,14 +195,21 @@
 		return value != null && value >= 0 ? value.toFixed(digits) : '—';
 	}
 
+	// A replay the worker never recorded comes back with no frames, which would
+	// leave the last run on screen or an empty stage with nothing to explain it.
+	function playable(replay: Replay | null): boolean {
+		return replay != null && (replay.frames?.length ?? 0) > 0;
+	}
+
 	async function loadReplay(trial: number) {
 		selectedTrial = trial;
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/replay/${trial}`));
-			if (!res.ok) return;
-			selectedReplay = await res.json();
+			const replay = res.ok ? await res.json() : null;
+			selectedReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading replay:', err);
+			selectedReplay = null;
 		}
 	}
 
@@ -183,13 +219,6 @@
 			loadReplay(0);
 		}
 	});
-
-	let sweepRuns = $state<{ n: number; outcome: string; detection_time?: number; capture_time?: number; detection_rate?: number; capture_rate?: number; trial_count?: number }[]>([]);
-	let sweepTrials = $state<{ trial: number; outcome: string }[]>([]);
-	let selectedN: number | null = $state(null);
-	let selectedSweepTrial: number | null = $state(null);
-	let selectedSweepReplay: Replay | null = $state(null);
-	let loadedSweep = false;
 
 	async function loadSweepIndex() {
 		try {
@@ -208,10 +237,11 @@
 		sweepTrials = [];
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
-			if (!res.ok) return;
-			selectedSweepReplay = await res.json();
+			const replay = res.ok ? await res.json() : null;
+			selectedSweepReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading sweep replay:', err);
+			selectedSweepReplay = null;
 		}
 		loadSweepTrialIndex(n);
 	}
@@ -231,10 +261,11 @@
 		selectedSweepTrial = trial;
 		try {
 			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
-			if (!res.ok) return;
-			selectedSweepReplay = await res.json();
+			const replay = res.ok ? await res.json() : null;
+			selectedSweepReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading sweep trial replay:', err);
+			selectedSweepReplay = null;
 		}
 	}
 
@@ -458,11 +489,25 @@
 
 				{#if !isPilot}
 					<div class="chart-grid">
-						<ChartCard config={headlineRatesConfig(detectionRate, captureRate, successRate, outcomes.length)} />
+						<ChartCard
+							config={headlineRatesConfig(
+								detectionRate,
+								captureRate,
+								isAssault ? trialsHeldRate : successRate,
+								outcomes.length,
+								isAssault
+							)}
+						/>
 						{#if !isAssault}
 							<ChartCard config={lineConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/line.png`)} />
 						{/if}
 						<ChartCard config={barConfig(outcomes)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/bar.png`)} />
+						{#if isAssault && trialResolved.length > 0}
+							<ChartCard
+								config={trialRiskConfig(trialDestroyed, trialResolved)}
+								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/trial-risk.png`)}
+							/>
+						{/if}
 						{#if sweepRuns.length > 0}
 							<ChartCard config={detectionRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep.png`)} />
 							<ChartCard config={captureRateConfig(sweepRuns)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/capture.png`)} />
@@ -477,8 +522,8 @@
 								config={ringProgressConfig(
 									sweepProgress,
 									'capture_rate',
-									'Capture Success Rate by Ring Size',
-									'Capture success rate so far (%)'
+									'Capture Rate, Wave by Wave',
+									'Capture rate (%)'
 								)}
 								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)}
 							/>
@@ -486,20 +531,22 @@
 								config={ringProgressConfig(
 									sweepProgress,
 									'risk',
-									'Risk by Ring Size',
-									'Risk = 1 - capture success rate (%)'
+									'Risk, Wave by Wave',
+									'Risk (%)'
 								)}
 								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)}
 							/>
-							<ChartCard
-								config={ringProgressConfig(
-									sweepProgress,
-									'defenders',
-									'Defenders Still Standing by Ring Size',
-									'Defenders left, as a share of the ring (%)'
-								)}
-								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
-							/>
+							{#if hasAttrition}
+								<ChartCard
+									config={ringProgressConfig(
+										sweepProgress,
+										'defenders',
+										'Line Remaining, Wave by Wave',
+										'Line remaining (%)'
+									)}
+									downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
+								/>
+							{/if}
 						{/if}
 						{#if sweepAttrition.length > 0}
 							<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />
@@ -515,7 +562,10 @@
 							{#if isAssault}
 								Each cell is one trial: a stream of evaders against the submitted scatter, run
 								until the line is spent or the clock stops. Green held, red let one through.
-								Only the first {ev.results?.replay_trials ?? 0} keep a recording.
+								{#if replayTrials > 0}
+									Only the first {replayTrials} keep a recording; the rest are counted but cannot be
+									replayed.
+								{/if}
 							{:else}
 								Each cell is one trial — green intercepted, red reached the planet. Pick a run to
 								replay it.
@@ -525,6 +575,7 @@
 							groups={placementGroups}
 							replay={selectedReplay}
 							meta={placementMeta}
+							empty={placementEmpty}
 						/>
 					</section>
 				{:else if selectedReplay}
@@ -560,7 +611,7 @@
 							groups={sweepGroups}
 							replay={selectedSweepReplay}
 							meta={sweepMeta}
-							empty="Pick a ring size to replay it."
+							empty={sweepEmpty}
 						/>
 					</section>
 				{/if}
