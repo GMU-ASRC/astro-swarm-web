@@ -66,7 +66,10 @@ func loadEntry(options CommandOptions, server string) (*entry.Entry, error) {
 	return fetched, nil
 }
 
-func applyServerSettings(options *CommandOptions, server string, explicit map[string]bool) {
+// The assault levels carry their own sweep budget on the server, so an entry on
+// one of them has to adopt that budget rather than the level 1 and 2 one, or the
+// numbers and the charts will not be the ones the site published.
+func applyServerSettings(options *CommandOptions, server string, explicit map[string]bool, levelID string) {
 	settings, err := entry.FetchSettings(server)
 	if err != nil {
 		fmt.Printf("warning: could not read %s/api/evaluations/settings (%v)\n", server, err)
@@ -86,11 +89,24 @@ func applyServerSettings(options *CommandOptions, server string, explicit map[st
 	if settings.Seed != 0 {
 		adopt("seed", func() { options.Seed = settings.Seed })
 	}
-	if settings.SweepMax > 0 {
-		adopt("n-max", func() { options.SweepMax = settings.SweepMax })
+	sweepMax := settings.SweepMax
+	sweepTrials := settings.SweepTrials
+	sweepSource := "server"
+	if bench.IsAssaultLevel(levelID) {
+		sweepMax = bench.DefaultAssaultSweepMax
+		sweepTrials = bench.DefaultAssaultSweepTrials
+		sweepSource = "built-in assault budget"
+		if settings.AssaultSweepMax > 0 && settings.AssaultSweepTrials > 0 {
+			sweepMax = settings.AssaultSweepMax
+			sweepTrials = settings.AssaultSweepTrials
+			sweepSource = "server assault budget"
+		}
 	}
-	if settings.SweepTrials > 0 {
-		adopt("sweep-trials", func() { options.SweepTrials = settings.SweepTrials })
+	if sweepMax > 0 {
+		adopt("n-max", func() { options.SweepMax = sweepMax })
+	}
+	if sweepTrials > 0 {
+		adopt("sweep-trials", func() { options.SweepTrials = sweepTrials })
 	}
 	if settings.SweepSpawn != "" {
 		adopt("sweep-spawn", func() { options.SweepSpawn = settings.SweepSpawn })
@@ -104,9 +120,13 @@ func applyServerSettings(options *CommandOptions, server string, explicit map[st
 	adopt("enemy-x", func() { options.EnemyX = settings.EnemyStartX })
 	adopt("enemy-y", func() { options.EnemyY = settings.EnemyStartY })
 
-	fmt.Printf("server settings: seed %d, sweep %d x %d trials (%s spawn), match cap %.0fs, evader spawn (%.0f, %.0f)\n",
-		settings.Seed, settings.SweepMax, settings.SweepTrials, settings.SweepSpawn,
+	fmt.Printf("server settings: seed %d, sweep %d x %d trials from the %s (%s spawn), match cap %.0fs, evader spawn (%.0f, %.0f)\n",
+		settings.Seed, sweepMax, sweepTrials, sweepSource, settings.SweepSpawn,
 		settings.MatchCapSeconds, settings.EnemyStartX, settings.EnemyStartY)
+	if sweepSource == "built-in assault budget" {
+		fmt.Printf("warning: %s does not report an assault sweep budget, so its own sweep may not have been %d x %d\n",
+			server, sweepMax, sweepTrials)
+	}
 	if len(adopted) > 0 {
 		fmt.Printf("  adopted for this run: %s\n", strings.Join(adopted, ", "))
 	}

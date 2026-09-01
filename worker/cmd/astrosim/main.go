@@ -69,8 +69,13 @@ func main() {
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		os.Exit(2)
 	}
-	if flags.NArg() > 0 {
+	// Parsing stops at the entry id, so anything after it has to be handed back
+	// to the flag set or a flag written after the id is silently dropped.
+	for flags.NArg() > 0 {
 		options.Target = flags.Arg(0)
+		if err := flags.Parse(flags.Args()[1:]); err != nil {
+			os.Exit(2)
+		}
 	}
 	if options.Target == "" && options.EntryFile == "" {
 		flags.Usage()
@@ -106,21 +111,32 @@ func run(options CommandOptions, explicit map[string]bool) error {
 	if err != nil {
 		return err
 	}
-	if !options.SkipSettings {
-		applyServerSettings(&options, server, explicit)
-	}
-
-	algorithm := published.Scripts()
-	if len(algorithm) == 0 {
-		return fmt.Errorf("entry carries no algorithm blocks")
-	}
-
 	levelID := published.LevelID
 	if levelID == "" {
 		levelID = "farp1"
 	}
 	if bench.IsPilotLevel(levelID) {
 		return fmt.Errorf("level %d entries are piloted recordings, there is nothing to re-simulate", bench.LevelNumber(levelID))
+	}
+
+	// An assault match runs a whole stream of evaders rather than one approach,
+	// so the level 1 and 2 sweep budget would queue tens of thousands of them.
+	if bench.IsAssaultLevel(levelID) {
+		if !explicit["n-max"] {
+			options.SweepMax = bench.DefaultAssaultSweepMax
+		}
+		if !explicit["sweep-trials"] {
+			options.SweepTrials = bench.DefaultAssaultSweepTrials
+		}
+	}
+
+	if !options.SkipSettings {
+		applyServerSettings(&options, server, explicit, levelID)
+	}
+
+	algorithm := published.Scripts()
+	if len(algorithm) == 0 {
+		return fmt.Errorf("entry carries no algorithm blocks")
 	}
 
 	placements := published.BenchPlacements()

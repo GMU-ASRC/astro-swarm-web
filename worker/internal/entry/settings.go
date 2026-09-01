@@ -17,6 +17,12 @@ type Settings struct {
 	SweepSpawn      string  `json:"sweep_spawn"`
 	ArenaWidth      float64 `json:"arena_width"`
 	ArenaHeight     float64 `json:"arena_height"`
+
+	// Levels 3 to 5 grade a stream of evaders rather than one approach, so the
+	// server gives them their own trial and sweep budget.
+	AssaultTrials      int `json:"assault_trials"`
+	AssaultSweepMax    int `json:"assault_sweep_max"`
+	AssaultSweepTrials int `json:"assault_sweep_trials"`
 }
 
 type SweepIndexEntry struct {

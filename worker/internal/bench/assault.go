@@ -25,6 +25,13 @@ const (
 
 	AssaultTailFrames   = 180 // frames recorded after the last evader of a siege is resolved
 	AssaultRecordStride = 3   // physics frames per recorded frame, so a long run stays replayable
+
+	// An assault match runs a whole stream of evaders, so the level 1 and 2 sweep
+	// budget would put a job into the tens of thousands of matches. These mirror
+	// the server's own assault budget and are what a run falls back on when the
+	// server does not report one.
+	DefaultAssaultSweepMax    = 40 // count, largest defender count in an assault ring sweep
+	DefaultAssaultSweepTrials = 20 // count, trials per defender count in an assault ring sweep
 )
 
 type AssaultInput struct {
