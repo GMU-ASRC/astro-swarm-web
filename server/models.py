@@ -51,6 +51,12 @@ def _unpack_frames(packed):
     return frames
 
 
+# A run only keeps a recording when the worker was asked for one, so the site can
+# grey out the trials it cannot replay instead of opening an empty player.
+def _has_frames(run):
+    return bool(run.get("frames_packed") or run.get("frames"))
+
+
 class SimConfig(db.Model):
     __tablename__ = "sim_configs"
 
@@ -317,7 +323,11 @@ class PlayerEvaluation(db.Model):
             "planet": replays.get("planet"),
             "arena": replays.get("arena"),
             "runs": [
-                {"trial": run.get("trial"), "outcome": run.get("outcome")}
+                {
+                    "trial": run.get("trial"),
+                    "outcome": run.get("outcome"),
+                    "recorded": _has_frames(run),
+                }
                 for run in replays.get("runs", [])
             ],
         }
@@ -359,6 +369,7 @@ class PlayerEvaluation(db.Model):
                 "detection_rate": run.get("detection_rate"),
                 "capture_rate": run.get("capture_rate"),
                 "trial_count": len(run.get("trial_runs", [])),
+                "recorded": _has_frames(run),
             }
             for run in replays.get("sweep_runs", [])
         ]
@@ -380,6 +391,7 @@ class PlayerEvaluation(db.Model):
                 "detection_time": trial.get("detection_time", -1),
                 "capture_time": trial.get("capture_time", -1),
                 "goal_time": trial.get("goal_time", -1),
+                "recorded": _has_frames(trial),
             }
             for trial in run.get("trial_runs", [])
         ]
