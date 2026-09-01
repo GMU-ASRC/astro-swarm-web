@@ -201,8 +201,12 @@ where the line never thins and the attrition curve is flat by definition. Each r
 only the trials that got that far, and the curve stops once fewer than half of them are still
 running, which is where the average stops meaning anything.
 
-Ring sizes are consecutive, so every chart that draws a line per `n` takes an even spread of at
-most six of them and always keeps the largest, which is where the sweep stopped.
+Every chart that draws a line per `n` draws all of them, colored along a ramp from blue at the
+smallest ring to red at the largest, so a line's color alone says where it sits in the sweep.
+A legend cannot name forty lines, so the PNGs name an even spread of eight of them: they are
+anchors on the ramp, and any line can be placed by the two named ones its color sits between.
+On the site every line is named, and clicking a legend entry pulls that ring out of the group.
+The site, the server PNGs and the worker's own charts all pick their colors the same way.
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
 a defender lost to a trade does not shift every slot after it. In waves mode there is one
@@ -225,6 +229,13 @@ reports the capture success rate, the risk, how many evaders got through, the de
 and the risk at each line size. `-n-max` becomes a ceiling rather than a target, since the
 sweep stops as soon as the algorithm holds, and the sweep curves are left out of the pass/fail
 verdict for the same reason: a published entry and a fresh run can stop at different `n`.
+
+These levels carry their own sweep budget: `DefaultAssaultSweepMax` x `DefaultAssaultSweepTrials`
+(40 x 20), which mirrors the server's `assault_sweep_max` and `assault_sweep_trials`. An entry
+on one of them adopts that budget rather than the level 1 and 2 one, whether the settings
+endpoint reports it, is silent about it, or is not consulted at all under `-no-settings`. The
+level 1 and 2 figures are 100 x 100, which on an assault level would be tens of thousands of
+matches at ring sizes up to a hundred defenders.
 
 ### Adaptive defender sweep
 
