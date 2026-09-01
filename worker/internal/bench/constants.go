@@ -59,7 +59,21 @@ type Placement struct {
 
 func IsPilotLevel(levelID string) bool {
 	number := LevelNumber(levelID)
-	return number == 5 || number == 6
+	return number == 6 || number == 7
+}
+
+// Levels 3 to 5 are graded as an assault: a stream of evaders against one
+// scattered line, rather than the single approach of levels 1 and 2.
+func IsAssaultLevel(levelID string) bool {
+	number := LevelNumber(levelID)
+	return number >= 3 && number <= 5
+}
+
+// A capture on these levels destroys the defender that made it, so the line
+// thins as the run goes on.
+func IsAttritionLevel(levelID string) bool {
+	number := LevelNumber(levelID)
+	return number == 4 || number == 5
 }
 
 func LevelNumber(levelID string) int {

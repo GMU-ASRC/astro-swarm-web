@@ -100,15 +100,10 @@ func Run(options Options) Report {
 	return report
 }
 
-func IsWaveLevel(levelID string) bool {
-	number := LevelNumber(levelID)
-	return number == 3 || number == 4
-}
-
 func RunJob(options Options) (Report, JobResult) {
 	options.applyDefaults()
-	if IsWaveLevel(options.LevelID) {
-		return RunWaveJob(options)
+	if IsAssaultLevel(options.LevelID) {
+		return RunAssaultJob(options)
 	}
 	started := time.Now()
 

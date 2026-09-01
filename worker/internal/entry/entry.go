@@ -36,9 +36,9 @@ type Results struct {
 	GoalTimes      []float64    `json:"goal_times"`
 	Sweep          []SweepPoint `json:"sweep"`
 
-	SequentialRate      *float64 `json:"sequential_rate"`
-	SimultaneousRate    *float64 `json:"simultaneous_rate"`
+	Risk                *float64 `json:"risk"`
 	EvaderDestroyedRate *float64 `json:"evader_destroyed_rate"`
+	TrialsHeldRate      *float64 `json:"trials_held_rate"`
 }
 
 type Entry struct {

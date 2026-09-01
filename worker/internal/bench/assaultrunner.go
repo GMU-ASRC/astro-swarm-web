@@ -8,77 +8,75 @@ import (
 )
 
 const (
-	WaveTrialSeedOffset   = 1100000
-	WaveSweepSeedOffset   = 3300000
-	WaveReplaySweepNMax   = 20
-	WaveReplaySweepTrials = 4
+	AssaultTrialSeedOffset = 1100000 // rng seed offset for the placement trials of an assault job
+	AssaultSweepSeedOffset = 3300000 // rng seed offset for the ring sweep of an assault job
+	AssaultReplayTrials    = 25      // count, placement trials that keep a frame recording
+	AssaultReplaySweepNMax = 20      // count, largest defender count that still records a replay
+	AssaultReplaySweepMax  = 4       // count, trials per defender count that still record a replay
 )
 
-type waveJob struct {
+type assaultJob struct {
 	sweep      bool
 	trial      int
 	defenders  int
-	evaders    int
 	seed       int64
 	placements []Placement
-	angles     []float64
 	record     bool
 }
 
-type waveResult struct {
-	job    waveJob
-	output WaveOutput
+type assaultResult struct {
+	job    assaultJob
+	output AssaultOutput
 	ran    bool
 }
 
-func waveTrialLayout(seed int64, trial int, defenders int) []Placement {
+func AssaultMode(levelID string) string {
+	if LevelNumber(levelID) == 5 {
+		return AssaultModeSiege
+	}
+	return AssaultModeWaves
+}
+
+func assaultTrialLayout(seed int64, trial int, defenders int) []Placement {
 	return ScatterLayout(seed+int64(trial)*SweepSeedStride, defenders)
 }
 
-func buildWaveTrials(options Options) []waveJob {
-	offset := int64(WaveTrialSeedOffset)
+func buildAssaultTrials(options Options) []assaultJob {
 	defenders := len(options.Placements)
 	if defenders < 1 {
 		defenders = RingCount
 	}
-	jobs := make([]waveJob, 0, options.TrialCount)
+	jobs := make([]assaultJob, 0, options.TrialCount)
 	for index := 0; index < options.TrialCount; index++ {
 		trial := options.TrialStart + index
-		evaders := WaveEvaderCount(defenders)
-		jobs = append(jobs, waveJob{
+		jobs = append(jobs, assaultJob{
 			trial:      trial,
 			defenders:  defenders,
-			evaders:    evaders,
-			seed:       options.Seed + offset + int64(trial),
-			placements: waveTrialLayout(options.Seed+offset, trial, defenders),
-			angles:     WaveSpawnAngles(options.Seed+offset, trial, options.TrialCount, evaders),
-			record:     options.Record,
+			seed:       options.Seed + AssaultTrialSeedOffset + int64(trial),
+			placements: assaultTrialLayout(options.Seed+AssaultTrialSeedOffset, trial, defenders),
+			record:     options.Record && trial < AssaultReplayTrials,
 		})
 	}
 	return jobs
 }
 
-func buildWaveSweepStep(options Options, defenders int) []waveJob {
-	jobs := make([]waveJob, 0, options.SweepTrials)
+func buildAssaultSweepStep(options Options, defenders int) []assaultJob {
+	jobs := make([]assaultJob, 0, options.SweepTrials)
 	for trial := 0; trial < options.SweepTrials; trial++ {
-		evaders := WaveEvaderCount(defenders)
-		seed := options.Seed + WaveSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial)
-		jobs = append(jobs, waveJob{
+		jobs = append(jobs, assaultJob{
 			sweep:      true,
 			trial:      trial,
 			defenders:  defenders,
-			evaders:    evaders,
-			seed:       seed,
-			placements: RingPlacements(options.Seed+WaveSweepSeedOffset, trial, options.SweepTrials, defenders),
-			angles:     WaveSpawnAngles(options.Seed+WaveSweepSeedOffset+int64(defenders), trial, options.SweepTrials, evaders),
-			record:     options.Record && (trial == 0 || (defenders <= WaveReplaySweepNMax && trial < WaveReplaySweepTrials)),
+			seed:       options.Seed + AssaultSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial),
+			placements: RingPlacements(options.Seed+AssaultSweepSeedOffset, trial, options.SweepTrials, defenders),
+			record:     options.Record && (trial == 0 || (defenders <= AssaultReplaySweepNMax && trial < AssaultReplaySweepMax)),
 		})
 	}
 	return jobs
 }
 
-func runWaveJobs(jobs []waveJob, options Options, matchFrames int, destroysDefenders bool, progress func()) []waveResult {
-	results := make([]waveResult, len(jobs))
+func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, mode string, destroysDefenders bool, progress func()) []assaultResult {
+	results := make([]assaultResult, len(jobs))
 	queue := make(chan int)
 	var group sync.WaitGroup
 
@@ -91,17 +89,17 @@ func runWaveJobs(jobs []waveJob, options Options, matchFrames int, destroysDefen
 					continue
 				}
 				current := jobs[index]
-				output := RunWaveMatch(WaveInput{
+				output := RunAssaultMatch(AssaultInput{
 					Algorithm:         options.Algorithm,
 					Placements:        current.placements,
-					SpawnAngles:       current.angles,
+					Mode:              mode,
 					DestroysDefenders: destroysDefenders,
 					Seed:              current.seed,
 					MatchFrames:       matchFrames,
 					SinglePrecision:   options.SinglePrecision,
 					Record:            current.record,
 				})
-				results[index] = waveResult{job: current, output: output, ran: true}
+				results[index] = assaultResult{job: current, output: output, ran: true}
 				if progress != nil {
 					progress()
 				}
@@ -120,11 +118,12 @@ func runWaveJobs(jobs []waveJob, options Options, matchFrames int, destroysDefen
 	return results
 }
 
-func RunWaveJob(options Options) (Report, JobResult) {
+func RunAssaultJob(options Options) (Report, JobResult) {
 	options.applyDefaults()
 	started := time.Now()
 
-	destroysDefenders := LevelNumber(options.LevelID) == 4
+	mode := AssaultMode(options.LevelID)
+	destroysDefenders := IsAttritionLevel(options.LevelID)
 	matchFrames := int(options.MatchSeconds * PhysicsTicksPerSecond)
 
 	if len(options.Placements) == 0 {
@@ -140,9 +139,8 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		options.Progress(int(atomic.AddInt64(&done, 1)), int(estimate))
 	}
 
-	trials := runWaveJobs(buildWaveTrials(options), options, matchFrames, destroysDefenders, tick)
-
-	sweep, sweepPoints := runWaveSweep(options, matchFrames, destroysDefenders, tick)
+	trials := runAssaultJobs(buildAssaultTrials(options), options, matchFrames, mode, destroysDefenders, tick)
+	sweep, sweepPoints, sweepAttrition := runAssaultSweep(options, matchFrames, mode, destroysDefenders, tick)
 
 	report := Report{
 		LevelID:         options.LevelID,
@@ -156,8 +154,9 @@ func RunWaveJob(options Options) (Report, JobResult) {
 		MatchesRun:      len(trials) + len(sweep),
 	}
 
-	fillWaveResults(&report, trials)
+	fillAssaultResults(&report, trials)
 	report.Results.Sweep = sweepPoints
+	report.Results.SweepAttrition = sweepAttrition
 	report.DurationSeconds = time.Since(started).Seconds()
 
 	if options.Progress != nil {
@@ -165,10 +164,10 @@ func RunWaveJob(options Options) (Report, JobResult) {
 	}
 
 	jobResult := JobResult{
-		Runs:      packWaveRuns(trials),
-		SweepRuns: packWaveSweepRuns(sweep),
+		Runs:      packAssaultRuns(trials),
+		SweepRuns: packAssaultSweepRuns(sweep),
 		Meta: JobMeta{
-			FPS:       PhysicsTicksPerSecond,
+			FPS:       PhysicsTicksPerSecond / AssaultRecordStride,
 			Defenders: report.Defenders,
 			View:      int(report.ViewDistance),
 			Fov:       int(report.FovDegrees),
@@ -181,49 +180,61 @@ func RunWaveJob(options Options) (Report, JobResult) {
 	return report, jobResult
 }
 
-func runWaveSweep(options Options, matchFrames int, destroysDefenders bool, tick func()) ([]waveResult, []SweepPoint) {
-	all := []waveResult{}
+// The sweep grows the ring until the algorithm holds cleanly a few sizes in a
+// row, so a strong entry is not charged for defender counts that add nothing.
+func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefenders bool, tick func()) ([]assaultResult, []SweepPoint, []AttritionSeries) {
+	all := []assaultResult{}
 	points := []SweepPoint{}
+	series := []AttritionSeries{}
 	clean := 0
 
 	for defenders := options.NStart; defenders <= options.SweepMax; defenders++ {
 		if options.Context.Err() != nil {
 			break
 		}
-		step := runWaveJobs(buildWaveSweepStep(options, defenders), options, matchFrames, destroysDefenders, tick)
+		step := runAssaultJobs(buildAssaultSweepStep(options, defenders), options, matchFrames, mode, destroysDefenders, tick)
 		all = append(all, step...)
 
 		wins := 0
 		detected := 0
-		captured := 0
 		ran := 0
+		resolved := 0
+		destroyed := 0
+		samples := []AttritionSample{}
 		for _, item := range step {
 			if !item.ran {
 				continue
 			}
 			ran++
+			resolved += item.output.Resolved
+			destroyed += item.output.Destroyed
+			samples = append(samples, item.output.Samples...)
 			if item.output.Outcome == OutcomeWin {
 				wins++
 			}
 			if item.output.DetectionTime >= 0.0 {
 				detected++
 			}
-			if item.output.CaptureTime >= 0.0 {
-				captured++
-			}
 		}
 		if ran < 1 {
 			break
 		}
-		successRate := round1(100.0 * float64(wins) / float64(ran))
+		captureRate := destroyRate(destroyed, resolved)
 		points = append(points, SweepPoint{
 			N:             defenders,
 			Trials:        ran,
-			SuccessRate:   successRate,
-			WinRate:       successRate,
+			SuccessRate:   captureRate,
+			CaptureRate:   captureRate,
+			Risk:          riskOf(captureRate),
+			WinRate:       round1(100.0 * float64(wins) / float64(ran)),
 			DetectionRate: round1(100.0 * float64(detected) / float64(ran)),
-			CaptureRate:   round1(100.0 * float64(captured) / float64(ran)),
 		})
+
+		// A ring that never lost a ship has a single rung and no curve to draw,
+		// which is every ring on a level without attrition.
+		if curve := SummarizeAttrition(samples); len(curve) > 1 {
+			series = append(series, AttritionSeries{N: defenders, Points: curve})
+		}
 
 		if wins == ran {
 			clean++
@@ -234,21 +245,25 @@ func runWaveSweep(options Options, matchFrames int, destroysDefenders bool, tick
 			clean = 0
 		}
 	}
-	return all, points
+	return all, points, series
 }
 
-func fillWaveResults(report *Report, trials []waveResult) {
+func fillAssaultResults(report *Report, trials []assaultResult) {
 	outcomes := make([]string, 0, len(trials))
 	detectionTimes := make([]float64, 0, len(trials))
 	captureTimes := make([]float64, 0, len(trials))
 	goalTimes := make([]float64, 0, len(trials))
-	counts := OutcomeCounts{}
-	destroyed := 0
-	evaderTotal := 0
 	trialDestroyed := make([]int, 0, len(trials))
-	trialEvaders := make([]int, 0, len(trials))
-	detectedFirst := make([]int, 0, len(trials))
-	detectedSecond := make([]int, 0, len(trials))
+	trialResolved := make([]int, 0, len(trials))
+	trialBreaches := make([]int, 0, len(trials))
+	trialLost := make([]int, 0, len(trials))
+	counts := OutcomeCounts{}
+	resolved := 0
+	destroyed := 0
+	breaches := 0
+	lost := 0
+	recorded := 0
+	samples := []AttritionSample{}
 
 	for _, item := range trials {
 		if !item.ran {
@@ -271,12 +286,18 @@ func fillWaveResults(report *Report, trials []waveResult) {
 		detectionTimes = append(detectionTimes, item.output.DetectionTime)
 		captureTimes = append(captureTimes, item.output.CaptureTime)
 		goalTimes = append(goalTimes, item.output.GoalTime)
-		destroyed += item.output.Destroyed
-		evaderTotal += item.output.EvaderCount * WavePhases
 		trialDestroyed = append(trialDestroyed, item.output.Destroyed)
-		trialEvaders = append(trialEvaders, item.output.EvaderCount*WavePhases)
-		detectedFirst = append(detectedFirst, boolCount(item.output.PhaseDetected[0]))
-		detectedSecond = append(detectedSecond, boolCount(item.output.PhaseDetected[WavePhaseSimultaneous]))
+		trialResolved = append(trialResolved, item.output.Resolved)
+		trialBreaches = append(trialBreaches, item.output.Breaches)
+		trialLost = append(trialLost, item.output.DefendersLost)
+		resolved += item.output.Resolved
+		destroyed += item.output.Destroyed
+		breaches += item.output.Breaches
+		lost += item.output.DefendersLost
+		samples = append(samples, item.output.Samples...)
+		if len(item.output.Frames) > 0 {
+			recorded++
+		}
 		switch item.output.Outcome {
 		case OutcomeWin:
 			counts.Captured++
@@ -291,58 +312,74 @@ func fillWaveResults(report *Report, trials []waveResult) {
 	if total < 1 {
 		total = 1
 	}
+	captureRate := destroyRate(destroyed, resolved)
 
 	report.Results = Results{
 		Trials:              len(outcomes),
-		SuccessRate:         waveDestroyRate(destroyed, evaderTotal),
+		SuccessRate:         captureRate,
+		Risk:                riskOf(captureRate),
 		TrialsHeldRate:      round1(100.0 * float64(counts.Captured) / float64(total)),
 		DetectionRate:       rate(detectionTimes),
-		CaptureRate:         rate(captureTimes),
+		CaptureRate:         captureRate,
 		OutcomeCounts:       counts,
 		Outcomes:            outcomes,
 		DetectionTimes:      detectionTimes,
 		CaptureTimes:        captureTimes,
 		GoalTimes:           goalTimes,
-		SequentialRate:      wavePhaseRate(trials, 0),
-		SimultaneousRate:    wavePhaseRate(trials, WavePhaseSimultaneous),
+		EvadersResolved:     resolved,
 		EvadersDestroyed:    destroyed,
-		EvadersTotal:        evaderTotal,
-		EvaderDestroyedRate: waveDestroyRate(destroyed, evaderTotal),
+		EvaderDestroyedRate: captureRate,
+		Breaches:            breaches,
+		DefendersLost:       lost,
+		ReplayTrials:        recorded,
 		TrialDestroyed:      trialDestroyed,
-		TrialEvaders:        trialEvaders,
-		TrialDetectedFirst:  detectedFirst,
-		TrialDetectedSecond: detectedSecond,
-		SequentialDetection: shareOf(detectedFirst),
-		SimultaneousDetect:  shareOf(detectedSecond),
+		TrialResolved:       trialResolved,
+		TrialBreaches:       trialBreaches,
+		TrialLost:           trialLost,
+		Attrition:           SummarizeAttrition(samples),
 	}
 }
 
-func wavePhaseRate(results []waveResult, phase int) float64 {
-	ran := 0
-	held := 0
-	for _, item := range results {
-		if !item.ran {
-			continue
+// Pools every launched evader by the size of the line that was standing when it
+// left the ring, so the curve reads as the risk a thinning defense carries.
+func SummarizeAttrition(samples []AttritionSample) []AttritionPoint {
+	buckets := map[int]*AttritionPoint{}
+	order := []int{}
+	for _, sample := range samples {
+		bucket, present := buckets[sample.Defenders]
+		if !present {
+			bucket = &AttritionPoint{Defenders: sample.Defenders}
+			buckets[sample.Defenders] = bucket
+			order = append(order, sample.Defenders)
 		}
-		ran++
-		if item.output.PhaseHeld[phase] {
-			held++
+		bucket.Launched++
+		if sample.Destroyed {
+			bucket.Destroyed++
 		}
 	}
-	if ran < 1 {
+	sort.Ints(order)
+	points := make([]AttritionPoint, 0, len(order))
+	for _, defenders := range order {
+		bucket := buckets[defenders]
+		bucket.CaptureRate = destroyRate(bucket.Destroyed, bucket.Launched)
+		bucket.Risk = riskOf(bucket.CaptureRate)
+		points = append(points, *bucket)
+	}
+	return points
+}
+
+func destroyRate(destroyed int, launched int) float64 {
+	if launched < 1 {
 		return 0.0
 	}
-	return round1(100.0 * float64(held) / float64(ran))
+	return round1(100.0 * float64(destroyed) / float64(launched))
 }
 
-func waveDestroyRate(destroyed int, total int) float64 {
-	if total < 1 {
-		return 0.0
-	}
-	return round1(100.0 * float64(destroyed) / float64(total))
+func riskOf(captureRate float64) float64 {
+	return round1(100.0 - captureRate)
 }
 
-func packWaveRuns(trials []waveResult) []ReplayRun {
+func packAssaultRuns(trials []assaultResult) []ReplayRun {
 	runs := make([]ReplayRun, 0, len(trials))
 	index := 0
 	for _, item := range trials {
@@ -355,18 +392,7 @@ func packWaveRuns(trials []waveResult) []ReplayRun {
 			DetectionTime: item.output.DetectionTime,
 			CaptureTime:   item.output.CaptureTime,
 			GoalTime:      item.output.GoalTime,
-			Stats: map[string]float64{
-				"evaders":         float64(item.output.EvaderCount),
-				"destroyed":       float64(item.output.Destroyed),
-				"breaches":        float64(item.output.Breaches),
-				"defenders":       float64(len(item.job.placements)),
-				"lost":            float64(item.output.DefendersLost),
-				"held_first":      boolStat(item.output.PhaseHeld[0]),
-				"held_second":     boolStat(item.output.PhaseHeld[WavePhaseSimultaneous]),
-				"detected_first":  boolStat(item.output.PhaseDetected[0]),
-				"detected_second": boolStat(item.output.PhaseDetected[WavePhaseSimultaneous]),
-				"wave_two_time":   item.output.WaveTwoTime,
-			},
+			Stats:         assaultStats(item.output),
 		}
 		if len(item.output.Frames) > 0 {
 			run.FramesPacked = PackFrames(item.output.Frames)
@@ -377,8 +403,20 @@ func packWaveRuns(trials []waveResult) []ReplayRun {
 	return runs
 }
 
-func packWaveSweepRuns(sweep []waveResult) []ReplaySweepRun {
-	byDefenders := map[int][]waveResult{}
+func assaultStats(output AssaultOutput) map[string]float64 {
+	return map[string]float64{
+		"sent":      float64(output.Launched),
+		"resolved":  float64(output.Resolved),
+		"destroyed": float64(output.Destroyed),
+		"breaches":  float64(output.Breaches),
+		"defenders": float64(output.Defenders),
+		"lost":      float64(output.DefendersLost),
+		"end_time":  output.EndTime,
+	}
+}
+
+func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {
+	byDefenders := map[int][]assaultResult{}
 	order := []int{}
 	for _, item := range sweep {
 		if !item.ran {
@@ -395,19 +433,20 @@ func packWaveSweepRuns(sweep []waveResult) []ReplaySweepRun {
 	for _, defenders := range order {
 		items := byDefenders[defenders]
 		detected := 0
-		captured := 0
+		resolved := 0
+		destroyed := 0
 		for _, item := range items {
 			if item.output.DetectionTime >= 0.0 {
 				detected++
 			}
-			if item.output.CaptureTime >= 0.0 {
-				captured++
-			}
+			resolved += item.output.Resolved
+			destroyed += item.output.Destroyed
 		}
 		total := len(items)
 		if total < 1 {
 			total = 1
 		}
+		captureRate := destroyRate(destroyed, resolved)
 		run := ReplaySweepRun{
 			N:             defenders,
 			Defenders:     defenders,
@@ -416,7 +455,7 @@ func packWaveSweepRuns(sweep []waveResult) []ReplaySweepRun {
 			CaptureTime:   items[0].output.CaptureTime,
 			GoalTime:      items[0].output.GoalTime,
 			DetectionRate: round1(100.0 * float64(detected) / float64(total)),
-			CaptureRate:   round1(100.0 * float64(captured) / float64(total)),
+			CaptureRate:   captureRate,
 			TrialRuns:     []ReplayRun{},
 		}
 		if len(items[0].output.Frames) > 0 {
@@ -433,34 +472,10 @@ func packWaveSweepRuns(sweep []waveResult) []ReplaySweepRun {
 				CaptureTime:   item.output.CaptureTime,
 				GoalTime:      item.output.GoalTime,
 				FramesPacked:  PackFrames(item.output.Frames),
+				Stats:         assaultStats(item.output),
 			})
 		}
 		runs = append(runs, run)
 	}
 	return runs
-}
-
-func boolCount(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
-func shareOf(flags []int) float64 {
-	if len(flags) == 0 {
-		return 0.0
-	}
-	hits := 0
-	for _, flag := range flags {
-		hits += flag
-	}
-	return round1(100.0 * float64(hits) / float64(len(flags)))
-}
-
-func boolStat(value bool) float64 {
-	if value {
-		return 1.0
-	}
-	return 0.0
 }

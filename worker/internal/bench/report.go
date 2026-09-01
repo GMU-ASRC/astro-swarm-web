@@ -16,7 +16,25 @@ type SweepPoint struct {
 	DetectionRate float64 `json:"detection_rate"`
 	CaptureRate   float64 `json:"capture_rate"`
 	WinRate       float64 `json:"win_rate"`
+	Risk          float64 `json:"risk"`
 	Trials        int     `json:"trials"`
+}
+
+// One rung of the attrition curve: every evader that was launched while the
+// line was this size, and how many of them the line stopped.
+type AttritionPoint struct {
+	Defenders   int     `json:"defenders"`
+	Launched    int     `json:"launched"`
+	Destroyed   int     `json:"destroyed"`
+	CaptureRate float64 `json:"capture_rate"`
+	Risk        float64 `json:"risk"`
+}
+
+// One ring size's own attrition curve: how the risk moved as a line that
+// started at N traded itself down over the sweep trials at that size.
+type AttritionSeries struct {
+	N      int              `json:"n"`
+	Points []AttritionPoint `json:"points"`
 }
 
 type OutcomeCounts struct {
@@ -39,18 +57,21 @@ type Results struct {
 	GoalTimes       []float64     `json:"goal_times"`
 	Sweep           []SweepPoint  `json:"sweep"`
 
-	SequentialRate      float64 `json:"sequential_rate"`
-	SimultaneousRate    float64 `json:"simultaneous_rate"`
-	EvadersDestroyed    int     `json:"evaders_destroyed"`
-	EvadersTotal        int     `json:"evaders_total"`
-	EvaderDestroyedRate float64 `json:"evader_destroyed_rate"`
-	TrialDestroyed      []int   `json:"trial_destroyed,omitempty"`
-	TrialEvaders        []int   `json:"trial_evaders,omitempty"`
-	TrialDetectedFirst  []int   `json:"trial_detected_first,omitempty"`
-	TrialDetectedSecond []int   `json:"trial_detected_second,omitempty"`
-	TrialsHeldRate      float64 `json:"trials_held_rate"`
-	SequentialDetection float64 `json:"sequential_detection_rate"`
-	SimultaneousDetect  float64 `json:"simultaneous_detection_rate"`
+	Risk                float64          `json:"risk"`
+	EvadersResolved     int              `json:"evaders_resolved"`
+	EvadersDestroyed    int              `json:"evaders_destroyed"`
+	EvaderDestroyedRate float64          `json:"evader_destroyed_rate"`
+	Breaches            int              `json:"breaches"`
+	DefendersLost       int              `json:"defenders_lost"`
+	TrialsHeldRate      float64          `json:"trials_held_rate"`
+	ReplayTrials        int              `json:"replay_trials,omitempty"`
+	TrialDestroyed      []int            `json:"trial_destroyed,omitempty"`
+	TrialResolved       []int            `json:"trial_resolved,omitempty"`
+	TrialBreaches       []int            `json:"trial_breaches,omitempty"`
+	TrialLost           []int            `json:"trial_lost,omitempty"`
+	Attrition           []AttritionPoint `json:"attrition,omitempty"`
+
+	SweepAttrition []AttritionSeries `json:"sweep_attrition,omitempty"`
 }
 
 type Report struct {
