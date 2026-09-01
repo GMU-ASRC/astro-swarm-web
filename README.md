@@ -1,6 +1,6 @@
 # AstroSwarm Web
 
-![Version](https://img.shields.io/badge/version-0.0.7-blue)
+![Version](https://img.shields.io/badge/version-0.0.8-blue)
 ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
@@ -62,10 +62,20 @@ The implementation is `server/rating.py`, applied in `_aggregate_players` so the
 ### Timed Local leaderboard (`/api/leaderboard`)
 Separate from the above: rankings for the Timed Local game mode showing username, completion time, and the behavior algorithm the player used.
 
-### Levels (`/levels`)
-Per-level player entries, one tab per level.
+### Levels (`/gamemodes/levels`)
+An index of the seven FARP levels, each with a page of its own at `/gamemodes/levels/<n>`. That page has three views, toggled from a row of buttons under the heading:
 
-**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly by the worker service against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. A sidebar provides a search bar (username or ID) plus filters for minimum rate, date range, and sort order. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
+| View | What it shows |
+|---|---|
+| **Entries** | Every submission on the level, newest first, with a sidebar of filters: search by username or ID, a minimum-rate slider, a date range, and a sort order. Paged twelve at a time. |
+| **Leaderboard** | The level's own board — every commander who has finished an entry on it, ranked by their best rate, with their average, entry count and the defender count behind their best run. A row links straight to that entry. |
+| **Comparison** | The defender-sweep curves of the strongest entries drawn on one axis: capture success rate against ring size, and risk against ring size. One line per entry, plus a heavy dashed line for the best rate any entry reached at each `n`. |
+
+The leaderboard and comparison views are served by `/api/evaluations/level-leaderboard` and `/api/evaluations/level-sweep`, so neither one pulls every entry on the site through the client.
+
+An individual entry lives at `/levels/<id>`.
+
+**Levels 1 and 2** are benchmarked: each submitted algorithm is evaluated headlessly by the worker service against the defender layout it was submitted with, and listed with its entry ID, username, status, capture rate, and date. Clicking an entry opens a detail page with the defender and evader configs (speed, turn rate, vision range, FOV), tiles for detection rate / capture rate / mean time to the planet, cumulative and outcome charts, detection- and capture-rate-vs-defender-count charts, frame-perfect placement and ring-sweep replays, and the defender algorithm.
 
 Three events are measured, and they mean different things:
 
@@ -75,15 +85,17 @@ Three events are measured, and they mean different things:
 | **Captured** | The first time any defender physically touches (collides with) the evader. |
 | **Reached planet** | The time the evader reaches the center planet (`T_goal` in the admin panel). |
 
-**Levels 3 and 4** are benchmarked as *waves*. Three evaders come in off the ring instead of one, and the run only counts as held if every one of them is destroyed before any reaches the planet. Level 3 destroys the captured evader alone; Level 4 destroys the defender that caught it as well, so each kill costs a body. Each entry is graded over 100 trials, and one trial is both waves back to back exactly as the level plays them: the evaders one after another, then the arena resets to the launch layout and the same evaders arrive all at once. A trial is held only if both waves are. Every trial has its own seeded defender scatter, spawn angles and evader count (never more evaders than defenders), and always plays out until every evader has been sent and resolved, so one getting through early does not cut it short. A defender sweep follows. The detail page adds per-style hold rates and an evader kill rate to the usual tiles.
+**Levels 3, 4 and 5** are benchmarked as *assaults*: a stream of evaders against one scattered line rather than a single approach. Levels 3 and 4 send them one at a time, wave after wave, each from a fresh random bearing on the ring, with the next launching as soon as the last is resolved. Level 5 sends five at once, spread around the **edges of the arena** rather than a ring, so they arrive in a stagger. Level 3 destroys the captured evader alone and runs until the clock stops; Levels 4 and 5 destroy the defender that caught it as well, so each kill costs a body and the run also ends when the line is spent.
 
-**Levels 5 and 6** are *piloted runs*, not benchmarks. In Level 5 the player flies the evader themselves against the best submitted Level 2 algorithm — and that entry's defender placements — capped at three minutes; Level 6 is the swarm merge. Any run is submitted, caught or clean. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its detected / captured / reached-planet times, the recorded flight, and the opponent's algorithm. Charts and the ring sweep are hidden for these levels, since a single flight has no rates to plot.
+The headline number on these levels is the **capture success rate** — the share of every evader that reached a verdict that the line destroyed (one still in flight when the clock stopped counts for neither side) — and the entry also reports how many reached the planet and, where attrition applies, how many defenders it cost. Each entry is graded over 100 trials, each with its own seeded defender scatter and spawn bearings, followed by a defender sweep. The detail page adds a **risk** chart (`Risk = 1 - capture success rate`, plotted against the size of the ring) and, on the attrition levels, two more: how that risk moved as the submitted layout thinned, and the same curve taken across the ring sweep with one line per ring size, so a line that started at ten and one that started at five can be compared on what their risk does as each is spent. Only the first trials keep a frame recording, since these runs are far longer than a single approach; the rest are graded but not replayable.
 
-The per-level admin settings page (`/admin/settings/level-5`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
+**Levels 6 and 7** are *piloted runs*, not benchmarks. In Level 6 the player flies the evader themselves against the best submitted Level 2 algorithm — and that entry's defender placements — capped at three minutes; Level 7 is the swarm merge. Any run is submitted, caught or clean. The recorded flight is uploaded and rendered by a worker into a replay, so the detail page shows the run's outcome, its detected / captured / reached-planet times, the recorded flight, and the opponent's algorithm. Charts and the ring sweep are hidden for these levels, since a single flight has no rates to plot.
+
+The per-level admin settings page (`/admin/settings/level-6`) drops the benchmark parameters entirely for a pilot level and shows the render pipeline and run limits instead.
 
 #### Level numbering
 
-Levels 3 and 4 were added in v0.0.7 and the pilot and swarm levels moved up to 5 and 6. A guarded migration renames the stored ids once (`farp` to `farp1`, `farp3` to `farp5`, `farp4` to `farp6`) and records a marker in `app_settings` so it can never fire a second time and shift genuine new entries. Only the current game version may submit, which is what stops an old client filing a run under an id that has since moved.
+The wave levels were added in v0.0.7, moving the pilot and swarm levels up to 5 and 6. In v0.0.8 the two wave levels became continuous-wave levels, a siege level took slot 5, and the pilot and swarm levels moved up again to 6 and 7. Each shift is a guarded migration that renames the stored ids once (`farp` to `farp1`; then `farp3` to `farp5` and `farp4` to `farp6`; then `farp5` to `farp6` and `farp6` to `farp7`) and records a marker in `app_settings` so it can never fire a second time and shift genuine new entries. The v0.0.8 shift additionally waits for the earlier marker, so a database behind on both is never shifted twice in one pass. Only the current game version may submit, which is what stops an old client filing a run under an id that has since moved.
 
 ### Survive (`/survive`)
 Match reports from the game's two-player Survive mode. Each card shows the two commanders, the winner (or a tie), how many evaders reached each planet, and both average APMs; a sidebar provides a search bar (commander or match ID) and sort order.
@@ -103,7 +115,7 @@ Row actions on the evaluations and players tables are icon buttons, and both tab
 
 ### Evaluation Workers
 
-Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. An evaluation is **one unit of work**: the server queues it whole, a single worker claims it, and that worker runs every match in it. A Level 5 or Level 6 piloted run is a **render job**: the run was already simulated in the game client, so the worker just packs the recorded trajectory into a replay without simulating anything.
+Benchmarks run on separate **worker** processes rather than in the web server, so compute can be scaled across machines. An evaluation is **one unit of work**: the server queues it whole, a single worker claims it, and that worker runs every match in it. A Level 6 or Level 7 piloted run is a **render job**: the run was already simulated in the game client, so the worker just packs the recorded trajectory into a replay without simulating anything.
 
 A worker (`web/worker/`) is a single static Go binary that re-implements the match loop in process — there is no game build to download and nothing to bundle into the image. It registers with the server, claims one queued evaluation whenever it is idle, and simulates that evaluation's matches in parallel across all its cores (`SIM_WORKERS`). It holds exactly one job at a time. Throughput scales by running more workers: each picks up a different evaluation.
 
@@ -150,11 +162,13 @@ Internal preview page for component and layout development.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/evaluations` | List evaluations (most recent) |
-| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking (levels 1-4); an identical submission (same level, algorithm, placements, trials) reuses the existing result instead of re-running. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
-| `POST` | `/api/evaluations/run` | Submit a piloted run (levels 5-6): the recorded flight is queued for a worker to render into a replay. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
-| `GET` | `/api/evaluations/best` | Best submitted algorithm and placements for a level (`?level_id=farp2`), picked at random among ties — this is the opponent the game's level 5 plays against |
+| `POST` | `/api/evaluations` | Submit an algorithm for benchmarking (levels 1-5); an identical submission (same level, algorithm, placements, trials) reuses the existing result instead of re-running. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
+| `POST` | `/api/evaluations/run` | Submit a piloted run (levels 6-7): the recorded flight is queued for a worker to render into a replay. Rejected with `426` unless the client is the required game version (`X-API-Key` required) |
+| `GET` | `/api/evaluations/best` | Best submitted algorithm and placements for a level (`?level_id=farp2`), picked at random among ties — this is the opponent the game's level 6 plays against |
 | `GET` | `/api/evaluations/<id>` | Get a single evaluation |
 | `GET` | `/api/evaluations/baseline` | Average success rate across completed runs |
+| `GET` | `/api/evaluations/level-leaderboard` | One level's own board (`?level_id=farp3`): every commander who finished an entry on it, ranked by their best rate |
+| `GET` | `/api/evaluations/level-sweep` | The defender-sweep curves behind a level's comparison graphs (`?level_id=farp3&limit=6`), strongest entries first |
 | `GET` | `/api/evaluations/players` | Commanders ranked by weighted rating, with the raw average, entry count and level coverage behind it |
 | `GET` | `/api/evaluations/players/<id>` | One commander's profile: rating, per-level weighted rates and level averages, ranks and recent entries |
 | `GET` | `/api/evaluations/settings` | Benchmark parameters, the level list and the required game version |
@@ -163,9 +177,9 @@ Internal preview page for component and layout development.
 | `GET` | `/api/evaluations/<id>/replay/<trial>` | Replay frames for one placement trial |
 | `GET` | `/api/evaluations/<id>/sweep-replays` | Ring-sweep replay index (n, outcome, detection/capture time) |
 | `GET` | `/api/evaluations/<id>/sweep-replay/<n>` | Replay frames for one ring-sweep run |
-| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep` detection rate, `capture` capture rate, `times`) |
+| `GET` | `/api/evaluations/<id>/chart/<kind>.png` | Rendered chart PNG (`line`, `bar`, `sweep` detection rate, `capture` capture rate, `risk`, `attrition`, `sweep-attrition`, `times`) |
 | `GET` | `/api/evaluations/<id>/export` | Download a ZIP of the entry and per-run JSON |
-| `POST` | `/api/evaluations/<id>/claim-xp` | Claim the XP an entry earned, once per entry; a level-5 goal is worth far more than a benchmark (`X-API-Key` required) |
+| `POST` | `/api/evaluations/<id>/claim-xp` | Claim the XP an entry earned, once per entry; a level-6 goal is worth far more than a benchmark (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/resimulate` | Re-run an evaluation on the current build (`X-API-Key` required) |
 | `POST` | `/api/evaluations/<id>/cancel` | Cancel a queued or running evaluation (`X-API-Key` required) |
 | `DELETE` | `/api/evaluations/<id>` | Delete an evaluation (`X-API-Key` required) |

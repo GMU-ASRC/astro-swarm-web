@@ -61,8 +61,8 @@ throughput, run more workers: each takes a different evaluation.
 
 ### EVAL_SWEEP_SPAWN
 
-`fixed` reproduces the Godot benchmarker exactly: every ring-sweep run launches the evader
-from the one configured spawn, so only the ring rotation varies across the n2 repeats.
+`fixed` is the server's historical default: every ring-sweep run launches the evader from the
+one configured spawn, so only the ring rotation varies across the n2 repeats.
 
 `varied` gives each trial its own stratified approach angle, the way the placement runs
 already work. It is the better measurement — see the ring-sweep section of `README.md` — but
@@ -89,18 +89,21 @@ System stats are read from `/proc` and `statfs` rather than psutil, and report t
 Replay frames are delta-encoded, zlib-compressed at level 9, and base64 encoded — the format
 `models._unpack_frames` reads.
 
-Level 5 and Level 6 jobs carry a `run` payload rather than an algorithm. Nothing is simulated;
+Level 6 and Level 7 jobs carry a `run` payload rather than an algorithm. Nothing is simulated;
 the recorded trajectory is packed into a single-run replay.
 
-Level 3 and Level 4 jobs are simulated as waves rather than single-evader matches, described
-in the wave benchmark section of `README.md`.
+Level 3, 4 and 5 jobs are simulated as assaults rather than single-evader matches, described
+in the assault benchmark section of `README.md`.
 
 ## Shard result shape
 
 ```json
 {
   "runs":       [{"trial": 0, "outcome": "win", "detection_time": 1.2,
-                  "capture_time": 3.4, "goal_time": 8.3, "frames_packed": "..."}],
+                  "capture_time": 3.4, "goal_time": 8.3, "frames_packed": "...",
+                  "stats": {"sent": 26, "resolved": 25, "destroyed": 20,
+                            "breaches": 5, "defenders": 5, "lost": 20,
+                            "end_time": 240.0}}],
   "sweep_runs": [{"n": 1, "outcome": "lose", "detection_rate": 40.0, "capture_rate": 10.0,
                   "defenders": 1, "trial_runs": [...], "frames_packed": "..."}],
   "meta":       {"fps": 60, "defenders": 5, "view": 300, "fov": 70, "speed": 150,
@@ -108,5 +111,11 @@ in the wave benchmark section of `README.md`.
 }
 ```
 
-Recording follows `BenchBase.gd`: every placement trial is recorded, and in the ring sweep
-only trial 0 of each n plus the replay trials (`n < 50` and `trial < 10`) are.
+`stats` is only present on an assault run (levels 3 to 5). Everything else the site needs is
+derived from it and from the `results` block the job also carries.
+
+On levels 1 and 2 every placement trial is recorded, and in the ring sweep only trial 0 of
+each n plus the replay trials (`n < 50` and `trial < 10`) are.
+An assault run is far longer, so those levels record every third physics frame — `meta.fps`
+drops to 20 to match — and only the first 25 placement trials and a smaller slice of the sweep
+(`n <= 20` and `trial < 4`) keep frames at all.

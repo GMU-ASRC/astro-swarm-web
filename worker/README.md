@@ -28,7 +28,7 @@ Point it at an entry id, or at the page url for that entry:
 
 It fetches the entry from `/api/evaluations/<id>`, simulates the placement trials and the
 ring sweep, prints a comparison against the published rates, and writes
-`out/<entry-id>/results.json` plus four charts.
+`out/<entry-id>/results.json` plus the charts.
 
 To work offline, save the evaluation json (the `Export` button on the entry, or a raw
 `{"algorithm": [...], "placements": [...]}` file) and pass it with `-file`:
@@ -70,8 +70,8 @@ line wins; everything else follows the server. It prints which values it adopted
 `-no-settings` skips the fetch and falls back to the built-in defaults, which are the
 values in `web/server/config.py` rather than whatever is in the server's database.
 
-Given a base seed, the derivations match `BenchBase.gd` exactly, and the server publishes
-the same four formulas under `derived_seeds` on that settings endpoint:
+Given a base seed, the derivations are fixed, and the server publishes the same formulas
+under `derived_seeds` on that settings endpoint:
 
 | Use | Seed |
 |---|---|
@@ -80,10 +80,9 @@ the same four formulas under `derived_seeds` on that settings endpoint:
 | Ring-sweep trial | `seed + 100000 + trial * 1000000` |
 | Ring-sweep match at `n` | `sweep_seed[trial] + 500000 + n` |
 | Level 2 scatter fallback | `seed + 700000` |
-| Wave trial | `seed + 1100000 + trial` |
-| Wave spawn angles | `trial seed + (trial + 1) * 1000000`, stratified over the trial count |
-| Second wave of a trial | `trial seed + 770000` |
-| Wave defender sweep at `n` | `seed + 3300000 + n * 1000000 + trial` |
+| Assault trial | `seed + 1100000 + trial` |
+| Assault spawn bearings | `trial seed + 4400000`, drawn fresh for every launch |
+| Assault defender sweep at `n` | `seed + 3300000 + n * 1000000 + trial` |
 
 **The seed a given entry was graded with is not recorded.** `PlayerEvaluation` has no seed
 column, and `_shard_payload` in `web/server/routers/workers.py` reads the current global
@@ -107,8 +106,8 @@ so a mismatch is reported rather than left to the eye.
 
 ## Ring-sweep evader spawn
 
-`BenchBase.gd` gives the ring sweep a single fixed evader spawn (`--enemy-x`, `--enemy-y`,
-default `1920, 40`) reused by every trial at every n. The only thing that varies across the
+The server's default is a single fixed evader spawn for the whole ring sweep (`--enemy-x`,
+`--enemy-y`, default `1920, 40`) reused by every trial at every n. The only thing that varies across the
 n2 repeats is the ring's rotation and each defender's heading, so the evader always
 approaches from the same bearing. At n=1 that measures one geometry rather than a
 distribution, and a defender whose vision reaches the ring can score close to 100 percent
@@ -123,92 +122,108 @@ This deliberately diverges from the server. `verify` reports the sweep deltas bu
 them out of the pass/fail verdict while `varied` is active, since the two are no longer
 measuring the same thing. Use `-sweep-spawn=fixed` to reproduce a published entry.
 
-Making the site agree means the same change in `BenchBase._start_match`, which invalidates
-every existing benchmarked entry until it is re-simulated.
+Making the site agree means flipping `EVAL_SWEEP_SPAWN` to `varied` on the server, which
+invalidates every existing benchmarked entry until it is re-simulated.
 
 ## Ring crowding
 
 The sweep ring has a fixed radius of 300, about 1885px of circumference. Past roughly n=100
 the defenders sit closer together than their own hulls. With collisions off (the default)
-they simply overlap, which is what the Godot benchmarker does too; with `-collisions` they
+they simply overlap, which is what the game does too; with `-collisions` they
 shove each other off the ring and the layout stops being a ring at all.
 
-## Wave benchmarks (levels 3 and 4)
+## Assault benchmarks (levels 3, 4 and 5)
 
-Levels 3 and 4 are not single-evader matches, so they take a different path
-(`internal/bench/wave.go` and `internal/bench/waverunner.go`). Several evaders come in off the
-same ring and the run is a win only if every one of them is destroyed before any reaches the
-planet. Level 3 removes the captured evader; Level 4 removes the defender that caught it as
-well, so the line thins as the wave goes on. A trial always plays out until every evader has
-been sent and resolved: an evader that reaches the planet is removed and counted as a breach,
-and the wave carries on.
+Levels 3 to 5 are not single-evader matches, so they take a different path
+(`internal/bench/assault.go` and `internal/bench/assaultrunner.go`). A stream of evaders comes
+at one scattered line, and the score is the share of them the line destroyed rather than a
+single win or loss.
 
-One trial is **two waves back to back**, matching what the level plays in game:
+| Level | Mode | Arrival | Attrition | Ends when |
+|---|---|---|---|---|
+| 3 | Waves | One at a time off the ring, a fresh random bearing each time | No | The clock stops |
+| 4 | Waves | The same | Yes | The line is spent, or the clock stops |
+| 5 | Siege | Five at once, spread around the arena border | Yes | Every evader is destroyed or has reached the planet |
 
-| Wave | Behavior |
-|---|---|
-| First | The next evader launches only once the previous one is gone |
-| Second | The arena resets to the launch layout and every evader arrives at once |
+In waves mode the next evader launches `WaveGapFrames` after the last one resolves, so a run
+sends as many as the clock allows. In siege mode `SiegeEvaders` launch together at
+`SiegeEdgePoint` bearings, which walk out from the planet until they meet the arena border, so
+the ones on the long sides arrive noticeably later than the ones above and below.
 
-The reset rebuilds the defenders from the same placements, so both waves face the same line
-from the same starting positions, and in level 4 the bodies traded away in the first wave are
-back for the second. A trial is held only if both waves are held. Every trial gets its own
-seeded defender scatter and its own seeded spawn angles. Every wave sends `WaveMaxEvaders`
-evaders (three, capped at the defender count), so every replay shows the same wave twice: three
-one after another, then three together. The same entry and seed always reproduce the same
-result.
+Attrition removes the defender that made the capture. In waves mode that is also the end
+condition: once the last defender is gone the run stops, since nothing is left to send the next
+wave at. An evader that reaches the planet is counted as a breach and removed, and the run
+carries on either way.
 
-Each trial owns a sector of the spawn ring and jitters inside it, the same way the level 1 and
-2 placement runs do, so a run walks the whole circle. Taking the angle straight from a freshly
-seeded rng does not work here: the first `Randf()` after seeding barely moves with the seed, so
-every wave spawned within a few degrees of the same bearing whatever seed was set.
-
-An evader that reaches the planet is counted as a breach once and keeps flying, so it can still
-be run down afterwards. A capture only counts as destroyed if that evader had not already got
-through, which keeps `destroyed + through` equal to the number of evaders sent.
+Every trial gets its own seeded defender scatter and its own seeded spawn bearings, so the same
+entry and seed always reproduce the same result.
 
 The report keeps the combined outcome arrays the existing charts read, and adds
-`sequential_rate` and `simultaneous_rate` (how often each of the two waves held on its own),
-`evaders_destroyed`, `evaders_total`, `evader_destroyed_rate`, per-wave detection rates, and the
-per-trial arrays (`trial_destroyed`, `trial_evaders`, `trial_detected_first`,
-`trial_detected_second`) the site charts.
+`evaders_resolved`, `evaders_destroyed`, `evader_destroyed_rate`, `breaches`, `defenders_lost`,
+`risk`, `trials_held_rate`, the per-trial arrays (`trial_destroyed`, `trial_resolved`,
+`trial_breaches`, `trial_lost`) the site charts, `attrition`, and `sweep_attrition`.
 
-`success_rate` on a wave level is the share of evaders destroyed, not the share of trials held
-outright: stopping two of three evaders is not the same result as stopping none. The strict
+The rate is taken over the evaders that actually reached a verdict, not every one sent: an
+evader still in flight when the clock stopped was never given the chance to be stopped, so it
+counts for neither side. A run's `stats` carries both numbers, as `sent` and `resolved`, and
+`destroyed + breaches` always equals `resolved`.
+
+`success_rate` on an assault level is the share of evaders destroyed, not the share of trials
+held outright: stopping nine of ten evaders is not the same result as stopping none. The strict
 all-or-nothing number is reported alongside it as `trials_held_rate`.
 
+### Risk and the attrition curve
+
+`risk` is `100 - capture success rate`, reported both as a headline number and per sweep point,
+so a curve of risk against ring size drops straight out of the same data.
+
+`attrition` pools every launched evader by **how many defenders were standing when it left**,
+and reports the risk the line carried at that size. On level 3 the line never thins, so the
+curve is a single point; on levels 4 and 5 it is the shape the request asks for — a line of ten
+that trades down to five carries a visibly different risk, and a strategy change shows up as a
+different curve rather than a different single number.
+
+`sweep_attrition` is the same measurement taken across the ring sweep instead of the submitted
+layout: one curve per ring size, so a line that *started* at n=10 and one that started at n=5
+can be compared on what their risk does as each thins. A ring that never lost a ship has a
+single rung and is left out, which is every ring on level 3. Ring sizes are consecutive, so the
+charts draw an even spread of at most six of them and always keep the largest, which is where
+the sweep stopped.
+
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
-a defender lost to a trade in level 4 does not shift every slot after it. Each wave keeps
-recording for four seconds after its last evader is resolved, so a replay does not cut off on
-the frame of the final capture, and `stats.wave_two_time` marks where the second wave begins.
+a defender lost to a trade does not shift every slot after it. In waves mode there is one
+evader slot, since only one is ever in flight; in siege mode there is one per evader. These
+runs are far longer than a single approach, so only every `AssaultRecordStride` physics frame
+is recorded (the job's replay `fps` is set to match) and only the first `AssaultReplayTrials`
+trials keep a recording at all. The rest are graded but not replayable, and the site marks
+their cells accordingly.
 
-### Running a wave entry
+### Running an assault entry
 
-`astrosim` re-simulates level 3 and 4 entries the same way it does levels 1 and 2:
+`astrosim` re-simulates level 3, 4 and 5 entries the same way it does levels 1 and 2:
 
 ```
 ./astrosim 0940aa30-d79c-4406-9fcb-002a547413f2
 ```
 
-The banner, the progress line and the summary switch to wave wording, and the summary reports
-trials held, each wave's own hold rate, and how many evaders were destroyed across both waves.
-`-n-max` becomes a ceiling rather than a target, since the sweep stops as soon as the algorithm
-holds, and the sweep curves are left out of the pass/fail verdict for the same reason: a
-published entry and a fresh run can stop at different `n`.
+The banner, the progress line and the summary switch to assault wording, and the summary
+reports the capture success rate, the risk, how many evaders got through, the defenders lost
+and the risk at each line size. `-n-max` becomes a ceiling rather than a target, since the
+sweep stops as soon as the algorithm holds, and the sweep curves are left out of the pass/fail
+verdict for the same reason: a published entry and a fresh run can stop at different `n`.
 
 ### Adaptive defender sweep
 
 The ring sweep for these levels does not run out to a fixed `n-max`. It starts at one
-defender and grows, running `sweep-trials` matches at each count with alternating wave styles
-and varying evader counts, and stops as soon as **three consecutive defender counts come back
-at 100 percent**. `n-max` is only a ceiling.
+defender and grows, running `sweep-trials` matches at each count, and stops as soon as **three
+consecutive defender counts come back at 100 percent**. `n-max` is only a ceiling.
 
 The point is that simulating out to n=100 is wasted work once an algorithm is clearly holding.
 A strong entry finishes in a handful of steps; a weak one keeps climbing until it either holds
-or hits the ceiling. `WaveConsecutiveMax` in `internal/bench/wave.go` is the run length that
+or hits the ceiling. `WaveConsecutiveMax` in `internal/bench/assault.go` is the run length that
 counts as settled.
 
-Level 5 and Level 6 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
+Level 6 and Level 7 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
 
 ## Charts
 
@@ -220,18 +235,28 @@ Written with gonum/plot into the output directory:
 | `detection_rate_vs_defenders.png` | Detection rate against the number of defenders on the ring |
 | `capture_rate_vs_defenders.png` | Capture success rate against the number of defenders on the ring |
 | `rates_vs_defenders.png` | Both rates on one axis |
+| `risk_vs_defenders.png` | `Risk = 1 - capture success rate` against the number of defenders, with the capture rate alongside it |
+| `risk_vs_attrition.png` | Risk against how many defenders were still standing when the evader launched, over the submitted layout; only drawn when the line actually thinned |
+| `risk_vs_attrition_by_ring.png` | The same curve taken across the ring sweep, one line per ring size |
 
 The published overlay on the two sweep charts comes from `/api/evaluations/<id>/sweep-replays`,
-which carries a real `detection_rate` and `capture_rate` for every `n`. It does **not** come
-from `results.sweep`: that field holds only one number per `n`, and `merge.py` fills it with
-the capture rate under the name `success_rate`. Plotting it opposite a detection rate
-compares seeing against touching and makes the algorithm look broken when it is not.
+which carries a real `detection_rate` and `capture_rate` for every `n`. Prefer it over
+`results.sweep`: `merge.py` writes `success_rate` there as a copy of the capture rate, so an
+older entry can carry a `success_rate` that is not a win rate at all. Plotting that opposite a
+detection rate compares seeing against touching and makes the algorithm look broken when it is
+not. Newer entries also carry `capture_rate`, `detection_rate` and `risk` on each sweep point,
+which is what the site's risk chart reads.
 
-## How it maps onto the Godot benchmarker
+## How it maps onto the game
 
-| Godot | Here |
+The game used to carry its own headless benchmarker in `BenchBase.gd`. That is gone: grading
+happens here now, and the game only plays the level. What the worker ports is the rule set
+those level scripts implement.
+
+| Game | Here |
 |---|---|
-| `BenchBase.gd` match loop, event tracking, ring sweep | `internal/bench` |
+| `FARPBase.gd` match loop and event tracking | `internal/bench/match.go` |
+| `AssaultBase.gd` and `WaveBase.gd` evader stream, attrition, breaches | `internal/bench/assault.go` |
 | `Spaceship.gd` movement, vision, conditions, actions | `internal/sim` |
 | `BlockExecutor.gd` | `internal/blocks/executor.go` |
 | `SimulationManager.normalize_to_scripts`, `ship_config_from_scripts` | `internal/blocks/normalize.go`, `config.go` |
@@ -239,18 +264,18 @@ compares seeing against touching and makes the algorithm look broken when it is 
 | `Vision` Area2D cone against a `Hull` CircleShape2D | `internal/geom/polygon.go` |
 | `web/server/merge.py` shard merge | `internal/bench/runner.go` |
 
-Every match seeds its own RNG exactly the way `BenchBase._start_match` does
-(`seed + trial` for placement runs, `sweep_trial_seed(trial) + 500000 + n` for the sweep),
-so matches are independent and run in parallel without changing the result.
+Every match seeds its own RNG from the table above (`seed + trial` for placement runs,
+`sweep_trial_seed(trial) + 500000 + n` for the sweep), so matches are independent and run in
+parallel without changing the result.
 
-The headline rates follow `merge.py`, not `BenchBase._write_output`: success rate is
-counted over the trials that actually ran, and the per-n sweep number is the capture rate.
-That is what the site displays.
+The headline rates follow `merge.py`: on levels 1 and 2 the success rate is counted over the
+trials that actually ran, on levels 3 to 5 it is the share of resolved evaders destroyed, and
+the per-n sweep number is the capture rate. That is what the site displays.
 
-## Known sources of drift against the Godot build
+## Known sources of drift against the game
 
-These are faithful ports of what the Godot benchmarker does, quirks included. They are
-listed because they are the likely reasons a published entry looks slightly off.
+These are faithful ports of what the game does, quirks included. They are listed because they
+are the likely reasons a published entry looks slightly off from what the player watched.
 
 1. **Two different detection tests.** The `Detected` event is a point test against
    `view_distance` and `fov_degrees`, but the `When I see an enemy` block is driven by the
