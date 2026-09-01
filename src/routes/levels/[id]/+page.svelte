@@ -14,7 +14,12 @@
 	} from '$lib/ts/levels';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
-	import { riskConfig, attritionRiskConfig, sweepAttritionConfig } from '$lib/ts/levelCharts';
+	import {
+		riskConfig,
+		attritionRiskConfig,
+		sweepAttritionConfig,
+		ringProgressConfig
+	} from '$lib/ts/levelCharts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 	import { FARP_LEVELS, levelById } from '$lib/ts/levels';
@@ -43,6 +48,7 @@
 	let attrition = $derived(ev.results?.attrition ?? []);
 	let replayTrials = $derived(ev.results?.replay_trials ?? 0);
 	let sweepAttrition = $derived(ev.results?.sweep_attrition ?? []);
+	let sweepProgress = $derived(ev.results?.sweep_progress ?? []);
 
 	let counts = $derived.by(() => {
 		const tally = { win: 0, lose: 0, timeout: 0 };
@@ -465,6 +471,35 @@
 						{/if}
 						{#if attrition.length > 1}
 							<ChartCard config={attritionRiskConfig(attrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/attrition.png`)} />
+						{/if}
+						{#if sweepProgress.length > 0}
+							<ChartCard
+								config={ringProgressConfig(
+									sweepProgress,
+									'capture_rate',
+									'Capture Success Rate by Ring Size',
+									'Capture success rate so far (%)'
+								)}
+								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)}
+							/>
+							<ChartCard
+								config={ringProgressConfig(
+									sweepProgress,
+									'risk',
+									'Risk by Ring Size',
+									'Risk = 1 - capture success rate (%)'
+								)}
+								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)}
+							/>
+							<ChartCard
+								config={ringProgressConfig(
+									sweepProgress,
+									'defenders',
+									'Defenders Still Standing by Ring Size',
+									'Defenders left, as a share of the ring (%)'
+								)}
+								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
+							/>
 						{/if}
 						{#if sweepAttrition.length > 0}
 							<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />

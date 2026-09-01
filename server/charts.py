@@ -232,6 +232,61 @@ def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
     return _save(fig)
 
 
+# The three ring-sweep curves the site draws side by side, read wave by wave
+# rather than in total. Every ring size gets its own line.
+def _render_progress_png(series, pick, title, ylabel, meta):
+    chosen = _spread(sorted(series, key=lambda entry: entry.get("n", 0)))
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    everything = []
+    for index, entry in enumerate(chosen):
+        points = sorted(entry.get("points", []), key=lambda point: point.get("faced", 0))
+        xs = [point.get("faced", 0) for point in points]
+        ys = [pick(point, entry) for point in points]
+        everything.extend(xs)
+        ax.plot(xs, ys, color=SERIES_COLORS[index % len(SERIES_COLORS)], linewidth=2, label=f"n = {entry.get('n')}")
+    ax.set_title(title)
+    ax.set_xlabel("Evaders faced")
+    ax.set_ylabel(ylabel)
+    _percent_axis(ax)
+    _padded_xlim(ax, everything)
+    ax.grid(True, color="#e5e7eb")
+    if chosen:
+        ax.legend(loc="upper right", fontsize=8)
+    fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return _save(fig)
+
+
+def render_ring_capture_png(series, username, level_id, eval_id, date_label):
+    return _render_progress_png(
+        series, lambda point, entry: point.get("capture_rate", 0.0),
+        "Capture Success Rate by Ring Size", "Capture success rate so far (%)",
+        (username, level_id, eval_id, date_label),
+    )
+
+
+def render_ring_risk_png(series, username, level_id, eval_id, date_label):
+    return _render_progress_png(
+        series, lambda point, entry: point.get("risk", 0.0),
+        "Risk by Ring Size", "Risk = 1 - capture success rate (%)",
+        (username, level_id, eval_id, date_label),
+    )
+
+
+# Shown as a share of the ring so rings of different sizes sit on one axis.
+def render_ring_attrition_png(series, username, level_id, eval_id, date_label):
+    def share(point, entry):
+        size = entry.get("n", 0)
+        return 100.0 * point.get("defenders", 0.0) / size if size else 0.0
+
+    return _render_progress_png(
+        series, share,
+        "Defenders Still Standing by Ring Size", "Defenders left, as a share of the ring (%)",
+        (username, level_id, eval_id, date_label),
+    )
+
+
 def render_times_png(detection_times, capture_times, username, level_id, eval_id, date_label):
     count = max(len(detection_times), len(capture_times))
     trials = list(range(1, count + 1))

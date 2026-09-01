@@ -161,7 +161,8 @@ entry and seed always reproduce the same result.
 The report keeps the combined outcome arrays the existing charts read, and adds
 `evaders_resolved`, `evaders_destroyed`, `evader_destroyed_rate`, `breaches`, `defenders_lost`,
 `risk`, `trials_held_rate`, the per-trial arrays (`trial_destroyed`, `trial_resolved`,
-`trial_breaches`, `trial_lost`) the site charts, `attrition`, and `sweep_attrition`.
+`trial_breaches`, `trial_lost`) the site charts, `attrition`, `sweep_attrition`, and
+`sweep_progress`.
 
 The rate is taken over the evaders that actually reached a verdict, not every one sent: an
 evader still in flight when the clock stopped was never given the chance to be stopped, so it
@@ -186,9 +187,18 @@ different curve rather than a different single number.
 `sweep_attrition` is the same measurement taken across the ring sweep instead of the submitted
 layout: one curve per ring size, so a line that *started* at n=10 and one that started at n=5
 can be compared on what their risk does as each thins. A ring that never lost a ship has a
-single rung and is left out, which is every ring on level 3. Ring sizes are consecutive, so the
-charts draw an even spread of at most six of them and always keep the largest, which is where
-the sweep stopped.
+single rung and is left out, which is every ring on level 3.
+
+`sweep_progress` reads each ring size **wave by wave rather than in total**. For every ring
+size it walks its trials in launch order and reports, at each evader faced, the cumulative
+capture rate, the risk that leaves, and how much of the line was still standing. That is what
+gives all three ring-sweep charts a line per `n` on levels 3, 4 *and* 5 — including level 3,
+where the line never thins and the attrition curve is flat by definition. Each rung averages
+only the trials that got that far, and the curve stops once fewer than half of them are still
+running, which is where the average stops meaning anything.
+
+Ring sizes are consecutive, so every chart that draws a line per `n` takes an even spread of at
+most six of them and always keeps the largest, which is where the sweep stopped.
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
 a defender lost to a trade does not shift every slot after it. In waves mode there is one
@@ -238,6 +248,9 @@ Written with gonum/plot into the output directory:
 | `risk_vs_defenders.png` | `Risk = 1 - capture success rate` against the number of defenders, with the capture rate alongside it |
 | `risk_vs_attrition.png` | Risk against how many defenders were still standing when the evader launched, over the submitted layout; only drawn when the line actually thinned |
 | `risk_vs_attrition_by_ring.png` | The same curve taken across the ring sweep, one line per ring size |
+| `capture_rate_by_ring.png` | Cumulative capture success rate against evaders faced, one line per ring size |
+| `risk_by_ring.png` | The risk that leaves, against evaders faced, one line per ring size |
+| `attrition_by_ring.png` | Defenders still standing as a share of the ring, against evaders faced, one line per ring size |
 
 The published overlay on the two sweep charts comes from `/api/evaluations/<id>/sweep-replays`,
 which carries a real `detection_rate` and `capture_rate` for every `n`. Prefer it over

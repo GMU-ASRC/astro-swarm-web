@@ -136,3 +136,73 @@ func spreadSeries(series []bench.AttritionSeries, limit int) []bench.AttritionSe
 	}
 	return out
 }
+
+// The three ring-sweep curves the site draws side by side: how each ring size's
+// capture rate settles, the risk that leaves, and how much of the line is still
+// standing, all read wave by wave rather than in total. Every ring size gets its
+// own line, so the sizes can be compared as runs rather than as end numbers.
+func captureRateByRing(input Input) (*plot.Plot, error) {
+	return progressChart(input,
+		"Capture success rate by ring size"+suffix(input.Subtitle),
+		"Capture success rate so far (%)",
+		func(point bench.SweepProgressPoint) float64 { return point.CaptureRate })
+}
+
+func riskByRing(input Input) (*plot.Plot, error) {
+	return progressChart(input,
+		"Risk by ring size"+suffix(input.Subtitle),
+		"Risk = 1 - capture success rate (%)",
+		func(point bench.SweepProgressPoint) float64 { return point.Risk })
+}
+
+func attritionByRing(input Input) (*plot.Plot, error) {
+	return progressChart(input,
+		"Defenders still standing by ring size"+suffix(input.Subtitle),
+		"Defenders left, as a share of the ring (%)",
+		nil)
+}
+
+func progressChart(input Input, title string, yLabel string, pick func(bench.SweepProgressPoint) float64) (*plot.Plot, error) {
+	series := spreadProgress(input.Report.Results.SweepProgress, maxAttritionSeries)
+	if len(series) == 0 {
+		return nil, nil
+	}
+	p := newPlot(title, "Evaders faced", yLabel)
+	percentAxis(p)
+
+	drawn := make([]plotter.XYs, 0, len(series))
+	for index, entry := range series {
+		points := make(plotter.XYs, 0, len(entry.Points))
+		for _, point := range entry.Points {
+			value := 0.0
+			if pick != nil {
+				value = pick(point)
+			} else if entry.N > 0 {
+				// Shown as a share of the ring so rings of different sizes sit
+				// on one axis.
+				value = 100.0 * point.Defenders / float64(entry.N)
+			}
+			points = append(points, plotter.XY{X: float64(point.Faced), Y: value})
+		}
+		line, err := addSeries(p, points, seriesColors[index%len(seriesColors)])
+		if err != nil {
+			return nil, err
+		}
+		p.Legend.Add(fmt.Sprintf("n = %d", entry.N), line)
+		drawn = append(drawn, points)
+	}
+	marginX(p, drawn...)
+	return p, nil
+}
+
+func spreadProgress(series []bench.SweepProgressSeries, limit int) []bench.SweepProgressSeries {
+	if len(series) <= limit {
+		return series
+	}
+	out := make([]bench.SweepProgressSeries, 0, limit)
+	step := float64(len(series)-1) / float64(limit-1)
+	for index := 0; index < limit; index++ {
+		out = append(out, series[int(math.Round(float64(index)*step))])
+	}
+	return out
+}

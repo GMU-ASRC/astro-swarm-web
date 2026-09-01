@@ -37,6 +37,23 @@ type AttritionSeries struct {
 	Points []AttritionPoint `json:"points"`
 }
 
+// One rung of a ring size's run: what the line had achieved and what was left
+// of it by the time it had faced this many evaders, averaged over that ring's
+// sweep trials. Every level produces these, including the ones without
+// attrition, where the line simply never thins.
+type SweepProgressPoint struct {
+	Faced       int     `json:"faced"`
+	CaptureRate float64 `json:"capture_rate"`
+	Risk        float64 `json:"risk"`
+	Defenders   float64 `json:"defenders"`
+	Trials      int     `json:"trials"`
+}
+
+type SweepProgressSeries struct {
+	N      int                  `json:"n"`
+	Points []SweepProgressPoint `json:"points"`
+}
+
 type OutcomeCounts struct {
 	Captured      int `json:"captured"`
 	ReachedPlanet int `json:"reached_planet"`
@@ -71,7 +88,8 @@ type Results struct {
 	TrialLost           []int            `json:"trial_lost,omitempty"`
 	Attrition           []AttritionPoint `json:"attrition,omitempty"`
 
-	SweepAttrition []AttritionSeries `json:"sweep_attrition,omitempty"`
+	SweepAttrition []AttritionSeries     `json:"sweep_attrition,omitempty"`
+	SweepProgress  []SweepProgressSeries `json:"sweep_progress,omitempty"`
 }
 
 type Report struct {

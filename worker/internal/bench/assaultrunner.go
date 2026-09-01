@@ -13,6 +13,7 @@ const (
 	AssaultReplayTrials    = 25      // count, placement trials that keep a frame recording
 	AssaultReplaySweepNMax = 20      // count, largest defender count that still records a replay
 	AssaultReplaySweepMax  = 4       // count, trials per defender count that still record a replay
+	SweepProgressMax       = 60      // count, evaders a ring's progress curve is drawn out to
 )
 
 type assaultJob struct {
@@ -140,7 +141,7 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 	}
 
 	trials := runAssaultJobs(buildAssaultTrials(options), options, matchFrames, mode, destroysDefenders, tick)
-	sweep, sweepPoints, sweepAttrition := runAssaultSweep(options, matchFrames, mode, destroysDefenders, tick)
+	sweep, sweepPoints, sweepAttrition, sweepProgress := runAssaultSweep(options, matchFrames, mode, destroysDefenders, tick)
 
 	report := Report{
 		LevelID:         options.LevelID,
@@ -157,6 +158,7 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 	fillAssaultResults(&report, trials)
 	report.Results.Sweep = sweepPoints
 	report.Results.SweepAttrition = sweepAttrition
+	report.Results.SweepProgress = sweepProgress
 	report.DurationSeconds = time.Since(started).Seconds()
 
 	if options.Progress != nil {
@@ -182,10 +184,11 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 
 // The sweep grows the ring until the algorithm holds cleanly a few sizes in a
 // row, so a strong entry is not charged for defender counts that add nothing.
-func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefenders bool, tick func()) ([]assaultResult, []SweepPoint, []AttritionSeries) {
+func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefenders bool, tick func()) ([]assaultResult, []SweepPoint, []AttritionSeries, []SweepProgressSeries) {
 	all := []assaultResult{}
 	points := []SweepPoint{}
 	series := []AttritionSeries{}
+	progress := []SweepProgressSeries{}
 	clean := 0
 
 	for defenders := options.NStart; defenders <= options.SweepMax; defenders++ {
@@ -201,6 +204,7 @@ func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefe
 		resolved := 0
 		destroyed := 0
 		samples := []AttritionSample{}
+		traces := [][]AttritionSample{}
 		for _, item := range step {
 			if !item.ran {
 				continue
@@ -209,6 +213,7 @@ func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefe
 			resolved += item.output.Resolved
 			destroyed += item.output.Destroyed
 			samples = append(samples, item.output.Samples...)
+			traces = append(traces, item.output.Samples)
 			if item.output.Outcome == OutcomeWin {
 				wins++
 			}
@@ -235,6 +240,9 @@ func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefe
 		if curve := SummarizeAttrition(samples); len(curve) > 1 {
 			series = append(series, AttritionSeries{N: defenders, Points: curve})
 		}
+		if curve := SummarizeProgress(traces); len(curve) > 0 {
+			progress = append(progress, SweepProgressSeries{N: defenders, Points: curve})
+		}
 
 		if wins == ran {
 			clean++
@@ -245,7 +253,54 @@ func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefe
 			clean = 0
 		}
 	}
-	return all, points, series
+	return all, points, series, progress
+}
+
+// Reads each ring size's trials wave by wave rather than in total, so a ring can
+// be plotted as a line: how its capture rate settled and how much of it was left
+// as the run went on. The curve stops once fewer than half the trials are still
+// running, which is where the average stops meaning anything.
+func SummarizeProgress(traces [][]AttritionSample) []SweepProgressPoint {
+	longest := 0
+	for _, trace := range traces {
+		if len(trace) > longest {
+			longest = len(trace)
+		}
+	}
+	if longest > SweepProgressMax {
+		longest = SweepProgressMax
+	}
+
+	points := make([]SweepProgressPoint, 0, longest)
+	for index := 0; index < longest; index++ {
+		destroyed := 0
+		defenders := 0
+		reached := 0
+		for _, trace := range traces {
+			if index >= len(trace) {
+				continue
+			}
+			reached++
+			defenders += trace[index].Remaining
+			for rung := 0; rung <= index; rung++ {
+				if trace[rung].Destroyed {
+					destroyed++
+				}
+			}
+		}
+		if reached*2 < len(traces) {
+			break
+		}
+		captureRate := destroyRate(destroyed, reached*(index+1))
+		points = append(points, SweepProgressPoint{
+			Faced:       index + 1,
+			CaptureRate: captureRate,
+			Risk:        riskOf(captureRate),
+			Defenders:   round1(float64(defenders) / float64(reached)),
+			Trials:      reached,
+		})
+	}
+	return points
 }
 
 func fillAssaultResults(report *Report, trials []assaultResult) {

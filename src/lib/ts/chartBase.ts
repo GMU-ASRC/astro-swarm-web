@@ -46,6 +46,19 @@ export type AttritionSeries = {
 	points: AttritionRow[];
 };
 
+export type ProgressPoint = {
+	faced: number;
+	capture_rate: number;
+	risk: number;
+	defenders: number;
+	trials: number;
+};
+
+export type ProgressSeries = {
+	n: number;
+	points: ProgressPoint[];
+};
+
 export type ComparisonEntry = {
 	id: string;
 	username: string;

@@ -42,7 +42,8 @@ type AssaultInput struct {
 // it left the ring. That is what turns a run into a risk-against-line-size
 // curve once every trial is pooled.
 type AttritionSample struct {
-	Defenders int
+	Defenders int // line size when this evader launched
+	Remaining int // line size once it was resolved, after any trade
 	Destroyed bool
 }
 
@@ -178,7 +179,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 				entry.breached = true
 				output.Breaches++
 				output.Resolved++
-				output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch})
+				output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live)})
 				world.Remove(entry.ship)
 				inFlight[entry.slot] = nil
 				continue
@@ -192,7 +193,6 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			}
 			output.Destroyed++
 			output.Resolved++
-			output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Destroyed: true})
 			world.Remove(entry.ship)
 			inFlight[entry.slot] = nil
 			if input.DestroysDefenders {
@@ -201,6 +201,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 				killDefender(defenders, catcher)
 				output.DefendersLost++
 			}
+			output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live), Destroyed: true})
 		}
 
 		if !siege && len(live) < 1 {

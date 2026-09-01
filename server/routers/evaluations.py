@@ -857,6 +857,12 @@ def chart(eval_id: str, kind: str):
         png = charts.render_attrition_png(results.get("attrition", []), *meta)
     elif kind == "sweep-attrition":
         png = charts.render_sweep_attrition_png(results.get("sweep_attrition", []), *meta)
+    elif kind == "ring-capture":
+        png = charts.render_ring_capture_png(results.get("sweep_progress", []), *meta)
+    elif kind == "ring-risk":
+        png = charts.render_ring_risk_png(results.get("sweep_progress", []), *meta)
+    elif kind == "ring-attrition":
+        png = charts.render_ring_attrition_png(results.get("sweep_progress", []), *meta)
     elif kind == "times":
         png = charts.render_times_png(results.get("detection_times", []), results.get("capture_times", []), *meta)
     else:

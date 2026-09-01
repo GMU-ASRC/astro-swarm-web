@@ -14,6 +14,7 @@ import {
 	spreadSeries,
 	type AttritionRow,
 	type AttritionSeries,
+	type ProgressSeries,
 	type ComparisonEntry,
 	type SweepRow
 } from '$lib/ts/chartBase';
@@ -136,6 +137,60 @@ export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfigurat
 		},
 		options
 	};
+}
+
+// The three ring-sweep curves drawn side by side: how each ring size's capture
+// rate settles, the risk that leaves, and how much of the line is still
+// standing, all read wave by wave rather than in total. Every ring size gets its
+// own line, so the sizes can be compared as runs rather than as end numbers.
+export function ringProgressConfig(
+	series: ProgressSeries[],
+	key: 'capture_rate' | 'risk' | 'defenders',
+	title: string,
+	yTitle: string
+): ChartConfiguration {
+	const chosen = spreadSeries(
+		[...series].sort((a, b) => a.n - b.n),
+		MAX_ATTRITION_SERIES
+	);
+	const faced = new Set<number>();
+	for (const entry of chosen) {
+		for (const point of entry.points) faced.add(point.faced);
+	}
+	const labels = [...faced].sort((a, b) => a - b);
+
+	const options = baseOptions(title, yTitle, 'Evaders faced', true, ringSource(series));
+	options.scales.y = percentScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels,
+			datasets: chosen.map((entry, index) => {
+				// Defenders are shown as a share of the ring so rings of
+				// different sizes sit on one axis.
+				const scale = key === 'defenders' && entry.n > 0 ? 100 / entry.n : 1;
+				const byFaced = new Map(entry.points.map((point) => [point.faced, point[key] * scale]));
+				const color = COMPARISON_COLORS[index % COMPARISON_COLORS.length];
+				return {
+					label: `n = ${entry.n}`,
+					data: labels.map((value) => byFaced.get(value) ?? null),
+					borderColor: color,
+					backgroundColor: color,
+					pointRadius: 0,
+					borderWidth: 2,
+					spanGaps: true
+				};
+			})
+		},
+		options
+	};
+}
+
+function ringSource(series: ProgressSeries[]): string {
+	if (series.length === 0) return 'Ring sweep runs';
+	const sizes = series.map((entry) => entry.n);
+	return `Ring sweep runs · n = ${Math.min(...sizes)}–${Math.max(...sizes)}`;
 }
 
 export const BEST_SERIES_ID = 'best';

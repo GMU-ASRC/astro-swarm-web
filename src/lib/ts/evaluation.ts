@@ -21,6 +21,7 @@ export interface EvalSummary {
 	trial_lost?: number[];
 	attrition?: AttritionPoint[];
 	sweep_attrition?: AttritionSeries[];
+	sweep_progress?: ProgressSeries[];
 	sweep?: SweepRow[];
 	stats?: RunStats;
 }
@@ -67,6 +68,19 @@ export interface AttritionPoint {
 export interface AttritionSeries {
 	n: number;
 	points: AttritionPoint[];
+}
+
+export interface ProgressPoint {
+	faced: number;
+	capture_rate: number;
+	risk: number;
+	defenders: number;
+	trials: number;
+}
+
+export interface ProgressSeries {
+	n: number;
+	points: ProgressPoint[];
 }
 
 export interface RunStats {

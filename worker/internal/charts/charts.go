@@ -36,6 +36,9 @@ func WriteAll(directory string, input Input) ([]string, error) {
 		{"risk_vs_defenders.png", riskVersusDefenders},
 		{"risk_vs_attrition.png", riskVersusAttrition},
 		{"risk_vs_attrition_by_ring.png", riskVersusSweepAttrition},
+		{"capture_rate_by_ring.png", captureRateByRing},
+		{"risk_by_ring.png", riskByRing},
+		{"attrition_by_ring.png", attritionByRing},
 	}
 
 	for _, step := range steps {
