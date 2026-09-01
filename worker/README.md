@@ -146,7 +146,11 @@ single win or loss.
 | 5 | Siege | Five at once, spread around the arena border | Yes | Every evader is destroyed or has reached the planet |
 
 In waves mode the next evader launches `WaveGapFrames` after the last one resolves, so a run
-sends as many as the clock allows. In siege mode `SiegeEvaders` launch together at
+sends as many as the clock allows. **This is on purpose longer than the level.** The game caps
+levels 3 and 4 at five waves, which is enough for a player to feel out an algorithm without
+sitting through a four-minute run; the benchmark keeps going until the line is spent or the
+clock stops, so a defense that only survives the opening does not score as though it had held.
+An entry's published rate is therefore taken over far more evaders than the player watched. In siege mode `SiegeEvaders` launch together at
 `SiegeEdgePoint` bearings, which walk out from the planet until they meet the arena border, so
 the ones on the long sides arrive noticeably later than the ones above and below.
 

@@ -46,7 +46,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'green',
 		summary:
-			'Evaders arrive one at a time, wave after wave, each from a fresh random bearing. A defender that catches one survives and takes the next, so the line holds until the clock runs out. The score is the share of evaders destroyed.',
+			'Evaders arrive one at a time, each from a fresh random bearing. A defender that catches one survives and takes the next, so nothing is spent. The level plays five waves; the benchmark keeps sending them until the clock runs out. The score is the share of evaders destroyed.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -58,7 +58,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'red',
 		summary:
-			'The same waves, but a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent or the clock stops.',
+			'The same waves, but a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
 		rateLabel: 'capture success rate'
 	},
 	{
