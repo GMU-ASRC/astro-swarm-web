@@ -28,6 +28,15 @@
 			blurb:
 				'Two commanders herd wandering ships into planetary defenses while waves of evaders close in on both bases. Whoever lets fewest evaders through wins the match.',
 			facts: ['Head to head', 'Match reports', 'APM telemetry']
+		},
+		{
+			href: '/gamemodes/simulator',
+			variant: 'purple',
+			name: 'Simulator',
+			tagline: 'Sandbox · separate from the game',
+			blurb:
+				'Design species, program them with blocks, and let the swarm loose in an arena of walls, obstacles and spawn zones. Uploaded runs keep the full recording and the logic behind every species.',
+			facts: ['Custom species', 'Replays', 'Species logic']
 		}
 	];
 </script>

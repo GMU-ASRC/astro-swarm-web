@@ -13,10 +13,12 @@ from config import Config
 from database import db
 from entry_card import build_entry_card
 from models import PlayerEvaluation
+from simulator_models import SimulatorEntry
 from routers.admin import admin_bp
 from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
+from routers.simulator import simulator_bp
 from routers.survive import survive_bp
 from routers.version import version_bp
 from routers.workers import workers_bp
@@ -34,6 +36,7 @@ PAGE_META = {
     "gamemodes": ("Game Modes — AstroSwarm", "Browse AstroSwarm game modes and the data behind every recorded run."),
     "levels": ("Levels — AstroSwarm", "Per-level benchmark data for player algorithms in AstroSwarm."),
     "survive": ("Survive Matches — AstroSwarm", "Two-player Survive match reports with actions-per-minute telemetry."),
+    "simulator": ("Simulator Entries — AstroSwarm", "Swarm simulator runs shared by players, with replays and the logic of every species."),
 }
 
 
@@ -58,6 +61,14 @@ def _resolve_meta(path):
             description = card.description()
             meta_type = "article"
             image = f"{base}/api/evaluations/{evaluation.id}/thumbnail.png"
+
+    if len(segments) >= 2 and segments[0] == "simulator":
+        entry = db.session.get(SimulatorEntry, segments[1])
+        if entry is not None:
+            title = f"{entry.title} by {entry.username} — Simulator — AstroSwarm"
+            species_count = len(entry.species or [])
+            description = entry.description or f"A {entry.duration_seconds}s swarm simulator run with {species_count} species."
+            meta_type = "article"
 
     return {"title": title, "description": description, "type": meta_type, "image": image, "url": f"{base}/{path}"}
 
@@ -138,6 +149,7 @@ def create_app():
     app.register_blueprint(version_bp)
     app.register_blueprint(evaluations_bp)
     app.register_blueprint(survive_bp)
+    app.register_blueprint(simulator_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(admin_bp)
 

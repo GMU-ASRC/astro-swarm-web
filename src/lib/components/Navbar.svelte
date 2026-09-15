@@ -8,7 +8,7 @@
 
 	const links = [
 		{ href: '/', label: 'Home', match: (path: string) => path === '/' },
-		{ href: '/gamemodes', label: 'Game Modes', match: (path: string) => path.startsWith('/gamemodes') || path.startsWith('/levels') || path.startsWith('/survive') },
+		{ href: '/gamemodes', label: 'Game Modes', match: (path: string) => path.startsWith('/gamemodes') || path.startsWith('/levels') || path.startsWith('/survive') || path.startsWith('/simulator') },
 		{ href: '/leaderboard', label: 'Leaderboard', match: (path: string) => path.startsWith('/leaderboard') },
 		{ href: '/previews', label: 'Screenshots', match: (path: string) => path.startsWith('/previews') },
 		{ href: '/downloads', label: 'Downloads', match: (path: string) => path.startsWith('/downloads') }

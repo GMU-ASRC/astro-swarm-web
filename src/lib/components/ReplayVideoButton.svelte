@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
-	import type { Replay } from '$lib/ts/evaluation';
-	import type { ReplayMode } from '$lib/ts/replayRenderer';
-	import { canExportVideo, renderReplayVideo, saveBlob, videoFileName } from '$lib/ts/replayVideo';
+	import { canExportVideo, encodeVideo, saveBlob, type VideoJob } from '$lib/ts/replayVideo';
 
-	let { replay, mode = 'defense' }: { replay: Replay; mode?: ReplayMode } = $props();
+	let { createJob, fileName }: { createJob: () => VideoJob; fileName: string } = $props();
 
 	let supported = $state(true);
 	let exporting = $state(false);
@@ -25,18 +23,20 @@
 	);
 
 	onMount(async () => {
-		supported = await canExportVideo().catch(() => false);
+		const job = createJob();
+		supported = await canExportVideo(job.width, job.height).catch(() => false);
 	});
 
 	async function downloadVideo() {
 		if (exporting || !supported) return;
-		const exportedReplay = replay;
+		const job = createJob();
+		const exportedFileName = fileName;
 		exporting = true;
 		failed = false;
 		progress = 0;
 		try {
-			const video = await renderReplayVideo(exportedReplay, mode, (fraction) => (progress = fraction));
-			saveBlob(video, videoFileName(exportedReplay));
+			const video = await encodeVideo(job, (fraction) => (progress = fraction));
+			saveBlob(video, exportedFileName);
 		} catch (error) {
 			console.error('Replay video export failed', error);
 			failed = true;

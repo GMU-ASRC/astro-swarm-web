@@ -18,8 +18,19 @@ The companion website for AstroSwarm, a pixel-art swarm-behavior simulator built
 ### Home
 Landing page with an animated starfield background, a game overview, and navigation to all other sections.
 
-### Simulator Gallery (`/simulator`)
-Browse community-uploaded recorded runs. Each card shows the species list with their colors, robot count, arena dimensions, and frame count. Clicking on a run opens a dedicated detail page featuring a streaming video player and run statistics. Runs (`.run`) are uploaded directly from Godot and parsed automatically by the backend.
+### Simulator (`/gamemodes/simulator`)
+The simulator is its own game mode, separate from the game's levels and matches, with its own table (`simulator_entries`), API (`/api/simulator`) and pages. Players upload a recorded run from the simulator's **Manage Setups** screen, giving it a title and an optional description.
+
+The index lists every entry newest first, with a sidebar to search by title, player, species or ID and to sort by date, robot count or length. Each card shows the species with their colors, the peak robot count, the number of spawn zones and the run length.
+
+An entry lives at `/simulator/<id>` and has two parts:
+
+| Section | What it shows |
+|---|---|
+| **Replay** | The recording drawn on a canvas at the arena's own proportions: the grid, walls, circular obstacles, spawn zones and every robot in its species color with a heading tick. Robots that spawned mid-run appear when they spawned. Play, pause, step, scrub, 0.5x to 4x speed, loop, a live count per species, and **Download MP4**. |
+| **Logic** | A tab per species with its speed, turn rate, vision range, field of view and size, and its block program rendered as blocks, plus an **Arena program** tab for the blocks that drive spawn zones. Species and zone ids in blocks are shown by name, and the run's variables are listed under the program. |
+
+The game sends the setup and the recording as JSON. The server validates it (at most 32 species, 4000 blocks, 6000 frames and 250,000 robot samples across the recording), stores the setup as JSON columns and the recording zlib-compressed, and serves the recording from a separate endpoint so the list and detail pages stay light.
 
 ### Leaderboard (`/leaderboard`)
 Commanders ranked by a **weighted rating** rather than a raw average success rate. Each row shows the rating, the unweighted average behind it, how many entries the commander has submitted, and how many of the levels they have played. Entries link to a profile with the per-level breakdown, including the weighted rate and the level average it was pulled toward.
@@ -196,6 +207,11 @@ Internal preview page for component and layout development.
 | `GET` | `/api/survive/matches/<id>` | Get a single match with both APM series |
 | `POST` | `/api/survive/matches` | Submit a finished Survive match (`X-API-Key` required) |
 | `DELETE` | `/api/survive/matches/<id>` | Delete a match (`X-API-Key` required) |
+| `GET` | `/api/simulator/entries` | List simulator entries (most recent; `?limit=` and `?player_id=` supported) |
+| `GET` | `/api/simulator/entries/<id>` | Get an entry's setup: species, logic, arena program, variables, obstacles and spawn zones |
+| `GET` | `/api/simulator/entries/<id>/replay` | Get an entry's recording as `{interval, robots: [[id, species]], frames: [[id, x, y, rotation, ...]]}` |
+| `POST` | `/api/simulator/entries` | Upload a simulator entry (`X-API-Key` required) |
+| `DELETE` | `/api/simulator/entries/<id>` | Delete a simulator entry (`X-API-Key` required) |
 
 ### Workers
 

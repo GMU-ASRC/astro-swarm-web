@@ -3,6 +3,7 @@
 	import Icon from '@iconify/svelte';
 	import ReplayVideoButton from '$lib/components/ReplayVideoButton.svelte';
 	import type { Replay } from '$lib/ts/evaluation';
+	import { farpVideoFileName, farpVideoJob } from '$lib/ts/replayVideo';
 	import {
 		STAGE_HEIGHT,
 		STAGE_WIDTH,
@@ -291,7 +292,7 @@
 			Loop
 		</label>
 
-		<ReplayVideoButton {replay} {mode} />
+		<ReplayVideoButton createJob={() => farpVideoJob(replay, mode)} fileName={farpVideoFileName(replay)} />
 
 		<span class="hint">Click the stage, then space to play, arrows to step</span>
 	</div>
