@@ -16,6 +16,8 @@ const HUD_TEXT = 'rgba(35, 35, 50, 0.75)';
 const UNKNOWN_SPECIES = '#888888';
 const ZONE_FILL_ALPHA = '29';
 const DEFAULT_ROBOT_RADIUS = 6;
+const CONE_FILL_ALPHA = '17';
+const CONE_EDGE_ALPHA = '66';
 const MIN_ROBOT_RADIUS = 2;
 
 export interface SimulatorScene {
@@ -24,6 +26,16 @@ export interface SimulatorScene {
 	robotSpecies: Map<number, string>;
 	speciesColors: Map<string, string>;
 	speciesRadii: Map<string, number>;
+	speciesVision: Map<string, VisionCone>;
+}
+
+export interface VisionCone {
+	range: number;
+	halfAngle: number;
+}
+
+export interface DrawOptions {
+	showVisionCones: boolean;
 }
 
 export interface RobotPose {
@@ -36,16 +48,25 @@ export interface RobotPose {
 export function createScene(entry: SimulatorEntry, replay: SimulatorReplay): SimulatorScene {
 	const speciesColors = new Map<string, string>();
 	const speciesRadii = new Map<string, number>();
+	const speciesVision = new Map<string, VisionCone>();
 	for (const species of entry.species) {
 		speciesColors.set(species.id, species.color);
 		speciesRadii.set(species.id, species.config.size ?? DEFAULT_ROBOT_RADIUS);
+		const { vision, fov } = species.config;
+		if (vision != null && fov != null && vision > 0 && fov > 0) {
+			speciesVision.set(species.id, {
+				range: vision * PIXELS_PER_METER,
+				halfAngle: (Math.min(fov, 360) * Math.PI) / 360
+			});
+		}
 	}
 	return {
 		entry,
 		replay,
 		robotSpecies: new Map(replay.robots),
 		speciesColors,
-		speciesRadii
+		speciesRadii,
+		speciesVision
 	};
 }
 
@@ -101,7 +122,8 @@ export function drawScene(
 	robots: RobotPose[],
 	canvasWidth: number,
 	canvasHeight: number,
-	seconds: number
+	seconds: number,
+	options: DrawOptions
 ) {
 	const { entry } = scene;
 	const scale = Math.min(canvasWidth / entry.arena_width, canvasHeight / entry.arena_height);
@@ -113,6 +135,7 @@ export function drawScene(
 	drawGrid(context, entry.arena_width, entry.arena_height, scale);
 	drawObstacles(context, scene);
 	drawSpawnZones(context, scene, scale);
+	if (options.showVisionCones) drawVisionCones(context, scene, robots, scale);
 	drawRobots(context, scene, robots, scale);
 
 	context.strokeStyle = BORDER;
@@ -178,6 +201,25 @@ function drawSpawnZones(context: CanvasRenderingContext2D, scene: SimulatorScene
 		context.setLineDash([]);
 		context.fillStyle = color;
 		context.fillText(zone.name, left + 6, top + 16 / Math.max(scale, 0.5));
+	}
+}
+
+function drawVisionCones(context: CanvasRenderingContext2D, scene: SimulatorScene, robots: RobotPose[], scale: number) {
+	context.lineWidth = 1 / scale;
+	for (const robot of robots) {
+		const speciesId = scene.robotSpecies.get(robot.id) ?? '';
+		const cone = scene.speciesVision.get(speciesId);
+		if (!cone) continue;
+		const color = scene.speciesColors.get(speciesId) ?? UNKNOWN_SPECIES;
+		const heading = (robot.rotation * Math.PI) / 180;
+		context.beginPath();
+		context.moveTo(robot.x, robot.y);
+		context.arc(robot.x, robot.y, cone.range, heading - cone.halfAngle, heading + cone.halfAngle);
+		context.closePath();
+		context.fillStyle = `${color}${CONE_FILL_ALPHA}`;
+		context.fill();
+		context.strokeStyle = `${color}${CONE_EDGE_ALPHA}`;
+		context.stroke();
 	}
 }
 

@@ -25,6 +25,7 @@
 	let playing = $state(false);
 	let speed = $state(1);
 	let loop = $state(false);
+	let showVisionCones = $state(true);
 
 	let animationFrame = 0;
 	let lastTimestamp = 0;
@@ -41,7 +42,7 @@
 		if (!canvas) return;
 		const context = canvas.getContext('2d');
 		if (!context) return;
-		drawScene(context, scene, robots, stageWidth, stageHeight, seconds);
+		drawScene(context, scene, robots, stageWidth, stageHeight, seconds, { showVisionCones });
 	});
 
 	function tick(timestamp: number) {
@@ -105,13 +106,14 @@
 		const width = stageWidth * VIDEO_SCALE;
 		const height = stageHeight * VIDEO_SCALE;
 		const videoScene = scene;
+		const videoOptions = { showVisionCones };
 		return {
 			width,
 			height,
 			frameCount: videoFrameCount(duration),
 			drawFrame: (context, videoFrame) => {
 				const time = Math.min(duration, videoFrame / VIDEO_FPS);
-				drawScene(context, videoScene, sampleRobots(videoScene, time), width, height, time);
+				drawScene(context, videoScene, sampleRobots(videoScene, time), width, height, time, videoOptions);
 			}
 		};
 	}
@@ -175,6 +177,10 @@
 		<label class="toggle">
 			<input type="checkbox" bind:checked={loop} />
 			Loop
+		</label>
+		<label class="toggle">
+			<input type="checkbox" bind:checked={showVisionCones} />
+			Vision cones
 		</label>
 		<ReplayVideoButton createJob={createVideoJob} fileName={videoFileName()} />
 		<span class="hint">Click the stage, then space to play, arrows to step</span>
