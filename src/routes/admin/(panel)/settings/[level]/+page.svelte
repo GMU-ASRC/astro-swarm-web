@@ -159,7 +159,9 @@
 			<div class="stat">
 				<div class="label">Scenario</div>
 				<div>
-					{levelNum === 7
+					{levelNum === 8
+						? 'One force split across two planets by a player-flown shuttle'
+						: levelNum === 7
 						? 'Two milling swarms and one player-flown leader'
 						: 'Best submitted farp2 algorithm'}
 				</div>

@@ -230,8 +230,10 @@ class PlayerEvaluation(db.Model):
             return int(digits)
         return 1
 
+    # Levels 6 and 7 put the player on the attacking side. Level 8 is back on
+    # defense, so its rate reads as detection like the earlier levels.
     def is_attack_level(self):
-        return self.level_number() >= 6
+        return 6 <= self.level_number() <= 7
 
     def to_dict(self):
         results = self._results_dict()

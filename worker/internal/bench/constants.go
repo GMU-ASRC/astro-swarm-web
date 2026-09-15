@@ -57,9 +57,17 @@ type Placement struct {
 	Rotation float64   // radians
 }
 
+// A piloted level has no benchmark: the entry is a flight the player recorded
+// in game, and the worker renders it rather than simulating anything.
 func IsPilotLevel(levelID string) bool {
 	number := LevelNumber(levelID)
-	return number == 6 || number == 7
+	return number == 6 || number == 7 || number == 8
+}
+
+// Level 8 splits one force across two planets and records both assaults into a
+// single run, so its recording holds two fights rather than one flight.
+func IsSupplyLevel(levelID string) bool {
+	return LevelNumber(levelID) == 8
 }
 
 // Levels 3 to 5 are graded as an assault: a stream of evaders against one

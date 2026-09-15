@@ -33,7 +33,12 @@ LEVELS = [
 PILOT_LEVELS = [
     {"id": "farp6", "name": "Level 6 - Evasion (Pilot)"},
     {"id": "farp7", "name": "Level 7 - Swarm (Merge)"},
+    {"id": "farp8", "name": "Level 8 - Supply (Allocation)"},
 ]
+
+# Level 8 splits one force across two planets and records both assaults, so its
+# entry carries two garrisons and two fights rather than one.
+SUPPLY_LEVELS = ["farp8"]
 
 # Levels 3 to 5 grade a stream of evaders against one line rather than a single
 # approach, so they get their own trial and sweep budget.
@@ -79,6 +84,10 @@ def version_is_current(version):
 
 def is_pilot_level(level_id):
     return any(level["id"] == level_id for level in PILOT_LEVELS)
+
+
+def is_supply_level(level_id):
+    return level_id in SUPPLY_LEVELS
 
 
 def is_assault_level(level_id):

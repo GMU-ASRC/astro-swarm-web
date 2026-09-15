@@ -74,12 +74,18 @@ MAX_RUN_FPS = 60
 MAX_RUN_FRAMES = MAX_RUN_SECONDS * MAX_RUN_FPS + 60
 VALID_RUN_OUTCOMES = ("win", "lose", "timeout")
 
-DEFAULT_RUN_LIMITS = {"max_ships": 6, "max_seconds": MAX_RUN_SECONDS}
+# frame_slots pins how many ships a frame holds. Left None, a frame is the
+# submitted placements plus the one ship the player flies.
+DEFAULT_RUN_LIMITS = {"max_ships": 6, "max_seconds": MAX_RUN_SECONDS, "frame_slots": None}
 
-# Level 4 flies a leader against two milling swarms, so it records far more
-# ships than the defense levels and runs for longer.
+# Level 7 flies a leader against two milling swarms and level 8 records two
+# assaults back to back, so both record far more ships than the defense levels
+# and run for longer. Level 8 records over a fixed layout instead: ten defender
+# slots, then five evader slots, then the flown shuttle, with the slots a fight
+# is not using sent as -1.
 RUN_LIMITS = {
-    "farp4": {"max_ships": 24, "max_seconds": 300},
+    "farp7": {"max_ships": 24, "max_seconds": 300, "frame_slots": None},
+    "farp8": {"max_ships": 24, "max_seconds": 300, "frame_slots": 16},
 }
 
 
@@ -130,7 +136,8 @@ class RunSubmit:
         if len(frames) > max_frames:
             raise ValueError("run.frames must not exceed %d frames" % max_frames)
 
-        width = len(self.placements) * 3 + 3
+        slots = limits.get("frame_slots")
+        width = slots * 3 if slots else len(self.placements) * 3 + 3
         for frame in frames:
             if not isinstance(frame, list) or len(frame) != width:
                 raise ValueError("each run frame must hold %d values" % width)

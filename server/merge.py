@@ -44,6 +44,10 @@ def summarize(result):
     if assault:
         results.update(assault)
 
+    supply = _supply_summary(runs)
+    if supply:
+        results.update(supply)
+
     reported = result.get("results")
     if isinstance(reported, dict):
         for key, value in reported.items():
@@ -94,6 +98,31 @@ def _assault_summary(runs):
         "trial_resolved": resolved_per_trial,
         "trial_breaches": breaches_per_trial,
         "trial_lost": lost_per_trial,
+    }
+
+
+# Level 8 splits one force across two planets and plays both assaults in one
+# recording, so the headline is the share of evaders stopped across the pair
+# rather than a single win or loss.
+def _supply_summary(runs):
+    supply = [run for run in runs if isinstance(run.get("stats"), dict) and "hold_rate" in run["stats"]]
+    if not supply:
+        return {}
+
+    stats = supply[0]["stats"]
+    destroyed = int(stats.get("destroyed_a", 0)) + int(stats.get("destroyed_b", 0))
+    breaches = int(stats.get("breached_a", 0)) + int(stats.get("breached_b", 0))
+
+    return {
+        "success_rate": round(float(stats.get("hold_rate", 0.0)), 1),
+        "evader_destroyed_rate": round(float(stats.get("hold_rate", 0.0)), 1),
+        "evaders_destroyed": destroyed,
+        "evaders_resolved": destroyed + breaches,
+        "breaches": breaches,
+        "defenders_a": int(stats.get("defenders_a", 0)),
+        "defenders_b": int(stats.get("defenders_b", 0)),
+        "defenders_delivered": int(stats.get("delivered", 0)),
+        "crossings": int(stats.get("trips", 0)),
     }
 
 

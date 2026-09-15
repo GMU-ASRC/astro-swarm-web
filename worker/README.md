@@ -237,6 +237,34 @@ endpoint reports it, is silent about it, or is not consulted at all under `-no-s
 level 1 and 2 figures are 100 x 100, which on an assault level would be tens of thousands of
 matches at ring sizes up to a hundred defenders.
 
+### Comparing algorithms on one figure
+
+`-compare` draws two or three entries on a single risk-against-`n` axis and fits an exponential
+to each:
+
+```
+./astrosim -compare id-one,id-two,id-three
+```
+
+Each target is a sim id, an entry url, an entry json, or the `results.json` an earlier run
+wrote - reading that back costs nothing, since the sweep it measured is already on disk.
+`Label=target` names a line, which is what the legend and the printed fit use:
+
+```
+./astrosim -compare "Wide sweep=wide.json,Fast chase=fast.json"
+```
+
+The fit is a least squares fit of `risk = A e^(-lambda n)`, taken on the log of the risk, which
+is what turns the exponential into a straight line: `ln(risk) = ln(A) - lambda n`. A ring size
+that let nothing through has no log to take and sits out of the fit, so the fit describes the
+part of the sweep where there was still risk to measure, and R squared is reported against the
+risks themselves rather than their logs. Each algorithm is drawn solid with its fit dashed in
+the same color, and `lambda` is printed per entry - the risk an evader carries falls by that
+fraction per defender added to the ring.
+
+The run writes `risk_fit.png` and `risk_fit.json`; the json carries every measured point and
+its fit, so the figure can be redrawn, or its numbers adjusted, without simulating again.
+
 ### Adaptive defender sweep
 
 The ring sweep for these levels does not run out to a fixed `n-max`. It starts at one
@@ -248,7 +276,7 @@ A strong entry finishes in a handful of steps; a weak one keeps climbing until i
 or hits the ceiling. `WaveConsecutiveMax` in `internal/bench/assault.go` is the run length that
 counts as settled.
 
-Level 6 and Level 7 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
+Level 6, 7 and 8 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
 
 ## Charts
 
@@ -266,6 +294,7 @@ Written with gonum/plot into the output directory:
 | `capture_rate_by_ring.png` | Cumulative capture success rate against evaders faced, one line per ring size |
 | `risk_by_ring.png` | The risk that leaves, against evaders faced, one line per ring size |
 | `attrition_by_ring.png` | Defenders still standing, as a count, against evaders faced, one line per ring size |
+| `risk_fit.png` | `-compare` only: two or three algorithms' risk against ring size, each with a least squares `A e^(-lambda n)` fit |
 
 The published overlay on the two sweep charts comes from `/api/evaluations/<id>/sweep-replays`,
 which carries a real `detection_rate` and `capture_rate` for every `n`. Prefer it over

@@ -16,6 +16,7 @@
 	import {
 		isPilot as pilotLevel,
 		isSwarm as swarmLevel,
+		isSupply as supplyLevel,
 		isAssault as assaultLevel,
 		hasAttrition as attritionLevel
 	} from '$lib/ts/levels';
@@ -56,6 +57,7 @@
 	let levelNumber = $derived(ev?.level_number ?? 1);
 	let isPilot = $derived(pilotLevel(levelNumber));
 	let isSwarm = $derived(swarmLevel(levelNumber));
+	let isSupply = $derived(supplyLevel(levelNumber));
 	let isAssault = $derived(assaultLevel(levelNumber));
 	let hasAttrition = $derived(attritionLevel(levelNumber));
 	let attrition = $derived(ev?.results?.attrition ?? []);
@@ -96,6 +98,7 @@
 
 	let pilotOutcomeLabel = $derived.by(() => {
 		const outcome = outcomes[0] ?? 'timeout';
+		if (isSupply) return outcome === 'win' ? 'Both planets held' : 'Line broken';
 		if (isSwarm) return outcome === 'win' ? 'Swarm delivered' : 'Out of time';
 		if (outcome === 'win') return 'Planet reached';
 		return outcome === 'lose' ? 'Caught' : 'Out of time';
@@ -521,7 +524,7 @@
 			{/if}
 		{/if}
 
-		<h2>{isSwarm ? 'Swarm Agent Algorithm' : isPilot ? 'Opponent Algorithm' : 'Defender Algorithm'}</h2>
+		<h2>{isSwarm ? 'Swarm Agent Algorithm' : isSupply ? 'Defender Algorithm' : isPilot ? 'Opponent Algorithm' : 'Defender Algorithm'}</h2>
 		<div class="admin-table-wrap">
 			<AlgorithmView scripts={ev.algorithm} />
 		</div>

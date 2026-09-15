@@ -190,6 +190,22 @@ func addSeries(p *plot.Plot, points plotter.XYs, shade color.Color) (*plotter.Li
 	return line, nil
 }
 
+// The fitted curve is drawn dashed in its algorithm's color, so a line and the
+// function through it read as one pair.
+func addDashed(p *plot.Plot, points plotter.XYs, shade color.Color) (*plotter.Line, error) {
+	line, err := plotter.NewLine(points)
+	if err != nil {
+		return nil, err
+	}
+	line.LineStyle = draw.LineStyle{
+		Color:  shade,
+		Width:  markWidth * 0.75,
+		Dashes: []vg.Length{vg.Points(5), vg.Points(4)},
+	}
+	p.Add(line)
+	return line, nil
+}
+
 func addValueLabels(p *plot.Plot, values plotter.Values, offset vg.Length) error {
 	data := plotter.XYLabels{
 		XYs:    make(plotter.XYs, 0, len(values)),

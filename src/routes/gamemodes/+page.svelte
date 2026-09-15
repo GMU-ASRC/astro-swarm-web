@@ -24,7 +24,7 @@
 			href: '/gamemodes/survive',
 			variant: 'green',
 			name: 'Survive',
-			tagline: 'Two players · three minutes',
+			tagline: 'Two players · two minutes',
 			blurb:
 				'Two commanders herd wandering ships into planetary defenses while waves of evaders close in on both bases. Whoever lets fewest evaders through wins the match.',
 			facts: ['Head to head', 'Match reports', 'APM telemetry']

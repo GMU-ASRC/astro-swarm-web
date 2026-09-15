@@ -94,8 +94,8 @@
 		</a>
 		<h1 class="page-title mode-heading">Survive</h1>
 		<p class="page-lede">
-			Two commanders, one swarm, three minutes. Each match herds twenty four wandering ships into
-			planetary defenses while fourteen evaders come at the bases in waves, seven at each planet.
+			Two commanders, one swarm, two minutes. Each match herds twenty four wandering ships into
+			planetary defenses while ten evaders come at the bases in waves, five at each planet.
 			Every match uploads its result and the actions-per-minute traces for both players.
 		</p>
 	</div>

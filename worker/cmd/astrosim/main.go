@@ -21,6 +21,7 @@ import (
 
 type CommandOptions struct {
 	Target          string
+	Compare         string
 	Server          string
 	EntryFile       string
 	Output          string
@@ -47,6 +48,7 @@ func main() {
 	flags := flag.NewFlagSet("astrosim", flag.ExitOnError)
 	flags.StringVar(&options.Server, "server", DefaultServer, "base url of the AstroSwarm web server")
 	flags.StringVar(&options.EntryFile, "file", "", "read the entry from a local json file instead of the server")
+	flags.StringVar(&options.Compare, "compare", "", "comma separated sim ids to draw on one risk-vs-n figure with a least squares e^(-lambda n) fit; an entry json or a results.json from an earlier run works too, and \"Label=target\" names the line")
 	flags.StringVar(&options.Output, "out", "", "directory for results.json and the charts (default out/<entry id>)")
 	flags.IntVar(&options.Trials, "trials", 0, "placement trials to simulate (default: the entry's own trial count)")
 	flags.Int64Var(&options.Seed, "seed", bench.DefaultSeed, "evaluation seed the server used")
@@ -77,7 +79,7 @@ func main() {
 			os.Exit(2)
 		}
 	}
-	if options.Target == "" && options.EntryFile == "" {
+	if options.Target == "" && options.EntryFile == "" && options.Compare == "" {
 		flags.Usage()
 		os.Exit(2)
 	}
@@ -85,7 +87,7 @@ func main() {
 	explicit := map[string]bool{}
 	flags.Visit(func(set *flag.Flag) { explicit[set.Name] = true })
 
-	if err := run(options, explicit); err != nil {
+	if err := dispatch(options, explicit); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
@@ -99,24 +101,90 @@ func usage(flags *flag.FlagSet) func() {
 		fmt.Fprintf(os.Stderr, "  astrosim -file entry.json [flags]\n\n")
 		fmt.Fprintf(os.Stderr, "examples:\n")
 		fmt.Fprintf(os.Stderr, "  astrosim 13569541-180c-4c51-bcfe-d4ab038359af\n")
-		fmt.Fprintf(os.Stderr, "  astrosim %s/levels/13569541-180c-4c51-bcfe-d4ab038359af\n\n", DefaultServer)
+		fmt.Fprintf(os.Stderr, "  astrosim %s/levels/13569541-180c-4c51-bcfe-d4ab038359af\n", DefaultServer)
+		fmt.Fprintf(os.Stderr, "  astrosim -compare id-one,id-two,id-three\n\n")
 		fmt.Fprintf(os.Stderr, "flags:\n")
 		flags.PrintDefaults()
 	}
 }
 
+func dispatch(options CommandOptions, explicit map[string]bool) error {
+	targets := splitTargets(options.Compare)
+	if options.Target != "" {
+		targets = append([]target{{value: options.Target}}, targets...)
+	}
+	if options.Compare != "" {
+		return runComparison(options, explicit, targets)
+	}
+	return run(options, explicit)
+}
+
 func run(options CommandOptions, explicit map[string]bool) error {
 	server := resolveServer(options)
-	published, err := loadEntry(options, server)
+	report, published, err := simulateTarget(options, explicit, server)
 	if err != nil {
 		return err
+	}
+
+	output := options.Output
+	if output == "" {
+		name := published.ID
+		if name == "" {
+			name = "entry"
+		}
+		output = filepath.Join("out", name)
+	}
+	if err := os.MkdirAll(output, 0o755); err != nil {
+		return err
+	}
+
+	checked := verify.Compare(published, report, options.Tolerance)
+	printSummary(report, checked, bench.IsAssaultLevel(published.LevelID))
+
+	payload := map[string]any{
+		"entry": map[string]any{
+			"id":       published.ID,
+			"username": published.Username,
+			"level_id": published.LevelID,
+			"status":   published.Status,
+		},
+		"simulated":    report,
+		"verification": checked,
+	}
+	resultsPath := filepath.Join(output, "results.json")
+	if err := writeJSON(resultsPath, payload); err != nil {
+		return err
+	}
+	fmt.Printf("\nwrote %s\n", resultsPath)
+
+	if options.SkipCharts {
+		return nil
+	}
+	written, err := charts.WriteAll(output, charts.Input{
+		Report:    report,
+		Published: published,
+		Subtitle:  chartSubtitle(published),
+	})
+	for _, path := range written {
+		fmt.Printf("wrote %s\n", path)
+	}
+	return err
+}
+
+// Everything a target needs to be re-simulated: the entry, the budget its level
+// is graded on, and the run itself.
+func simulateTarget(options CommandOptions, explicit map[string]bool, server string) (bench.Report, *entry.Entry, error) {
+	published, err := loadEntry(options, server)
+	if err != nil {
+		return bench.Report{}, nil, err
 	}
 	levelID := published.LevelID
 	if levelID == "" {
 		levelID = "farp1"
 	}
+	published.LevelID = levelID
 	if bench.IsPilotLevel(levelID) {
-		return fmt.Errorf("level %d entries are piloted recordings, there is nothing to re-simulate", bench.LevelNumber(levelID))
+		return bench.Report{}, nil, fmt.Errorf("level %d entries are piloted recordings, there is nothing to re-simulate", bench.LevelNumber(levelID))
 	}
 
 	// An assault match runs a whole stream of evaders rather than one approach,
@@ -136,12 +204,12 @@ func run(options CommandOptions, explicit map[string]bool) error {
 
 	algorithm := published.Scripts()
 	if len(algorithm) == 0 {
-		return fmt.Errorf("entry carries no algorithm blocks")
+		return bench.Report{}, nil, fmt.Errorf("entry carries no algorithm blocks")
 	}
 
 	placements := published.BenchPlacements()
 	if len(placements) == 0 && bench.LevelNumber(levelID) != 2 && !bench.IsAssaultLevel(levelID) {
-		return fmt.Errorf("entry carries no defender placements")
+		return bench.Report{}, nil, fmt.Errorf("entry carries no defender placements")
 	}
 
 	trials := options.Trials
@@ -152,20 +220,8 @@ func run(options CommandOptions, explicit map[string]bool) error {
 		trials = bench.DefaultTrials
 	}
 
-	output := options.Output
-	if output == "" {
-		name := published.ID
-		if name == "" {
-			name = "entry"
-		}
-		output = filepath.Join("out", name)
-	}
-	if err := os.MkdirAll(output, 0o755); err != nil {
-		return err
-	}
-
 	if options.SweepSpawn != bench.SweepSpawnFixed && options.SweepSpawn != bench.SweepSpawnVaried {
-		return fmt.Errorf("-sweep-spawn must be %q or %q", bench.SweepSpawnVaried, bench.SweepSpawnFixed)
+		return bench.Report{}, nil, fmt.Errorf("-sweep-spawn must be %q or %q", bench.SweepSpawnVaried, bench.SweepSpawnFixed)
 	}
 	variedSweepSpawn := options.SweepSpawn == bench.SweepSpawnVaried
 
@@ -209,38 +265,7 @@ func run(options CommandOptions, explicit map[string]bool) error {
 	if !options.Quiet {
 		fmt.Println()
 	}
-
-	checked := verify.Compare(published, report, options.Tolerance)
-	printSummary(report, checked, bench.IsAssaultLevel(levelID))
-
-	payload := map[string]any{
-		"entry": map[string]any{
-			"id":       published.ID,
-			"username": published.Username,
-			"level_id": published.LevelID,
-			"status":   published.Status,
-		},
-		"simulated":    report,
-		"verification": checked,
-	}
-	resultsPath := filepath.Join(output, "results.json")
-	if err := writeJSON(resultsPath, payload); err != nil {
-		return err
-	}
-	fmt.Printf("\nwrote %s\n", resultsPath)
-
-	if options.SkipCharts {
-		return nil
-	}
-	written, err := charts.WriteAll(output, charts.Input{
-		Report:    report,
-		Published: published,
-		Subtitle:  chartSubtitle(published),
-	})
-	for _, path := range written {
-		fmt.Printf("wrote %s\n", path)
-	}
-	return err
+	return report, published, nil
 }
 
 func chartSubtitle(published *entry.Entry) string {

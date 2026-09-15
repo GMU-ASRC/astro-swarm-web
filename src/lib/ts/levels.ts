@@ -96,13 +96,26 @@ export const FARP_LEVELS: LevelInfo[] = [
 		summary:
 			'Two milling swarms and one human-flown leader. Merge the groups, walk the mill onto the planet and leave without breaking it. Each entry is a recorded flight scored on a milling loss.',
 		rateLabel: 'swarm delivered'
+	},
+	{
+		number: 8,
+		id: 'farp8',
+		slug: '8',
+		name: 'Level 8',
+		subtitle: 'Supply',
+		piloted: true,
+		variant: 'gold',
+		summary:
+			'Two planets on two separate seeds. Ten defenders start on planet A and planet B starts empty, and both are attacked by five evaders each. The defenders run the submitted algorithm during the deployment window too, and the player flies a shuttle their sensors read as an ally, steering them with their own sees-ally rule and calling them across between the planets before the window closes, then both assaults play out back to back on that split with the shuttle still flying. Each entry is a recorded flight scored on the share of evaders stopped across the pair.',
+		rateLabel: 'evaders stopped'
 	}
 ];
 
-export const PILOT_LEVELS = [6, 7];
+export const PILOT_LEVELS = [6, 7, 8];
 export const ASSAULT_LEVELS = [3, 4, 5];
 export const ATTRITION_LEVELS = [4, 5];
 export const SWARM_LEVEL = 7;
+export const SUPPLY_LEVEL = 8;
 
 export function canonicalLevelId(levelId: string): string {
 	if (!levelId || levelId === 'farp') return 'farp1';
@@ -131,6 +144,10 @@ export function isSwarm(level: number): boolean {
 	return level === SWARM_LEVEL;
 }
 
+export function isSupply(level: number): boolean {
+	return level === SUPPLY_LEVEL;
+}
+
 export function isAssault(level: number): boolean {
 	return ASSAULT_LEVELS.includes(level);
 }
@@ -140,6 +157,7 @@ export function hasAttrition(level: number): boolean {
 }
 
 export function levelName(level: number): string {
+	if (isSupply(level)) return `Level ${level} · Supply`;
 	if (isSwarm(level)) return `Level ${level} · Swarm`;
 	if (isPilot(level)) return `Level ${level} · Evasion`;
 	if (level === 5) return `Level ${level} · Siege`;
@@ -148,5 +166,6 @@ export function levelName(level: number): string {
 }
 
 export function rateWord(level: number): string {
+	if (isSupply(level)) return 'detection';
 	return isPilot(level) ? 'evasion' : 'detection';
 }

@@ -9,6 +9,7 @@
 	import {
 		isPilot as pilotLevel,
 		isSwarm as swarmLevel,
+		isSupply as supplyLevel,
 		isAssault as assaultLevel,
 		hasAttrition as attritionLevel
 	} from '$lib/ts/levels';
@@ -43,6 +44,7 @@
 	let successRate = $derived(ev.results?.success_rate ?? 0);
 	let levelNumber = $derived(ev.level_number ?? 1);
 	let isSwarm = $derived(swarmLevel(levelNumber));
+	let isSupply = $derived(supplyLevel(levelNumber));
 	let isPilot = $derived(pilotLevel(levelNumber));
 	let isAssault = $derived(assaultLevel(levelNumber));
 	let hasAttrition = $derived(attritionLevel(levelNumber));
@@ -73,7 +75,7 @@
 
 	let defenderRows = $derived(configRows(defenderConfig(ev.algorithm)));
 	let evaderRows = $derived(
-		configRows(isSwarm ? LEADER_CONFIG : isPilot ? PILOT_EVADER_CONFIG : EVADER_CONFIG)
+		configRows(isSwarm ? LEADER_CONFIG : isPilot && !isSupply ? PILOT_EVADER_CONFIG : EVADER_CONFIG)
 	);
 	let pilotOutcome = $derived(outcomes[0] ?? 'timeout');
 	let pilotDetect = $derived(detectionTimes[0] ?? -1);
@@ -104,6 +106,7 @@
 	let loadedSweep = false;
 
 	let stats = $derived.by(() => ev.results?.stats ?? selectedReplay?.stats ?? {});
+	let supplyHeld = $derived(pilotOutcome === 'win');
 
 	let placementGroups = $derived<ReplayGroup[]>([
 		{
@@ -335,7 +338,43 @@
 			{/if}
 
 			{#if outcomes.length > 0}
-				{#if isSwarm}
+				{#if isSupply}
+					<div class="headline">
+						<div class="headline-value" class:won={supplyHeld} class:lost={!supplyHeld}>
+							{supplyHeld ? 'Both planets held' : 'Line broken'}
+						</div>
+						<div class="headline-label">
+							{ev.results?.evaders_destroyed ?? 0} of {ev.results?.evaders_resolved ?? 0} evaders stopped across the pair
+						</div>
+					</div>
+
+					<div class="stat-grid">
+						<div class="stat">
+							<div class="stat-value">{stats.defenders_a ?? 0}</div>
+							<div class="stat-label">Defenders left on planet A</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{stats.defenders_b ?? 0}</div>
+							<div class="stat-label">Defenders called across to planet B</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{stats.breached_a ?? 0}</div>
+							<div class="stat-label">Evaders through on planet A</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{stats.breached_b ?? 0}</div>
+							<div class="stat-label">Evaders through on planet B</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{ev.results?.crossings ?? stats.trips ?? 0}</div>
+							<div class="stat-label">Jump gate crossings flown</div>
+						</div>
+						<div class="stat">
+							<div class="stat-value">{successRate}%</div>
+							<div class="stat-label">Share of evaders stopped</div>
+						</div>
+					</div>
+				{:else if isSwarm}
 					<div class="headline">
 						<div class="headline-value" class:won={pilotOutcome === 'win'} class:lost={pilotOutcome !== 'win'}>
 							{pilotOutcome === 'win' ? 'Swarm delivered' : 'Out of time'}
@@ -480,9 +519,11 @@
 						<p class="config-note">
 							{isSwarm
 								? 'The leader is flown by the player. The agents cannot tell it apart from one of their own, which is what lets it steer the mill.'
-								: isPilot
-									? 'The evader is flown by the player from a chosen point on the outer ring.'
-									: 'The evader drives straight at the planet from a random point on the outer ring.'}
+								: isSupply
+									? 'Five evaders per planet drive straight at it from the arena edges. The player flies an unarmed shuttle that reads to the defenders as an ally, so it steers the line through their own algorithm rather than fighting.'
+									: isPilot
+										? 'The evader is flown by the player from a chosen point on the outer ring.'
+										: 'The evader drives straight at the planet from a random point on the outer ring.'}
 						</p>
 					</div>
 				</div>
@@ -582,7 +623,12 @@
 					<section class="block">
 						<h2 class="section-title">Recorded flight</h2>
 						<p class="block-note">
-							The player's own flight, rendered from the movement recorded in game.
+							{#if isSupply}
+								Both assaults back to back, rendered from the movement recorded in game: planet A
+								first, then planet B, each with the share of the force the player left there.
+							{:else}
+								The player's own flight, rendered from the movement recorded in game.
+							{/if}
 						</p>
 						<div class="card replay">
 							<div class="replay-meta">
@@ -618,7 +664,11 @@
 
 				<section class="block">
 					<h2 class="section-title">
-						{isSwarm ? 'Swarm agent algorithm' : isPilot ? 'Opponent algorithm' : 'Defender algorithm'}
+						{isSwarm
+							? 'Swarm agent algorithm'
+							: isPilot && !isSupply
+								? 'Opponent algorithm'
+								: 'Defender algorithm'}
 					</h2>
 					<div class="card algorithm">
 						<AlgorithmView scripts={ev.algorithm} />

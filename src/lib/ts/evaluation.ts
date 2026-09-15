@@ -19,6 +19,10 @@ export interface EvalSummary {
 	trial_resolved?: number[];
 	trial_breaches?: number[];
 	trial_lost?: number[];
+	defenders_a?: number;
+	defenders_b?: number;
+	defenders_delivered?: number;
+	crossings?: number;
 	attrition?: AttritionPoint[];
 	sweep_attrition?: AttritionSeries[];
 	sweep_progress?: ProgressSeries[];
@@ -103,6 +107,15 @@ export interface RunStats {
 	merge_distance?: number;
 	goal_radius?: number;
 	escape_distance?: number;
+	defenders_a?: number;
+	defenders_b?: number;
+	destroyed_a?: number;
+	destroyed_b?: number;
+	breached_a?: number;
+	breached_b?: number;
+	delivered?: number;
+	trips?: number;
+	hold_rate?: number;
 }
 
 export interface PlacementInfo {
