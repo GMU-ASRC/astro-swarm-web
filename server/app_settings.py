@@ -39,6 +39,7 @@ PILOT_LEVELS = [
 # Level 8 splits one force across two planets and records both assaults, so its
 # entry carries two garrisons and two fights rather than one.
 SUPPLY_LEVELS = ["farp8"]
+SWARM_LEVELS = ["farp7"]
 
 # Levels 3 to 5 grade a stream of evaders against one line rather than a single
 # approach, so they get their own trial and sweep budget.
@@ -88,6 +89,10 @@ def is_pilot_level(level_id):
 
 def is_supply_level(level_id):
     return level_id in SUPPLY_LEVELS
+
+
+def is_swarm_level(level_id):
+    return level_id in SWARM_LEVELS
 
 
 def is_assault_level(level_id):

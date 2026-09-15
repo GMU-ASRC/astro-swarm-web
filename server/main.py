@@ -11,6 +11,7 @@ from werkzeug.exceptions import HTTPException
 import migrations
 from config import Config
 from database import db
+from entry_card import build_entry_card
 from models import PlayerEvaluation
 from routers.admin import admin_bp
 from routers.evaluations import evaluations_bp
@@ -52,13 +53,9 @@ def _resolve_meta(path):
     if len(segments) >= 2 and segments[0] == "levels":
         evaluation = db.session.get(PlayerEvaluation, segments[1])
         if evaluation is not None:
-            results = evaluation.results if isinstance(evaluation.results, dict) else {}
-            rate = results.get("success_rate")
-            title = f"{evaluation.username} — FARP Benchmark — AstroSwarm"
-            if rate is not None:
-                description = f"{rate}% detection rate over {evaluation.trials} trials in the AstroSwarm FARP defender benchmark."
-            else:
-                description = f"FARP defender benchmark for {evaluation.username} in AstroSwarm."
+            card = build_entry_card(evaluation)
+            title = f"{evaluation.username} — {card.level_name} — AstroSwarm"
+            description = card.description()
             meta_type = "article"
             image = f"{base}/api/evaluations/{evaluation.id}/thumbnail.png"
 

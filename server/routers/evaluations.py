@@ -13,6 +13,8 @@ from auth import require_admin
 import charts
 import merge
 import rating
+import thumbnail
+from entry_card import build_entry_card
 from app_settings import (
     PILOT_LEVELS,
     ASSAULT_CLEAN_STREAK,
@@ -879,10 +881,7 @@ def thumbnail(eval_id: str):
     evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise NotFound("Evaluation not found")
-    results = evaluation.results if isinstance(evaluation.results, dict) else {}
-    outcomes = results.get("outcomes", [])
-    rate = results.get("success_rate", 0)
-    png = charts.render_thumbnail_png(evaluation.username, evaluation.level_id or "farp", rate, evaluation.trials, outcomes)
+    png = thumbnail.render_thumbnail_png(evaluation.username, build_entry_card(evaluation))
     return Response(png, mimetype="image/png")
 
 
