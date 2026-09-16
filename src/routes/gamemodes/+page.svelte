@@ -85,8 +85,8 @@
 
 <style>
 	.modes {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+		display: flex;
+		flex-direction: column;
 		gap: 1rem;
 		padding-bottom: 6rem;
 	}
