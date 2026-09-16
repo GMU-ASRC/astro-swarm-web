@@ -44,6 +44,14 @@ type CommandOptions struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "stress" {
+		if err := runStress(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	options := CommandOptions{}
 	flags := flag.NewFlagSet("astrosim", flag.ExitOnError)
 	flags.StringVar(&options.Server, "server", DefaultServer, "base url of the AstroSwarm web server")
@@ -98,7 +106,8 @@ func usage(flags *flag.FlagSet) func() {
 		fmt.Fprintf(os.Stderr, "astrosim re-simulates a published FARP entry and checks the numbers on the site.\n\n")
 		fmt.Fprintf(os.Stderr, "usage:\n")
 		fmt.Fprintf(os.Stderr, "  astrosim <entry-id|entry-url> [flags]\n")
-		fmt.Fprintf(os.Stderr, "  astrosim -file entry.json [flags]\n\n")
+		fmt.Fprintf(os.Stderr, "  astrosim -file entry.json [flags]\n")
+		fmt.Fprintf(os.Stderr, "  astrosim stress <level1-or-level4-entry> [flags]   (run astrosim stress -h for its flags)\n\n")
 		fmt.Fprintf(os.Stderr, "examples:\n")
 		fmt.Fprintf(os.Stderr, "  astrosim 13569541-180c-4c51-bcfe-d4ab038359af\n")
 		fmt.Fprintf(os.Stderr, "  astrosim %s/levels/13569541-180c-4c51-bcfe-d4ab038359af\n", DefaultServer)

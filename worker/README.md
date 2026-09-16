@@ -59,6 +59,98 @@ To work offline, save the evaluation json (the `Export` button on the entry, or 
 | `-no-charts` | `false` | Skip the pngs |
 | `-no-settings` | `false` | Do not read the seed and sweep settings from the server |
 
+## Stress test
+
+`astrosim stress` fills one arena with defenders and measures how the simulator holds up. It takes
+a single level 1 or level 4 entry, gives every ship that entry's algorithm, and sends waves of
+evaders at the planet. Ships spawn the way the benchmark scatters a line: each one at a random
+angle and distance in the band around the planet, retrying for a clear spot and taking the last
+one once the retries run out. Evaders launch from the benchmark's ring around the planet. A capture destroys the evader; on a level 4 entry it
+also destroys the defender that made it, the way level 4 plays, while a level 1 entry keeps every
+defender. `-attrition` overrides that either way.
+
+```
+./astrosim stress <entry> -ships 1000
+./astrosim stress level4.json -ships 2000 -arena-width 7680 -arena-height 4320
+```
+
+The entry can be an id, an entry page url, or a saved entry json, given as the first argument or
+with `-entry`. Entries from any other level are refused.
+
+### 1000 ship test command
+
+```
+bash scripts/stress-1000.sh <entry>
+```
+
+Run it from `web/worker`. It builds `astrosim`, prints the ships' stats and the block program they run, and runs the stress test with 1000 ships into
+`out/stress-1000`. Any extra flags after the entry are passed straight through, for example
+`-seconds 30 -cones`.
+
+### Output
+
+| File | What it holds |
+|---|---|
+| `stress.mp4` | The run from above, one frame every `1/video-fps` simulated seconds, with a live stats panel |
+| `stress.json` | The entry, the settings, the squad, the totals, tick percentiles and every performance sample |
+| `stress_tick_time.png` | Mean and slowest tick against simulated time, with the real-time budget as a dashed line |
+| `stress_sim_fps.png` | Simulation fps and video render fps against simulated time, with the tick rate as a dashed line |
+| `stress_tick_vs_ships.png` | Mean tick time against the number of ships in the world, so the cost per ship reads straight off it |
+| `stress_ships_alive.png` | Defenders alive and evaders in flight |
+| `stress_captures.png` | Cumulative captures and evaders that reached the planet |
+| `stress_memory.png` | Heap in use |
+
+The stats panel in the top left of the video shows the simulated and wall clock, the simulation
+fps against the tick rate and the real-time factor (green at or above real time, amber below it),
+the mean and slowest tick, the render fps and frame number, heap and GC cycles, the ships in the
+world, the squad's survivors and captures, and the speed, vision, field of view and turn rate its
+config blocks set. Every ship's vision cone is drawn by default.
+
+Ships are not held inside the arena: one that flies past the edge keeps going and leaves the
+frame, and the panel counts how many are off screen. `-keep-in-arena` clamps them the way a
+benchmark match does. The benchmark itself still clamps, since only the stress test asks for
+unbounded ships. The numbers come from the most recent sample
+window, so they update every `-sample-seconds` of simulated time.
+
+Tick time covers the world step and the capture checks only. Drawing and encoding the video are
+timed separately as the render fps, so turning the video on does not change the simulation fps.
+`-no-video` skips rendering entirely; the video needs `ffmpeg` on the path or passed with `-ffmpeg`.
+
+### Stress flags
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-entry` | | The level 1 or level 4 entry, an id, a url or a json file; the first argument works too |
+| `-ships` | `1000` | Defenders to spawn, all flying the entry's algorithm |
+| `-arena-width`, `-arena-height` | `3840`, `2160` | Arena size in pixels, 40 pixels to the meter |
+| `-planet-radius` | `120` | Radius of the planet at the arena center |
+| `-spawn` | `area` | `area` places each ship at random in the band around the planet like the benchmark scatter, `arena` spreads them over the whole arena, `ring` spaces them evenly on a ring |
+| `-spawn-inner`, `-spawn-outer` | `170`, `250` | The spawn band, in pixels from the planet center; for `-spawn=arena`, `-spawn-inner` is the radius kept clear |
+| `-spawn-spacing` | `110` | Preferred gap between ships; a ship is placed anyway after 40 tries, as in the benchmark |
+| `-ring-radius` | `300` | Ring radius for `-spawn=ring` |
+| `-seconds` | `120` | Simulated seconds to run; the run also stops if every defender is destroyed |
+| `-tick-rate` | `60` | Physics ticks per simulated second |
+| `-seed` | `987654321` | Seed for the layout, the evader bearings and the random walks |
+| `-wave-interval` | `2` | Simulated seconds between evader waves |
+| `-evaders-per-wave` | `10` | Evaders launched each wave |
+| `-max-evaders` | `100` | Most evaders in flight at once |
+| `-evader-speed` | `105` | Evader speed in pixels per second |
+| `-evader-spawn` | `ring` | `ring` launches evaders from a ring around the planet like the benchmark, `edge` from the arena border |
+| `-evader-ring-radius` | `1000` | Radius of the evader launch ring |
+| `-attrition` | the entry's level | A capture destroys the defender that made it; on by default for level 4, off for level 1 |
+| `-collisions` | `false` | Ship and planet collisions |
+| `-keep-in-arena` | `false` | Hold ships inside the arena; by default they fly off past the edge and out of frame |
+| `-sample-seconds` | `0.5` | Simulated seconds between performance samples |
+| `-video-fps` | `30` | Frames per second of the video, at most the tick rate |
+| `-video-width` | `1920` | Video width; the height follows the arena's shape |
+| `-cones` | `true` | Draw every defender's vision cone; `-cones=false` hides them |
+| `-no-video`, `-no-charts` | `false` | Skip the video or the charts |
+| `-ffmpeg` | `ffmpeg` | ffmpeg binary |
+| `-codec` | `libx264` | ffmpeg video codec, for example `libopenh264` on builds without x264 |
+| `-out` | `out/stress-<ships>-<time>` | Output directory |
+| `-server` | the production site | Base url used when an entry is a bare id |
+| `-quiet` | `false` | Suppress the progress line |
+
 ## Seeds
 
 The seed decides every enemy spawn angle and every ring orientation, so a run against the

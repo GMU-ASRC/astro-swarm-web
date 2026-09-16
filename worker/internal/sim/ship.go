@@ -42,6 +42,7 @@ type Ship struct {
 
 	CollisionsEnabled bool
 	IsEvader          bool
+	Unbounded         bool
 
 	ArenaSize    godot.Vec // pixels, arena width and height
 	StarCenter   godot.Vec // pixels
@@ -171,8 +172,10 @@ func (s *Ship) applyMovement(delta float64) {
 
 	velocity := godot.FromAngle(s.Rotation).Scale(s.MaxSpeed * s.SpeedMult * s.forwardInput)
 	s.Position = s.Position.Add(velocity.Scale(delta))
-	s.Position.X = godot.Clamp(s.Position.X, ArenaEdgeMargin, s.ArenaSize.X-ArenaEdgeMargin)
-	s.Position.Y = godot.Clamp(s.Position.Y, ArenaEdgeMargin, s.ArenaSize.Y-ArenaEdgeMargin)
+	if !s.Unbounded {
+		s.Position.X = godot.Clamp(s.Position.X, ArenaEdgeMargin, s.ArenaSize.X-ArenaEdgeMargin)
+		s.Position.Y = godot.Clamp(s.Position.Y, ArenaEdgeMargin, s.ArenaSize.Y-ArenaEdgeMargin)
+	}
 	s.narrowPosition()
 
 	s.resolveObstacles()
