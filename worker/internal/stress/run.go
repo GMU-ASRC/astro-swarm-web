@@ -60,7 +60,8 @@ type Settings struct {
 	DurationSeconds  float64 `json:"duration_seconds"`
 	TickRate         int     `json:"tick_rate"`
 	Seed             int64   `json:"seed"`
-	WaveInterval     float64 `json:"wave_interval"`
+	EvaderInterval   float64 `json:"evader_interval"`
+	GracePeriod      float64 `json:"grace_period"`
 	EvadersPerWave   int     `json:"evaders_per_wave"`
 	MaxEvaders       int     `json:"max_evaders"`
 	EvaderSpeed      float64 `json:"evader_speed"`
@@ -121,7 +122,8 @@ func Run(options Options, hooks Hooks) (Result, error) {
 	delta := 1.0 / float64(options.TickRate)
 	totalTicks := int(math.Ceil(options.DurationSeconds * float64(options.TickRate)))
 	sampleTicks := maxInt(1, int(math.Round(options.SampleSeconds*float64(options.TickRate))))
-	waveTicks := maxInt(1, int(math.Round(options.WaveInterval*float64(options.TickRate))))
+	waveTicks := maxInt(1, int(math.Round(options.EvaderInterval*float64(options.TickRate))))
+	graceTicks := maxInt(0, int(math.Round(options.GracePeriod*float64(options.TickRate))))
 	framesEnabled := hooks.OnFrame != nil && options.VideoFPS > 0
 	frameTicks := 0.0
 	if framesEnabled {
@@ -129,7 +131,6 @@ func Run(options Options, hooks Hooks) (Result, error) {
 	}
 
 	record := &recorder{options: options, started: time.Now(), tickMilliseconds: make([]float64, 0, totalTicks)}
-	simulation.launchWave()
 
 	stopReason := StopDuration
 	nextFrameTick := 0.0
@@ -145,7 +146,7 @@ func Run(options Options, hooks Hooks) (Result, error) {
 		}
 
 		tickStarted := time.Now()
-		if tick > 0 && tick%waveTicks == 0 {
+		if tick >= graceTicks && (tick-graceTicks)%waveTicks == 0 {
 			simulation.launchWave()
 		}
 		simulation.world.Step(delta)
@@ -244,7 +245,8 @@ func (r *recorder) result(simulation *swarmSimulation, tick int, stopReason stri
 			DurationSeconds:  options.DurationSeconds,
 			TickRate:         options.TickRate,
 			Seed:             options.Seed,
-			WaveInterval:     options.WaveInterval,
+			EvaderInterval:   options.EvaderInterval,
+			GracePeriod:      options.GracePeriod,
 			EvadersPerWave:   options.EvadersPerWave,
 			MaxEvaders:       options.MaxEvaders,
 			EvaderSpeed:      options.EvaderSpeed,

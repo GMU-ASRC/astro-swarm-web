@@ -129,9 +129,10 @@ timed separately as the render fps, so turning the video on does not change the 
 | `-spawn-spacing` | `110` | Preferred gap between ships; a ship is placed anyway after 40 tries, as in the benchmark |
 | `-ring-radius` | `300` | Ring radius for `-spawn=ring` |
 | `-seconds` | `120` | Simulated seconds to run; the run also stops if every defender is destroyed |
+| `-grace-period` | `5` | Simulated seconds before the first evaders launch |
 | `-tick-rate` | `60` | Physics ticks per simulated second |
 | `-seed` | `987654321` | Seed for the layout, the evader bearings and the random walks |
-| `-wave-interval` | `2` | Simulated seconds between evader waves |
+| `-evader-interval` | `2` | Simulated seconds between evader waves (`-wave-interval` is the older name for it) |
 | `-evaders-per-wave` | `10` | Evaders launched each wave |
 | `-max-evaders` | `100` | Most evaders in flight at once |
 | `-evader-speed` | `105` | Evader speed in pixels per second |

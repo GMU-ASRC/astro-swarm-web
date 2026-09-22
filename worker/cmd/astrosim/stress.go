@@ -46,7 +46,9 @@ type StressCommandOptions struct {
 	Seconds        float64
 	TickRate       int
 	Seed           int64
+	EvaderInterval float64
 	WaveInterval   float64
+	GracePeriod    float64
 	EvadersPerWave int
 	MaxEvaders     int
 	EvaderSpeed    float64
@@ -81,10 +83,12 @@ func runStress(arguments []string) error {
 	flags.Float64Var(&options.SpawnOuter, "spawn-outer", stress.DefaultSpawnOuter, "outer radius of the spawn band in pixels from the planet center")
 	flags.Float64Var(&options.SpawnSpacing, "spawn-spacing", stress.DefaultSpawnSpacing, "preferred gap between spawned ships in pixels; a ship is placed anyway after the benchmark's retry limit")
 	flags.Float64Var(&options.RingRadius, "ring-radius", stress.DefaultRingRadius, "ring radius in pixels for -spawn=ring")
-	flags.Float64Var(&options.Seconds, "seconds", stress.DefaultDurationSeconds, "simulated seconds to run")
+	flags.Float64Var(&options.Seconds, "seconds", stress.DefaultDurationSeconds, "simulated seconds to run before the sim stops")
 	flags.IntVar(&options.TickRate, "tick-rate", stress.DefaultTickRate, "physics ticks per simulated second")
 	flags.Int64Var(&options.Seed, "seed", stress.DefaultSeed, "seed for the layout, the evader bearings and the ships' random walks")
-	flags.Float64Var(&options.WaveInterval, "wave-interval", stress.DefaultWaveInterval, "simulated seconds between evader waves")
+	flags.Float64Var(&options.EvaderInterval, "evader-interval", stress.DefaultEvaderInterval, "simulated seconds between evader waves")
+	flags.Float64Var(&options.WaveInterval, "wave-interval", stress.DefaultEvaderInterval, "older name for -evader-interval")
+	flags.Float64Var(&options.GracePeriod, "grace-period", stress.DefaultGracePeriod, "simulated seconds before the first evaders launch")
 	flags.IntVar(&options.EvadersPerWave, "evaders-per-wave", stress.DefaultEvadersPerWave, "evaders launched from the arena edges each wave")
 	flags.IntVar(&options.MaxEvaders, "max-evaders", stress.DefaultMaxEvaders, "most evaders allowed in flight at once")
 	flags.Float64Var(&options.EvaderSpeed, "evader-speed", stress.DefaultEvaderSpeed, "evader speed in pixels per second")
@@ -150,7 +154,8 @@ func runStress(arguments []string) error {
 		DurationSeconds:  options.Seconds,
 		TickRate:         options.TickRate,
 		Seed:             options.Seed,
-		WaveInterval:     options.WaveInterval,
+		EvaderInterval:   evaderInterval(options, explicit),
+		GracePeriod:      options.GracePeriod,
 		EvadersPerWave:   options.EvadersPerWave,
 		MaxEvaders:       options.MaxEvaders,
 		EvaderSpeed:      options.EvaderSpeed,
@@ -313,8 +318,8 @@ func printStressHeader(options stress.Options, output string) {
 	case stress.SpawnRing:
 		fmt.Printf("  ships spawn evenly on a %.0f px ring around the planet\n", options.RingRadius)
 	}
-	fmt.Printf("  %d evaders every %.1fs, at most %d in flight, attrition %t, collisions %t, seed %d\n",
-		options.EvadersPerWave, options.WaveInterval, options.MaxEvaders, options.Attrition, options.Collisions, options.Seed)
+	fmt.Printf("  first evaders after %.1fs, then %d every %.1fs, at most %d in flight, attrition %t, collisions %t, seed %d\n",
+		options.GracePeriod, options.EvadersPerWave, options.EvaderInterval, options.MaxEvaders, options.Attrition, options.Collisions, options.Seed)
 	if options.VideoFPS > 0 {
 		fmt.Printf("  recording a %d fps video\n", options.VideoFPS)
 	}
@@ -352,6 +357,13 @@ func formatBlockParams(params map[string]any) string {
 		parts = append(parts, fmt.Sprintf("%s=%v", key, params[key]))
 	}
 	return " (" + strings.Join(parts, ", ") + ")"
+}
+
+func evaderInterval(options StressCommandOptions, explicit map[string]bool) float64 {
+	if !explicit["evader-interval"] && explicit["wave-interval"] {
+		return options.WaveInterval
+	}
+	return options.EvaderInterval
 }
 
 func stressProgressPrinter(options stress.Options) func(stress.Sample) {

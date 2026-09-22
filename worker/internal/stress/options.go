@@ -29,7 +29,8 @@ const (
 	DefaultDurationSeconds  = 120.0
 	DefaultTickRate         = bench.PhysicsTicksPerSecond
 	DefaultSeed             = bench.DefaultSeed
-	DefaultWaveInterval     = 2.0
+	DefaultEvaderInterval   = 2.0
+	DefaultGracePeriod      = 5.0
 	DefaultEvadersPerWave   = 10
 	DefaultMaxEvaders       = 100
 	DefaultEvaderSpeed      = bench.EnemySpeed
@@ -62,7 +63,8 @@ type Options struct {
 	DurationSeconds  float64
 	TickRate         int
 	Seed             int64
-	WaveInterval     float64
+	EvaderInterval   float64
+	GracePeriod      float64
 	EvadersPerWave   int
 	MaxEvaders       int
 	EvaderSpeed      float64
@@ -99,8 +101,10 @@ func (options Options) Validate() error {
 		return fmt.Errorf("seconds must be positive")
 	case options.TickRate < 1:
 		return fmt.Errorf("tick rate must be at least 1")
-	case options.WaveInterval <= 0:
-		return fmt.Errorf("wave interval must be positive")
+	case options.EvaderInterval <= 0:
+		return fmt.Errorf("evader interval must be positive")
+	case options.GracePeriod < 0:
+		return fmt.Errorf("grace period cannot be negative")
 	case options.EvadersPerWave < 0 || options.MaxEvaders < 0:
 		return fmt.Errorf("evader counts cannot be negative")
 	case options.EvaderSpeed <= 0:
