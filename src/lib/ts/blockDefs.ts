@@ -56,12 +56,17 @@ const BLOCK_DEFS: Record<string, BlockDef> = {
 	when_sees_ally: { label: 'When I see an ally', category: 'condition' },
 	when_sees_object: { label: 'When I see an object', category: 'condition' },
 	when_sees_rim: { label: 'When I see the outer rim', category: 'condition' },
+	when_not_see: { label: "When I don't see", category: 'condition', parts: ["When I don't see", '$target:target'] },
+	when_not_near_wall: { label: "When I don't touch a wall", category: 'condition' },
 
 	if_sees: { label: 'If I see anyone', category: 'logic' },
 	if_sees_species: { label: 'If I see a', category: 'logic', parts: ['If I see a', '$value:species'] },
 	if_within: { label: 'If target within', category: 'logic', suffix: ' m', step: 0.1 },
 	if_beyond: { label: 'If target beyond', category: 'logic', suffix: ' m', step: 0.1 },
 	if_see: { label: 'If I see', category: 'logic', parts: ['If I see', '$target:target'] },
+	if_not_see: { label: "If I don't see", category: 'logic', parts: ["If I don't see", '$target:target'] },
+	if_near_wall: { label: 'If I touch a wall', category: 'logic' },
+	if_not_near_wall: { label: "If I don't touch a wall", category: 'logic' },
 	if_compare: { label: 'If', category: 'logic', parts: ['If', '$var', '$op:operator', '$value:number'] },
 	if_zone_count: {
 		label: 'If',
