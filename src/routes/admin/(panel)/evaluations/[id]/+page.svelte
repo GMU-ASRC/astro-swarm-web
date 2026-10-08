@@ -4,13 +4,13 @@
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import WaveHeatmapCard from '$lib/components/WaveHeatmapCard.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import { barConfig, lineConfig, headlineRatesConfig, detectionRateConfig, captureRateConfig, combinedRatesConfig, timesConfig } from '$lib/ts/charts';
 	import {
 		riskConfig,
 		attritionRiskConfig,
 		sweepAttritionConfig,
-		ringProgressConfig
 	} from '$lib/ts/levelCharts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import {
@@ -460,33 +460,9 @@
 					<ChartCard config={attritionRiskConfig(attrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/attrition.png`)} />
 				{/if}
 				{#if sweepProgress.length > 0}
-					<ChartCard
-						config={ringProgressConfig(
-							sweepProgress,
-							'capture_rate',
-							'Capture Rate, Wave by Wave',
-							'Capture rate (%)'
-						)}
-						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)}
-					/>
-					<ChartCard
-						config={ringProgressConfig(
-							sweepProgress,
-							'risk',
-							'Risk, Wave by Wave',
-							'Risk (%)'
-						)}
-						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)}
-					/>
-					<ChartCard
-						config={ringProgressConfig(
-							sweepProgress,
-							'defenders',
-							'Defenders Remaining, Wave by Wave',
-							'Defenders remaining'
-						)}
-						downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
-					/>
+					<WaveHeatmapCard series={sweepProgress} key="capture_rate" title="Capture Rate, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)} />
+					<WaveHeatmapCard series={sweepProgress} key="risk" title="Risk, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)} />
+					<WaveHeatmapCard series={sweepProgress} key="defenders" title="Defenders Remaining, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)} />
 				{/if}
 				{#if sweepAttrition.length > 0}
 					<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />

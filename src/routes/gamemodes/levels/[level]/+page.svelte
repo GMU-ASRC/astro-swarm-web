@@ -8,7 +8,7 @@
 		LevelSweepEntry,
 		PlayerListItem
 	} from '$lib/ts/evaluation';
-	import { canonicalLevelId, hasAttrition, type LevelInfo } from '$lib/ts/levels';
+	import { canonicalLevelId, hasAttrition, isStream, type LevelInfo } from '$lib/ts/levels';
 
 	type View = 'entries' | 'leaderboard' | 'comparison';
 
@@ -193,7 +193,11 @@
 		</div>
 	{:else if view === 'comparison'}
 		<div class="shell shell-wide panel">
-			<LevelComparison entries={comparison} attrition={hasAttrition(level.number)} />
+			<LevelComparison
+				entries={comparison}
+				attrition={hasAttrition(level.number)}
+				circliness={isStream(level.number)}
+			/>
 		</div>
 	{:else}
 		<div class="shell shell-wide layout">

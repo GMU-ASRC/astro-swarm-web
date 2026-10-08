@@ -11,13 +11,14 @@ type TrialRun struct {
 }
 
 type SweepPoint struct {
-	N             int     `json:"n"`
-	SuccessRate   float64 `json:"success_rate"`
-	DetectionRate float64 `json:"detection_rate"`
-	CaptureRate   float64 `json:"capture_rate"`
-	WinRate       float64 `json:"win_rate"`
-	Risk          float64 `json:"risk"`
-	Trials        int     `json:"trials"`
+	N             int      `json:"n"`
+	SuccessRate   float64  `json:"success_rate"`
+	DetectionRate float64  `json:"detection_rate"`
+	CaptureRate   float64  `json:"capture_rate"`
+	WinRate       float64  `json:"win_rate"`
+	Risk          float64  `json:"risk"`
+	Trials        int      `json:"trials"`
+	Circliness    *float64 `json:"circliness,omitempty"`
 }
 
 // One rung of the attrition curve: every evader that was launched while the

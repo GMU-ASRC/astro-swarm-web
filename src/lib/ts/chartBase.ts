@@ -26,6 +26,8 @@ const PERCENT_TICKS = [0, 25, 50, 75, 100];
 // A line sitting exactly on 0 or 100 is drawn half outside the plot area, so the
 // scale runs a little past both ends while the ticks stay on the round numbers.
 const PERCENT_HEADROOM = 3;
+const UNIT_HEADROOM = 0.03;
+const UNIT_TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 // Breathing room between the plot area and the edge of the card, so a line that
 // runs to the last point does not touch the frame.
@@ -79,7 +81,8 @@ export type ComparisonEntry = {
 	id: string;
 	username: string;
 	success_rate: number;
-	sweep: { n: number; capture_rate: number; risk: number }[];
+	circliness?: number | null;
+	sweep: { n: number; capture_rate: number; risk: number; circliness?: number }[];
 };
 
 export function baseOptions(
@@ -142,6 +145,18 @@ export function percentScale(scale: object) {
 		ticks: { color: TEXT, stepSize: PERCENT_TICK_STEP },
 		afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
 			axis.ticks = PERCENT_TICKS.map((value) => ({ value }));
+		}
+	};
+}
+
+export function unitScale(scale: object) {
+	return {
+		...scale,
+		min: -UNIT_HEADROOM,
+		max: 1 + UNIT_HEADROOM,
+		ticks: { color: TEXT },
+		afterBuildTicks: (axis: { ticks: { value: number }[] }) => {
+			axis.ticks = UNIT_TICKS.map((value) => ({ value }));
 		}
 	};
 }

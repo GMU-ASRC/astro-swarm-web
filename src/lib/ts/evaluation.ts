@@ -51,8 +51,9 @@ export interface LevelSweepEntry {
 	success_rate: number;
 	defenders: number;
 	created_at: string | null;
-	sweep: { n: number; capture_rate: number; risk: number }[];
+	sweep: { n: number; capture_rate: number; risk: number; circliness?: number }[];
 	attrition: AttritionPoint[];
+	circliness?: number | null;
 }
 
 export interface SweepRow {

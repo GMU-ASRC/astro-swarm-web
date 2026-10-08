@@ -6,6 +6,7 @@
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import WaveHeatmapCard from '$lib/components/WaveHeatmapCard.svelte';
 	import {
 		isPilot as pilotLevel,
 		isSwarm as swarmLevel,
@@ -20,7 +21,6 @@
 		trialRiskConfig,
 		attritionRiskConfig,
 		sweepAttritionConfig,
-		ringProgressConfig
 	} from '$lib/ts/levelCharts';
 	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
 	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
@@ -385,23 +385,23 @@
 					<div class="stat-grid">
 						<div class="stat">
 							<div class="stat-value">{fmtTime(stats.merge_time)}</div>
-							<div class="stat-label">Merged — the two groups became one swarm</div>
+							<div class="stat-label">Merged</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtTime(stats.deliver_time)}</div>
-							<div class="stat-label">Delivered — the mill reached the planet</div>
+							<div class="stat-label">Delivered</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtTime(stats.escape_time)}</div>
-							<div class="stat-label">Escaped — the leader left the mill intact</div>
+							<div class="stat-label">Escaped</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtNumber(stats.minimum_loss)}</div>
-							<div class="stat-label">Minimum loss — goal distance plus milling error</div>
+							<div class="stat-label">Minimum loss</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtNumber(stats.circliness)}</div>
-							<div class="stat-label">Circliness at the end — 1.0 is a clean mill</div>
+							<div class="stat-label">Circliness at the end</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{stats.agents ?? ev.defender_count ?? 0}</div>
@@ -419,15 +419,15 @@
 					<div class="stat-grid">
 						<div class="stat">
 							<div class="stat-value">{fmtTime(pilotDetect)}</div>
-							<div class="stat-label">Detected — a defender first saw the pilot</div>
+							<div class="stat-label">Detected</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtTime(pilotCapture)}</div>
-							<div class="stat-label">Captured — a defender touched the pilot</div>
+							<div class="stat-label">Captured</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{fmtTime(pilotGoal)}</div>
-							<div class="stat-label">Reached planet — the pilot got to the goal</div>
+							<div class="stat-label">Reached planet</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
@@ -451,11 +451,11 @@
 						<div class="stat-grid">
 							<div class="stat">
 								<div class="stat-value">{ev.results?.risk ?? Math.round((100 - successRate) * 10) / 10}%</div>
-								<div class="stat-label">Risk — the share of evaders that was not stopped</div>
+								<div class="stat-label">Risk</div>
 							</div>
 							<div class="stat">
 								<div class="stat-value">{ev.results?.evaders_destroyed ?? 0} / {ev.results?.evaders_resolved ?? 0}</div>
-								<div class="stat-label">Evaders {levelNumber === 1 ? 'spotted' : 'destroyed'} out of every one that reached a verdict</div>
+								<div class="stat-label">Evaders {levelNumber === 1 ? 'spotted' : 'destroyed'}</div>
 							</div>
 							<div class="stat">
 								<div class="stat-value">{ev.results?.breaches ?? 0}</div>
@@ -464,17 +464,17 @@
 							{#if hasAttrition}
 								<div class="stat">
 									<div class="stat-value">{ev.results?.defenders_lost ?? 0}</div>
-									<div class="stat-label">Defenders lost — each capture costs the ship that made it</div>
+									<div class="stat-label">Defenders lost</div>
 								</div>
 							{/if}
 							<div class="stat">
 								<div class="stat-value">{ev.results?.trials_held_rate ?? 0}%</div>
-								<div class="stat-label">Trials held — nothing reached the planet</div>
+								<div class="stat-label">Trials held</div>
 							</div>
 							{#if ev.results?.circliness != null}
 								<div class="stat">
 									<div class="stat-value">{ev.results.circliness.toFixed(3)}</div>
-									<div class="stat-label">Average circliness — every mill the defenders form is scored, then the mills are averaged</div>
+									<div class="stat-label">Average circliness</div>
 								</div>
 							{/if}
 							<div class="stat">
@@ -486,11 +486,11 @@
 						<div class="stat-grid">
 							<div class="stat">
 								<div class="stat-value">{detectionRate}%</div>
-								<div class="stat-label">Detection rate — a defender saw the evader</div>
+								<div class="stat-label">Detection rate</div>
 							</div>
 							<div class="stat">
 								<div class="stat-value">{captureRate}%</div>
-								<div class="stat-label">Capture rate — a defender touched the evader</div>
+								<div class="stat-label">Capture rate</div>
 							</div>
 							<div class="stat">
 								<div class="stat-value">{meanGoalTime != null ? `${meanGoalTime}s` : '—'}</div>
@@ -565,34 +565,10 @@
 							<ChartCard config={attritionRiskConfig(attrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/attrition.png`)} />
 						{/if}
 						{#if sweepProgress.length > 0}
-							<ChartCard
-								config={ringProgressConfig(
-									sweepProgress,
-									'capture_rate',
-									'Capture Rate, Wave by Wave',
-									'Capture rate (%)'
-								)}
-								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)}
-							/>
-							<ChartCard
-								config={ringProgressConfig(
-									sweepProgress,
-									'risk',
-									'Risk, Wave by Wave',
-									'Risk (%)'
-								)}
-								downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)}
-							/>
+							<WaveHeatmapCard series={sweepProgress} key="capture_rate" title="Capture Rate, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)} />
+							<WaveHeatmapCard series={sweepProgress} key="risk" title="Risk, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)} />
 							{#if hasAttrition}
-								<ChartCard
-									config={ringProgressConfig(
-										sweepProgress,
-										'defenders',
-										'Defenders Remaining, Wave by Wave',
-										'Defenders remaining'
-									)}
-									downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)}
-								/>
+								<WaveHeatmapCard series={sweepProgress} key="defenders" title="Defenders Remaining, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)} />
 							{/if}
 						{/if}
 						{#if sweepAttrition.length > 0}

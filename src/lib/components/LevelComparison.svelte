@@ -1,9 +1,13 @@
 <script lang="ts">
 	import ChartCard from '$lib/components/ChartCard.svelte';
 	import type { LevelSweepEntry } from '$lib/ts/evaluation';
-	import { BEST_SERIES_ID, comparisonConfig } from '$lib/ts/levelCharts';
+	import { BEST_SERIES_ID, circlinessComparisonConfig, comparisonConfig } from '$lib/ts/levelCharts';
 
-	let { entries, attrition }: { entries: LevelSweepEntry[]; attrition: boolean } = $props();
+	let {
+		entries,
+		attrition,
+		circliness = false
+	}: { entries: LevelSweepEntry[]; attrition: boolean; circliness?: boolean } = $props();
 
 	// The best rate reached at each ring size across every entry, so a reader can
 	// see the ceiling the level has been pushed to as well as who got there.
@@ -19,6 +23,34 @@
 			.sort((a, b) => a[0] - b[0])
 			.map(([n, rate]) => ({ n, capture_rate: rate, risk: Math.round((100 - rate) * 10) / 10 }));
 	});
+
+	let bestCircliness = $derived.by(() => {
+		const byN = new Map<number, number>();
+		for (const entry of entries) {
+			for (const point of entry.sweep) {
+				if (point.circliness == null) continue;
+				const current = byN.get(point.n);
+				if (current == null || point.circliness > current) byN.set(point.n, point.circliness);
+			}
+		}
+		return [...byN.entries()]
+			.sort((a, b) => a[0] - b[0])
+			.map(([n, value]) => ({ n, capture_rate: 0, risk: 0, circliness: value }));
+	});
+
+	let circlinessSeries = $derived(
+		bestCircliness.length > 0
+			? [
+					{
+						id: BEST_SERIES_ID,
+						username: 'Best of every entry',
+						success_rate: 0,
+						sweep: bestCircliness
+					},
+					...entries
+				]
+			: []
+	);
 
 	let series = $derived(
 		best.length > 0
@@ -58,11 +90,18 @@
 				'Risk (%)'
 			)}
 		/>
+		{#if circliness && circlinessSeries.length > 0}
+			<ChartCard config={circlinessComparisonConfig(circlinessSeries)} />
+		{/if}
 	</div>
 	<p class="note">
 		Every line is one submitted entry, drawn from its own defender sweep: n ships ringed around the
 		planet, each dropped at a random angle inside its own slice. The heavy dashed line is the best rate
 		any entry reached at each n.
+		{#if circliness && circlinessSeries.length > 0}
+			The circliness chart scores every mill the defenders form at each ring size and averages them,
+			from 0 for no circle at all to 1 for a perfect mill.
+		{/if}
 		{#if attrition}
 			A capture on this level destroys the defender that made it, so an entry's own page also charts
 			the risk it carried as its line thinned.

@@ -360,7 +360,7 @@ def level_sweep():
         rate = results.get("success_rate")
         if not sweep or rate is None:
             continue
-        scored.append((float(rate), item, sweep))
+        scored.append((float(rate), item, sweep, results.get("circliness")))
     scored.sort(key=lambda row: row[0], reverse=True)
 
     return jsonify([
@@ -373,8 +373,9 @@ def level_sweep():
             "created_at": item.created_at.isoformat() if item.created_at else None,
             "sweep": [_sweep_row(point) for point in sweep],
             "attrition": results_attrition(item),
+            "circliness": circliness,
         }
-        for rate, item, sweep in scored[:limit]
+        for rate, item, sweep, circliness in scored[:limit]
     ])
 
 
@@ -383,7 +384,10 @@ def _sweep_row(point):
     if rate is None:
         rate = point.get("success_rate", 0.0)
     rate = round(float(rate or 0.0), 1)
-    return {"n": point.get("n"), "capture_rate": rate, "risk": round(100.0 - rate, 1)}
+    row = {"n": point.get("n"), "capture_rate": rate, "risk": round(100.0 - rate, 1)}
+    if point.get("circliness") is not None:
+        row["circliness"] = round(float(point["circliness"]), 3)
+    return row
 
 
 def results_attrition(evaluation):

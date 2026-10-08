@@ -212,6 +212,8 @@ func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick 
 		destroyed := 0
 		samples := []AttritionSample{}
 		traces := [][]AttritionSample{}
+		circlinessTotal := 0.0
+		circlinessTrials := 0
 		for _, item := range step {
 			if !item.ran {
 				continue
@@ -221,6 +223,10 @@ func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick 
 			destroyed += item.output.Destroyed
 			samples = append(samples, item.output.Samples...)
 			traces = append(traces, item.output.Samples)
+			if item.output.Circliness >= 0.0 {
+				circlinessTotal += item.output.Circliness
+				circlinessTrials++
+			}
 			if item.output.Outcome == OutcomeWin {
 				wins++
 			}
@@ -232,7 +238,7 @@ func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick 
 			break
 		}
 		captureRate := destroyRate(destroyed, resolved)
-		points = append(points, SweepPoint{
+		point := SweepPoint{
 			N:             defenders,
 			Trials:        ran,
 			SuccessRate:   captureRate,
@@ -240,7 +246,12 @@ func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick 
 			Risk:          riskOf(captureRate),
 			WinRate:       round1(100.0 * float64(wins) / float64(ran)),
 			DetectionRate: round1(100.0 * float64(detected) / float64(ran)),
-		})
+		}
+		if circlinessTrials > 0 {
+			average := round3(circlinessTotal / float64(circlinessTrials))
+			point.Circliness = &average
+		}
+		points = append(points, point)
 
 		// A ring that never lost a ship has a single rung and no curve to draw,
 		// which is every ring on a level without attrition.

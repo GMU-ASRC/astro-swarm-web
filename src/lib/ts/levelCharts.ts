@@ -6,7 +6,6 @@ import {
 	RISK,
 	SUCCESS,
 	baseOptions,
-	countScale,
 	percentScale,
 	rateOf,
 	riskOf,
@@ -14,10 +13,10 @@ import {
 	seriesRamp,
 	sweepPoints,
 	sweepSource,
+	unitScale,
 	LEGEND_MAX,
 	type AttritionRow,
 	type AttritionSeries,
-	type ProgressSeries,
 	type ComparisonEntry,
 	type SweepRow
 } from '$lib/ts/chartBase';
@@ -192,65 +191,6 @@ export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfigurat
 	};
 }
 
-// The three ring-sweep curves drawn side by side: how each ring size's capture
-// rate settles, the risk that leaves, and how much of the line is still
-// standing, all read wave by wave rather than in total. Every ring size gets its
-// own line, so the sizes can be compared as runs rather than as end numbers.
-export function ringProgressConfig(
-	series: ProgressSeries[],
-	key: 'capture_rate' | 'risk' | 'defenders',
-	title: string,
-	yTitle: string
-): ChartConfiguration {
-	const chosen = [...series].sort((a, b) => a.n - b.n);
-	const colors = seriesRamp(chosen.length);
-	const faced = new Set<number>();
-	for (const entry of chosen) {
-		for (const point of entry.points) faced.add(point.faced);
-	}
-	const labels = [...faced].sort((a, b) => a - b);
-
-	const options = baseOptions(
-		title,
-		yTitle,
-		'Evaders faced',
-		true,
-		ringSource(series, chosen.length)
-	);
-	// The line left is a count of ships; the other two curves are rates.
-	const counting = key === 'defenders';
-	options.scales.y = (
-		counting ? countScale(options.scales.y) : percentScale(options.scales.y)
-	) as never;
-
-	return {
-		type: 'line',
-		data: {
-			labels,
-			datasets: chosen.map((entry, index) => {
-				const byFaced = new Map(entry.points.map((point) => [point.faced, point[key]]));
-				const color = colors[index];
-				return {
-					label: `n = ${entry.n}`,
-					data: labels.map((value) => byFaced.get(value) ?? null),
-					borderColor: color,
-					backgroundColor: color,
-					pointRadius: 0,
-					borderWidth: 2,
-					spanGaps: true
-				};
-			})
-		},
-		options
-	};
-}
-
-function ringSource(series: ProgressSeries[], drawn: number): string {
-	if (series.length === 0) return 'Ring sweep runs';
-	const sizes = series.map((entry) => entry.n);
-	return rampSource(`n = ${Math.min(...sizes)}–${Math.max(...sizes)}`, drawn);
-}
-
 // With one line per ring size the legend runs long, so the subtitle says how to
 // read the color and that a legend entry can be clicked to isolate one ring.
 function rampSource(detail: string, drawn: number): string {
@@ -297,6 +237,62 @@ export function comparisonConfig(
 			})
 		},
 		options
+	};
+}
+
+export function circlinessComparisonConfig(entries: ComparisonEntry[]): ChartConfiguration {
+	const sizes = new Set<number>();
+	for (const item of entries) {
+		for (const point of item.sweep) {
+			if (point.circliness != null) sizes.add(point.n);
+		}
+	}
+	const labels = [...sizes].sort((a, b) => a - b);
+
+	const options = baseOptions(
+		'Circliness by Ring Size',
+		'Circliness (0 to 1)',
+		'Ring size (n)',
+		true,
+		comparisonSource(entries)
+	);
+	options.scales.y = unitScale(options.scales.y) as never;
+
+	return {
+		type: 'line',
+		data: {
+			labels,
+			datasets: entries.map((item, index) => {
+				const byN = new Map(item.sweep.map((point) => [point.n, point.circliness ?? null]));
+				const envelope = item.id === BEST_SERIES_ID;
+				const color = envelope ? RISK : COMPARISON_COLORS[index % COMPARISON_COLORS.length];
+				const average = item.circliness != null ? ` · ${item.circliness.toFixed(3)}` : '';
+				return {
+					label: envelope ? item.username : `${item.username}${average}`,
+					data: labels.map((n) => byN.get(n) ?? null),
+					borderColor: color,
+					backgroundColor: color,
+					pointRadius: 0,
+					pointHoverRadius: 4,
+					borderWidth: envelope ? 4 : 2,
+					borderDash: envelope ? [6, 4] : undefined,
+					spanGaps: true
+				};
+			})
+		},
+		options: {
+			...options,
+			interaction: { mode: 'index', intersect: false },
+			plugins: {
+				...options.plugins,
+				tooltip: {
+					callbacks: {
+						label: (context: { dataset: { label?: string }; parsed: { y: number } }) =>
+							`${context.dataset.label}: ${context.parsed.y.toFixed(3)}`
+					}
+				}
+			}
+		} as never
 	};
 }
 
