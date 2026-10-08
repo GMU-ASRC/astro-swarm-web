@@ -11,7 +11,7 @@ SWEEP_TRIALS_KEY = "sweep_trials"
 SEED_KEY = "eval_seed"
 GAME_VERSION_KEY = "required_game_version"
 
-CURRENT_GAME_VERSION = "v0.0.8"
+CURRENT_GAME_VERSION = "v0.0.9"
 
 SEED_MIN = 1
 SEED_MAX = 2147483647
@@ -22,7 +22,7 @@ SWEEP_MATCH_OFFSET = 500000
 
 LEVELS = [
     {"id": "farp1", "name": "Level 1 - Defense (Place)"},
-    {"id": "farp2", "name": "Level 2 - Defense (Ring)"},
+    {"id": "farp2", "name": "Level 2 - Defense (Scatter)"},
     {"id": "farp3", "name": "Level 3 - Defense (Waves)"},
     {"id": "farp4", "name": "Level 4 - Defense (Attrition)"},
     {"id": "farp5", "name": "Level 5 - Defense (Siege)"},
@@ -41,9 +41,9 @@ PILOT_LEVELS = [
 SUPPLY_LEVELS = ["farp8"]
 SWARM_LEVELS = ["farp7"]
 
-# Levels 3 to 5 grade a stream of evaders against one line rather than a single
+# Levels 1 to 5 grade a stream of evaders against one line rather than a single
 # approach, so they get their own trial and sweep budget.
-ASSAULT_LEVELS = ["farp3", "farp4", "farp5"]
+ASSAULT_LEVELS = ["farp1", "farp2", "farp3", "farp4", "farp5"]
 ATTRITION_LEVELS = ["farp4", "farp5"]
 ASSAULT_TRIALS = 100
 ASSAULT_CLEAN_STREAK = 3

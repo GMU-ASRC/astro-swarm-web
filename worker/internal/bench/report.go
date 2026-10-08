@@ -90,6 +90,9 @@ type Results struct {
 
 	SweepAttrition []AttritionSeries     `json:"sweep_attrition,omitempty"`
 	SweepProgress  []SweepProgressSeries `json:"sweep_progress,omitempty"`
+
+	Circliness      *float64  `json:"circliness,omitempty"`
+	TrialCircliness []float64 `json:"trial_circliness,omitempty"`
 }
 
 type Report struct {

@@ -28,19 +28,28 @@ func ConfigFromScripts(scripts []Script, base ShipConfig) ShipConfig {
 
 func collectConfig(list []Block, config *ShipConfig) {
 	for _, block := range list {
-		switch block.Type {
-		case "set_speed":
-			config.Speed = ParamFloat(block.Params, "value", config.Speed/PixelsPerMeter) * PixelsPerMeter
-		case "set_turn":
-			config.TurnSpeed = godot.DegToRad(ParamFloat(block.Params, "value", 120.0))
-		case "set_view":
-			config.ViewDistance = ParamFloat(block.Params, "value", config.ViewDistance/PixelsPerMeter) * PixelsPerMeter
-		case "set_fov":
-			config.FovDegrees = math.Min(180.0, ParamFloat(block.Params, "value", config.FovDegrees))
-		case "set_size":
-			config.HullRadius = ParamFloat(block.Params, "value", 6.0)
-		case "when_start":
+		if block.Type == "when_start" {
 			collectConfig(block.Children, config)
+			continue
 		}
+		ApplyConfigBlock(block.Type, block.Params, config)
 	}
+}
+
+func ApplyConfigBlock(blockType string, params map[string]any, config *ShipConfig) bool {
+	switch blockType {
+	case "set_speed":
+		config.Speed = ParamFloat(params, "value", config.Speed/PixelsPerMeter) * PixelsPerMeter
+	case "set_turn":
+		config.TurnSpeed = godot.DegToRad(ParamFloat(params, "value", 120.0))
+	case "set_view":
+		config.ViewDistance = ParamFloat(params, "value", config.ViewDistance/PixelsPerMeter) * PixelsPerMeter
+	case "set_fov":
+		config.FovDegrees = math.Min(180.0, ParamFloat(params, "value", config.FovDegrees))
+	case "set_size":
+		config.HullRadius = ParamFloat(params, "value", 6.0)
+	default:
+		return false
+	}
+	return true
 }

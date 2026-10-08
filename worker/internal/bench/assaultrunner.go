@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -32,7 +33,10 @@ type assaultResult struct {
 }
 
 func AssaultMode(levelID string) string {
-	if LevelNumber(levelID) == 5 {
+	switch LevelNumber(levelID) {
+	case 1, 2:
+		return AssaultModeStream
+	case 5:
 		return AssaultModeSiege
 	}
 	return AssaultModeWaves
@@ -47,14 +51,19 @@ func buildAssaultTrials(options Options) []assaultJob {
 	if defenders < 1 {
 		defenders = RingCount
 	}
+	keepsLayout := AssaultMode(options.LevelID) == AssaultModeStream && len(options.Placements) > 0
 	jobs := make([]assaultJob, 0, options.TrialCount)
 	for index := 0; index < options.TrialCount; index++ {
 		trial := options.TrialStart + index
+		placements := options.Placements
+		if !keepsLayout {
+			placements = ArenaFor(options.LevelID).Shifted(assaultTrialLayout(options.Seed+AssaultTrialSeedOffset, trial, defenders))
+		}
 		jobs = append(jobs, assaultJob{
 			trial:      trial,
 			defenders:  defenders,
 			seed:       options.Seed + AssaultTrialSeedOffset + int64(trial),
-			placements: assaultTrialLayout(options.Seed+AssaultTrialSeedOffset, trial, defenders),
+			placements: placements,
 			record:     options.Record && trial < AssaultReplayTrials,
 		})
 	}
@@ -69,14 +78,14 @@ func buildAssaultSweepStep(options Options, defenders int) []assaultJob {
 			trial:      trial,
 			defenders:  defenders,
 			seed:       options.Seed + AssaultSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial),
-			placements: RingPlacements(options.Seed+AssaultSweepSeedOffset, trial, options.SweepTrials, defenders),
+			placements: ArenaFor(options.LevelID).Shifted(RingPlacements(options.Seed+AssaultSweepSeedOffset, trial, options.SweepTrials, defenders)),
 			record:     options.Record && (trial == 0 || (defenders <= AssaultReplaySweepNMax && trial < AssaultReplaySweepMax)),
 		})
 	}
 	return jobs
 }
 
-func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, mode string, destroysDefenders bool, progress func()) []assaultResult {
+func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, rules AssaultRules, progress func()) []assaultResult {
 	results := make([]assaultResult, len(jobs))
 	queue := make(chan int)
 	var group sync.WaitGroup
@@ -91,14 +100,13 @@ func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, mode st
 				}
 				current := jobs[index]
 				output := RunAssaultMatch(AssaultInput{
-					Algorithm:         options.Algorithm,
-					Placements:        current.placements,
-					Mode:              mode,
-					DestroysDefenders: destroysDefenders,
-					Seed:              current.seed,
-					MatchFrames:       matchFrames,
-					SinglePrecision:   options.SinglePrecision,
-					Record:            current.record,
+					Algorithm:       options.Algorithm,
+					Placements:      current.placements,
+					Rules:           rules,
+					Seed:            current.seed,
+					MatchFrames:     matchFrames,
+					SinglePrecision: options.SinglePrecision,
+					Record:          current.record,
 				})
 				results[index] = assaultResult{job: current, output: output, ran: true}
 				if progress != nil {
@@ -123,12 +131,11 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 	options.applyDefaults()
 	started := time.Now()
 
-	mode := AssaultMode(options.LevelID)
-	destroysDefenders := IsAttritionLevel(options.LevelID)
+	rules := RulesFor(options.LevelID)
 	matchFrames := int(options.MatchSeconds * PhysicsTicksPerSecond)
 
 	if len(options.Placements) == 0 {
-		options.Placements = ScatterLayout(options.Seed, RingCount)
+		options.Placements = rules.Arena.Shifted(ScatterLayout(options.Seed, RingCount))
 	}
 
 	var done int64
@@ -140,8 +147,8 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 		options.Progress(int(atomic.AddInt64(&done, 1)), int(estimate))
 	}
 
-	trials := runAssaultJobs(buildAssaultTrials(options), options, matchFrames, mode, destroysDefenders, tick)
-	sweep, sweepPoints, sweepAttrition, sweepProgress := runAssaultSweep(options, matchFrames, mode, destroysDefenders, tick)
+	trials := runAssaultJobs(buildAssaultTrials(options), options, matchFrames, rules, tick)
+	sweep, sweepPoints, sweepAttrition, sweepProgress := runAssaultSweep(options, matchFrames, rules, tick)
 
 	report := Report{
 		LevelID:         options.LevelID,
@@ -175,8 +182,8 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 			Fov:       int(report.FovDegrees),
 			Speed:     int(report.Speed),
 			Hull:      int(report.HullRadius),
-			Planet:    []int{int(PlanetX), int(PlanetY), int(PlanetRadius)},
-			Arena:     []int{int(ArenaWidth), int(ArenaHeight)},
+			Planet:    []int{int(rules.Arena.Center.X), int(rules.Arena.Center.Y), int(PlanetRadius)},
+			Arena:     []int{int(rules.Arena.Size.X), int(rules.Arena.Size.Y)},
 		},
 	}
 	return report, jobResult
@@ -184,7 +191,7 @@ func RunAssaultJob(options Options) (Report, JobResult) {
 
 // The sweep grows the ring until the algorithm holds cleanly a few sizes in a
 // row, so a strong entry is not charged for defender counts that add nothing.
-func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefenders bool, tick func()) ([]assaultResult, []SweepPoint, []AttritionSeries, []SweepProgressSeries) {
+func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick func()) ([]assaultResult, []SweepPoint, []AttritionSeries, []SweepProgressSeries) {
 	all := []assaultResult{}
 	points := []SweepPoint{}
 	series := []AttritionSeries{}
@@ -195,7 +202,7 @@ func runAssaultSweep(options Options, matchFrames int, mode string, destroysDefe
 		if options.Context.Err() != nil {
 			break
 		}
-		step := runAssaultJobs(buildAssaultSweepStep(options, defenders), options, matchFrames, mode, destroysDefenders, tick)
+		step := runAssaultJobs(buildAssaultSweepStep(options, defenders), options, matchFrames, rules, tick)
 		all = append(all, step...)
 
 		wins := 0
@@ -319,6 +326,9 @@ func fillAssaultResults(report *Report, trials []assaultResult) {
 	lost := 0
 	recorded := 0
 	samples := []AttritionSample{}
+	trialCircliness := []float64{}
+	circlinessTotal := 0.0
+	circlinessTrials := 0
 
 	for _, item := range trials {
 		if !item.ran {
@@ -350,6 +360,11 @@ func fillAssaultResults(report *Report, trials []assaultResult) {
 		breaches += item.output.Breaches
 		lost += item.output.DefendersLost
 		samples = append(samples, item.output.Samples...)
+		trialCircliness = append(trialCircliness, round3(item.output.Circliness))
+		if item.output.Circliness >= 0.0 {
+			circlinessTotal += item.output.Circliness
+			circlinessTrials++
+		}
 		if len(item.output.Frames) > 0 {
 			recorded++
 		}
@@ -392,6 +407,11 @@ func fillAssaultResults(report *Report, trials []assaultResult) {
 		TrialBreaches:       trialBreaches,
 		TrialLost:           trialLost,
 		Attrition:           SummarizeAttrition(samples),
+	}
+	if circlinessTrials > 0 {
+		average := round3(circlinessTotal / float64(circlinessTrials))
+		report.Results.Circliness = &average
+		report.Results.TrialCircliness = trialCircliness
 	}
 }
 
@@ -459,15 +479,24 @@ func packAssaultRuns(trials []assaultResult) []ReplayRun {
 }
 
 func assaultStats(output AssaultOutput) map[string]float64 {
-	return map[string]float64{
+	stats := map[string]float64{
 		"sent":      float64(output.Launched),
 		"resolved":  float64(output.Resolved),
 		"destroyed": float64(output.Destroyed),
 		"breaches":  float64(output.Breaches),
 		"defenders": float64(output.Defenders),
 		"lost":      float64(output.DefendersLost),
+		"detected":  float64(output.Detected),
 		"end_time":  output.EndTime,
 	}
+	if output.Circliness >= 0.0 {
+		stats["circliness"] = round3(output.Circliness)
+	}
+	return stats
+}
+
+func round3(value float64) float64 {
+	return math.Round(value*1000.0) / 1000.0
 }
 
 func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {

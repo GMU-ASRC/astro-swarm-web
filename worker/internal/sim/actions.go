@@ -21,6 +21,7 @@ func (s *Ship) ExecAction(blockType string, params map[string]any, delta float64
 		return blocks.Done
 	}
 	if strings.HasPrefix(blockType, "set_") {
+		s.applyConfigBlock(blockType, params)
 		return blocks.Done
 	}
 	if len(blockType) < 3 {
@@ -76,6 +77,21 @@ func (s *Ship) ExecAction(blockType string, params map[string]any, delta float64
 		return blocks.Done
 	}
 	return blocks.Done
+}
+
+func (s *Ship) applyConfigBlock(blockType string, params map[string]any) {
+	config := blocks.ShipConfig{
+		ViewDistance: s.ViewDistance,
+		FovDegrees:   s.FovDegrees,
+		Speed:        s.MaxSpeed,
+		TurnSpeed:    s.TurnRate,
+		HullRadius:   s.HullRadius,
+	}
+	before := config
+	if !blocks.ApplyConfigBlock(blockType, params, &config) || config == before {
+		return
+	}
+	s.ApplyConfig(config)
 }
 
 func (s *Ship) levyStepTime() float64 {

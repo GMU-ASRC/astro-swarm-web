@@ -12,12 +12,18 @@ import (
 // send them one at a time for as long as the line lasts; a siege sends the
 // whole group at once off the arena edges.
 const (
-	AssaultModeWaves = "waves"
-	AssaultModeSiege = "siege"
+	AssaultModeWaves  = "waves"
+	AssaultModeSiege  = "siege"
+	AssaultModeStream = "stream"
 
 	WaveGapFrames      = 90      // frames between one evader resolving and the next wave launching
 	WaveSpawnSeedShift = 4400000 // rng seed offset for the spawn bearings of a run
 	WaveConsecutiveMax = 3       // count of consecutive clean defender counts that ends the sweep
+
+	StreamEvaders           = 10
+	StreamIntervalFrames    = 180
+	StreamLevel2DelayFrames = 600
+	StreamSpawnRadius       = 750.0
 
 	SiegeEvaders     = 5    // count, evaders that arrive together in a siege
 	SiegeEdgeInset   = 60.0 // pixels the siege spawn band sits inside the arena border
@@ -35,14 +41,35 @@ const (
 )
 
 type AssaultInput struct {
-	Algorithm         []blocks.Script
-	Placements        []Placement
+	Algorithm       []blocks.Script
+	Placements      []Placement
+	Rules           AssaultRules
+	Seed            int64
+	MatchFrames     int
+	SinglePrecision bool
+	Record          bool
+}
+
+type AssaultRules struct {
+	Arena             Arena
 	Mode              string
 	DestroysDefenders bool
-	Seed              int64
-	MatchFrames       int
-	SinglePrecision   bool
-	Record            bool
+	StartDelayFrames  int
+	VanishOnDetect    bool
+	TrackCircliness   bool
+}
+
+func RulesFor(levelID string) AssaultRules {
+	number := LevelNumber(levelID)
+	rules := AssaultRules{Arena: ArenaFor(levelID), Mode: AssaultMode(levelID), DestroysDefenders: IsAttritionLevel(levelID)}
+	if rules.Mode == AssaultModeStream {
+		rules.TrackCircliness = true
+		rules.VanishOnDetect = number == 1
+		if number == 2 {
+			rules.StartDelayFrames = StreamLevel2DelayFrames
+		}
+	}
+	return rules
 }
 
 // One launched evader, tagged with how many defenders were still standing when
@@ -63,6 +90,8 @@ type AssaultOutput struct {
 	Destroyed     int
 	Breaches      int
 	DefendersLost int
+	Detected      int
+	Circliness    float64
 	DetectionTime float64
 	CaptureTime   float64
 	GoalTime      float64
@@ -84,6 +113,7 @@ type assaultEvader struct {
 	ship     *sim.Ship
 	slot     int
 	breached bool
+	detected bool
 	atLaunch int
 }
 
@@ -96,12 +126,15 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		HullRadius:   sim.DefaultHullRadius,
 	})
 
-	siege := input.Mode == AssaultModeSiege
+	arena := input.Rules.Arena
+	siege := input.Rules.Mode == AssaultModeSiege
+	stream := input.Rules.Mode == AssaultModeStream
 	world := sim.NewWorld(godot.NewRNGFromInt(input.Seed), input.SinglePrecision)
 	spawnRNG := godot.NewRNGFromInt(input.Seed + WaveSpawnSeedShift)
 
 	output := AssaultOutput{
-		Mode:          input.Mode,
+		Mode:          input.Rules.Mode,
+		Circliness:    -1.0,
 		Defenders:     len(input.Placements),
 		DetectionTime: -1.0,
 		CaptureTime:   -1.0,
@@ -117,7 +150,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	live := make([]*sim.Ship, 0, len(input.Placements))
 	for _, placement := range input.Placements {
 		ship := sim.NewShip(sim.TeamDefender, input.Algorithm)
-		ship.ArenaSize = ArenaSize
+		ship.ArenaSize = arena.Size
 		ship.CollisionsEnabled = false
 		ship.ApplyConfig(config)
 		ship.Position = placement.Position
@@ -130,6 +163,8 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	slots := 1
 	if siege {
 		slots = SiegeEvaders
+	} else if stream {
+		slots = StreamEvaders
 	}
 	inFlight := make([]*assaultEvader, slots)
 
@@ -139,12 +174,12 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			return
 		}
 		ship := sim.NewShip(sim.TeamEvader, enemyProgram)
-		ship.ArenaSize = ArenaSize
+		ship.ArenaSize = arena.Size
 		ship.SpeedMult = EnemySpeed / sim.DefaultSpeed
 		ship.CollisionsEnabled = false
 		ship.IsEvader = true
 		ship.Position = spawn
-		ship.Rotation = PlanetCenter.Sub(spawn).Angle()
+		ship.Rotation = arena.Center.Sub(spawn).Angle()
 		world.Add(ship)
 		inFlight[slot] = &assaultEvader{ship: ship, slot: slot, atLaunch: len(live)}
 		output.Launched++
@@ -155,11 +190,18 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		for index := 0; index < SiegeEvaders; index++ {
 			slice := godot.Tau * float64(index) / float64(SiegeEvaders)
 			angle := base + slice + spawnRNG.RandfRange(-SiegeAngleJitter, SiegeAngleJitter)
-			launch(SiegeEdgePoint(angle))
+			launch(SiegeEdgePoint(arena, angle))
 		}
-	} else {
-		launch(waveSpawn(spawnRNG))
+	} else if !stream {
+		launch(waveSpawn(spawnRNG, arena))
 	}
+
+	streamTimer := input.Rules.StartDelayFrames
+	if stream && streamTimer <= 0 {
+		launch(streamSpawn(spawnRNG, arena))
+		streamTimer = StreamIntervalFrames
+	}
+	circliness := CirclinessTracker{}
 
 	delta := 1.0 / float64(PhysicsTicksPerSecond)
 	gap := WaveGapFrames
@@ -176,10 +218,22 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			if entry == nil {
 				continue
 			}
-			if output.DetectionTime < 0.0 && anyDefenderSees(live, entry.ship) {
-				output.DetectionTime = frameToTime(frame)
+			if !entry.detected && anyDefenderSees(live, entry.ship) {
+				entry.detected = true
+				output.Detected++
+				if output.DetectionTime < 0.0 {
+					output.DetectionTime = frameToTime(frame)
+				}
+				if input.Rules.VanishOnDetect {
+					output.Destroyed++
+					output.Resolved++
+					output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live), Destroyed: true})
+					world.Remove(entry.ship)
+					inFlight[entry.slot] = nil
+					continue
+				}
 			}
-			if !entry.breached && entry.ship.Position.DistanceTo(PlanetCenter) <= PlanetRadius+GoalMargin {
+			if !entry.breached && entry.ship.Position.DistanceTo(arena.Center) <= PlanetRadius+GoalMargin {
 				if output.GoalTime < 0.0 {
 					output.GoalTime = frameToTime(frame)
 				}
@@ -189,6 +243,9 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 				output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live)})
 				world.Remove(entry.ship)
 				inFlight[entry.slot] = nil
+				continue
+			}
+			if input.Rules.VanishOnDetect {
 				continue
 			}
 			catcher := defenderTouching(live, entry.ship)
@@ -202,7 +259,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			output.Resolved++
 			world.Remove(entry.ship)
 			inFlight[entry.slot] = nil
-			if input.DestroysDefenders {
+			if input.Rules.DestroysDefenders {
 				live = removeShip(live, catcher)
 				world.Remove(catcher)
 				killDefender(defenders, catcher)
@@ -211,11 +268,30 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live), Destroyed: true})
 		}
 
+		if input.Rules.TrackCircliness && frame%CirclinessSampleStride == 0 {
+			circliness.Sample(live)
+		}
+
 		if !siege && len(live) < 1 {
 			break
 		}
 
-		if siege {
+		if stream {
+			if output.Launched < StreamEvaders {
+				streamTimer--
+				if streamTimer <= 0 {
+					launch(streamSpawn(spawnRNG, arena))
+					streamTimer = StreamIntervalFrames
+				}
+			} else if allSlotsFree(inFlight) {
+				if endFrame < 0 {
+					endFrame = frame + AssaultTailFrames
+				}
+				if frame >= endFrame {
+					break
+				}
+			}
+		} else if siege {
 			if allSlotsFree(inFlight) {
 				if endFrame < 0 {
 					endFrame = frame + AssaultTailFrames
@@ -230,7 +306,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			gap--
 			if gap <= 0 {
 				gap = WaveGapFrames
-				launch(waveSpawn(spawnRNG))
+				launch(waveSpawn(spawnRNG, arena))
 			}
 		}
 
@@ -238,32 +314,40 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	}
 
 	output.EndTime = frameToTime(frame)
-	output.Outcome = classifyAssault(output, siege)
+	output.Circliness = circliness.Average()
+	output.Outcome = classifyAssault(output, siege, stream)
 	return output
 }
 
 // A run is clean only if nothing touched the planet. A siege that ran out of
 // clock with evaders still inbound decided nothing, so it times out instead.
-func classifyAssault(output AssaultOutput, siege bool) string {
+func classifyAssault(output AssaultOutput, siege bool, stream bool) string {
 	if output.Breaches > 0 {
 		return OutcomeLose
 	}
 	if siege && output.Resolved < output.Launched {
 		return OutcomeTimeout
 	}
+	if stream && (output.Launched < StreamEvaders || output.Resolved < output.Launched) {
+		return OutcomeTimeout
+	}
 	return OutcomeWin
 }
 
-func waveSpawn(rng *godot.RNG) godot.Vec {
-	return PlanetCenter.Add(godot.Vec{X: EnemySpawnRadius}.Rotated(rng.Randf() * godot.Tau))
+func streamSpawn(rng *godot.RNG, arena Arena) godot.Vec {
+	return arena.Center.Add(godot.Vec{X: StreamSpawnRadius}.Rotated(rng.Randf() * godot.Tau))
+}
+
+func waveSpawn(rng *godot.RNG, arena Arena) godot.Vec {
+	return arena.Center.Add(godot.Vec{X: EnemySpawnRadius}.Rotated(rng.Randf() * godot.Tau))
 }
 
 // Walks out from the planet on a bearing until it meets the arena border, so a
 // siege spawn lands on the edge of the screen rather than on a ring.
-func SiegeEdgePoint(angle float64) godot.Vec {
+func SiegeEdgePoint(arena Arena, angle float64) godot.Vec {
 	direction := godot.Vec{X: 1.0}.Rotated(angle)
-	halfWidth := ArenaWidth*0.5 - SiegeEdgeInset
-	halfHeight := ArenaHeight*0.5 - SiegeEdgeInset
+	halfWidth := arena.Size.X*0.5 - SiegeEdgeInset
+	halfHeight := arena.Size.Y*0.5 - SiegeEdgeInset
 	reach := math.Inf(1)
 	if math.Abs(direction.X) > 0.0001 {
 		reach = math.Min(reach, halfWidth/math.Abs(direction.X))
@@ -271,7 +355,7 @@ func SiegeEdgePoint(angle float64) godot.Vec {
 	if math.Abs(direction.Y) > 0.0001 {
 		reach = math.Min(reach, halfHeight/math.Abs(direction.Y))
 	}
-	return PlanetCenter.Add(direction.Scale(reach))
+	return arena.Center.Add(direction.Scale(reach))
 }
 
 func allSlotsFree(inFlight []*assaultEvader) bool {

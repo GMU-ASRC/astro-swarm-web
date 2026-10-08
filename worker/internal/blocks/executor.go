@@ -2,7 +2,11 @@ package blocks
 
 import "strings"
 
-const executorGuardLimit = 64
+const (
+	executorGuardLimit = 256
+	negationPrefix     = "not_"
+	elseIfPrefix       = "elif_"
+)
 
 type Host interface {
 	ResetInputs()
@@ -92,7 +96,7 @@ func (e *Executor) runScript(script *runtimeScript, delta float64) {
 		}
 		return
 	}
-	if !(script.once || e.host.EvalCondition(script.condition, script.condParams)) {
+	if !(script.once || e.evaluate(script.condition, script.condParams)) {
 		if script.active {
 			e.host.OnDeactivate()
 		}
@@ -115,7 +119,7 @@ func (e *Executor) runScript(script *runtimeScript, delta float64) {
 			}
 			script.frames = append(script.frames[:0], stackFrame{list: script.body})
 			script.state.Reset()
-			continue
+			return
 		}
 
 		frame := &script.frames[len(script.frames)-1]
@@ -141,9 +145,15 @@ func (e *Executor) runScript(script *runtimeScript, delta float64) {
 			continue
 		}
 
-		if strings.HasPrefix(block.Type, "when_") || strings.HasPrefix(block.Type, "if_") {
+		elseIf := strings.HasPrefix(block.Type, elseIfPrefix)
+		if elseIf && frame.matched {
+			frame.index++
+			continue
+		}
+
+		if elseIf || strings.HasPrefix(block.Type, "when_") || strings.HasPrefix(block.Type, "if_") {
 			separator := strings.Index(block.Type, "_")
-			matched := e.host.EvalCondition(block.Type[separator+1:], block.Params)
+			matched := e.evaluate(block.Type[separator+1:], block.Params)
 			frame.matched = matched
 			if matched {
 				script.frames = append(script.frames, stackFrame{list: block.Children})
@@ -161,4 +171,11 @@ func (e *Executor) runScript(script *runtimeScript, delta float64) {
 		}
 		return
 	}
+}
+
+func (e *Executor) evaluate(condition string, params map[string]any) bool {
+	if strings.HasPrefix(condition, negationPrefix) {
+		return !e.host.EvalCondition(condition[len(negationPrefix):], params)
+	}
+	return e.host.EvalCondition(condition, params)
 }

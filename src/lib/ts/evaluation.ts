@@ -19,6 +19,8 @@ export interface EvalSummary {
 	trial_resolved?: number[];
 	trial_breaches?: number[];
 	trial_lost?: number[];
+	circliness?: number;
+	trial_circliness?: number[];
 	defenders_a?: number;
 	defenders_b?: number;
 	defenders_delivered?: number;

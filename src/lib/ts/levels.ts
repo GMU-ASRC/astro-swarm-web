@@ -22,19 +22,19 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'blue',
 		summary:
-			'Ring the planet with defenders and program how they sweep for the incoming evader. Every submission is replayed headlessly over many trials.',
-		rateLabel: 'capture rate'
+			'Place up to six defenders around the planet and program how they sweep. Ten evaders come in one after another, and any evader a defender spots vanishes. Scored on the share spotted, with the average circliness of the defenders mill by mill.',
+		rateLabel: 'spot rate'
 	},
 	{
 		number: 2,
 		id: 'farp2',
 		slug: '2',
 		name: 'Level 2',
-		subtitle: 'Defense',
+		subtitle: 'Scatter',
 		piloted: false,
 		variant: 'gold',
 		summary:
-			'The same defensive problem under tighter conditions. Submissions are benchmarked the same way, so Level 1 and Level 2 scores stay comparable.',
+			'Field 5, 25, 50 or 100 defenders scattered at random in a larger arena. After a ten second head start, ten evaders come in one after another and each has to be captured by touch. Scored on the share captured, with the average circliness of the defenders mill by mill.',
 		rateLabel: 'capture rate'
 	},
 	{
@@ -112,7 +112,8 @@ export const FARP_LEVELS: LevelInfo[] = [
 ];
 
 export const PILOT_LEVELS = [6, 7, 8];
-export const ASSAULT_LEVELS = [3, 4, 5];
+export const ASSAULT_LEVELS = [1, 2, 3, 4, 5];
+export const STREAM_LEVELS = [1, 2];
 export const ATTRITION_LEVELS = [4, 5];
 export const SWARM_LEVEL = 7;
 export const SUPPLY_LEVEL = 8;
@@ -152,6 +153,10 @@ export function isAssault(level: number): boolean {
 	return ASSAULT_LEVELS.includes(level);
 }
 
+export function isStream(level: number): boolean {
+	return STREAM_LEVELS.includes(level);
+}
+
 export function hasAttrition(level: number): boolean {
 	return ATTRITION_LEVELS.includes(level);
 }
@@ -161,6 +166,7 @@ export function levelName(level: number): string {
 	if (isSwarm(level)) return `Level ${level} · Swarm`;
 	if (isPilot(level)) return `Level ${level} · Evasion`;
 	if (level === 5) return `Level ${level} · Siege`;
+	if (isStream(level)) return `Level ${level} · ${level === 2 ? 'Scatter' : 'Defense'}`;
 	if (isAssault(level)) return `Level ${level} · Waves`;
 	return `Level ${level} · Defense`;
 }

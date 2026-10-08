@@ -73,6 +73,16 @@ const BLOCK_DEFS: Record<string, BlockDef> = {
 		category: 'logic',
 		parts: ['If', '$zone:zone', 'has', '$op:operator', '$value:number', 'robots']
 	},
+	elif_see: { label: 'Else if I see', category: 'logic', parts: ['Else if I see', '$target:target'] },
+	elif_not_see: { label: "Else if I don't see", category: 'logic', parts: ["Else if I don't see", '$target:target'] },
+	elif_near_wall: { label: 'Else if I touch a wall', category: 'logic' },
+	elif_not_near_wall: { label: "Else if I don't touch a wall", category: 'logic' },
+	elif_compare: { label: 'Else if', category: 'logic', parts: ['Else if', '$var', '$op:operator', '$value:number'] },
+	elif_zone_count: {
+		label: 'Else if',
+		category: 'logic',
+		parts: ['Else if', '$zone:zone', 'has', '$op:operator', '$value:number', 'robots']
+	},
 	else: { label: 'Else', category: 'logic' },
 
 	set_var: { label: 'Set', category: 'variable', parts: ['Set', '$var', 'to', '$value:number'] },
@@ -122,7 +132,7 @@ export function blockDef(type: string): BlockDef {
 }
 
 export function isContainerBlock(type: string): boolean {
-	return type.startsWith('when_') || type.startsWith('if_') || type === 'else';
+	return type.startsWith('when_') || type.startsWith('if_') || type.startsWith('elif_') || type === 'else';
 }
 
 export function blockParts(block: Block, names: BlockNames = {}): BlockPart[] {

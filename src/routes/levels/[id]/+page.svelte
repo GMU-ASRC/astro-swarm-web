@@ -455,7 +455,7 @@
 							</div>
 							<div class="stat">
 								<div class="stat-value">{ev.results?.evaders_destroyed ?? 0} / {ev.results?.evaders_resolved ?? 0}</div>
-								<div class="stat-label">Evaders destroyed out of every one that reached a verdict</div>
+								<div class="stat-label">Evaders {levelNumber === 1 ? 'spotted' : 'destroyed'} out of every one that reached a verdict</div>
 							</div>
 							<div class="stat">
 								<div class="stat-value">{ev.results?.breaches ?? 0}</div>
@@ -471,6 +471,12 @@
 								<div class="stat-value">{ev.results?.trials_held_rate ?? 0}%</div>
 								<div class="stat-label">Trials held — nothing reached the planet</div>
 							</div>
+							{#if ev.results?.circliness != null}
+								<div class="stat">
+									<div class="stat-value">{ev.results.circliness.toFixed(3)}</div>
+									<div class="stat-label">Average circliness — every mill the defenders form is scored, then the mills are averaged</div>
+								</div>
+							{/if}
 							<div class="stat">
 								<div class="stat-value">{ev.defender_count ?? ev.placements?.length ?? 0}</div>
 								<div class="stat-label">Defenders placed</div>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="1" y="1" width="62" height="62" rx="14" fill="#090b10" stroke="#35618f" stroke-width="2" />
+  <svg x="7" y="5" width="50" height="50" viewBox="0 0 250 250">
+    <defs>
+        <clipPath id="ship-clip-blue">
+          <path d="M 125 16 L 219 172 L 188 219 L 62 219 L 31 172 Z" />
+        </clipPath>
+      </defs>
+    
+      <g clip-path="url(#ship-clip-blue)">
+        <rect x="0" y="0" width="250" height="250" fill="#35618f" />
+    
+        <rect x="0" y="0" width="125" height="250" fill="#23415f" />
+        <rect x="125" y="0" width="125" height="250" fill="#5b8fc4" />
+    
+        <rect x="109" y="16" width="32" height="203" fill="#7fb0e0" />
+        <rect x="117" y="16" width="16" height="12" fill="#a8cdef" />
+    
+        <rect x="98" y="60" width="54" height="4" fill="#16283a" />
+        <rect x="77" y="95" width="96" height="4" fill="#16283a" />
+        <rect x="59" y="125" width="132" height="4" fill="#16283a" />
+        <rect x="41" y="155" width="168" height="4" fill="#16283a" />
+    
+        <line x1="120" y1="19" x2="214" y2="175" stroke="#a8cdef" stroke-width="3" stroke-linecap="round" />
+        <line x1="130" y1="19" x2="36" y2="175" stroke="#16283a" stroke-width="3" stroke-linecap="round" />
+        <line x1="214" y1="169" x2="183" y2="216" stroke="#a8cdef" stroke-width="3" stroke-linecap="round" />
+        <line x1="36" y1="169" x2="67" y2="216" stroke="#16283a" stroke-width="3" stroke-linecap="round" />
+    
+        <path fill="#16283a" d="
+          M 31 188 h 16 v 16 h -16 Z
+          M 203 188 h 16 v 16 h -16 Z
+          M 62 203 h 126 v 16 h -126 Z" />
+    
+        <rect x="66" y="210" width="8" height="6" fill="#000000" />
+        <rect x="176" y="210" width="8" height="6" fill="#000000" />
+    
+        <rect x="76" y="205" width="12" height="2" fill="#a8cdef" />
+        <rect x="162" y="205" width="12" height="2" fill="#a8cdef" />
+    
+        <rect x="76" y="207" width="12" height="8" fill="#000000" />
+        <rect x="162" y="207" width="12" height="8" fill="#000000" />
+      </g>
+  </svg>
+</svg>

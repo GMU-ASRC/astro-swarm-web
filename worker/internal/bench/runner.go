@@ -74,7 +74,7 @@ func (o *Options) applyDefaults() {
 	if o.Context == nil {
 		o.Context = context.Background()
 	}
-	if len(o.Placements) > MaxDefenders {
+	if LevelNumber(o.LevelID) == 1 && len(o.Placements) > MaxDefenders {
 		o.Placements = o.Placements[:MaxDefenders]
 	}
 }

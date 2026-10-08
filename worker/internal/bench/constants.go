@@ -42,6 +42,8 @@ const (
 	SweepMatchOffset     = 500000  // rng seed offset
 	PlacementSeedOffset  = 700000  // rng seed offset
 
+	Level2ArenaScale = 1.5
+
 	OutcomeWin     = "win"
 	OutcomeLose    = "lose"
 	OutcomeTimeout = "timeout"
@@ -51,6 +53,32 @@ var (
 	ArenaSize    = godot.Vec{X: ArenaWidth, Y: ArenaHeight} // pixels
 	PlanetCenter = godot.Vec{X: PlanetX, Y: PlanetY}        // pixels
 )
+
+type Arena struct {
+	Size   godot.Vec
+	Center godot.Vec
+}
+
+var (
+	StandardArena = Arena{Size: ArenaSize, Center: PlanetCenter}
+	Level2Arena   = Arena{Size: ArenaSize.Scale(Level2ArenaScale), Center: PlanetCenter.Scale(Level2ArenaScale)}
+)
+
+func ArenaFor(levelID string) Arena {
+	if LevelNumber(levelID) == 2 {
+		return Level2Arena
+	}
+	return StandardArena
+}
+
+func (a Arena) Shifted(placements []Placement) []Placement {
+	offset := a.Center.Sub(PlanetCenter)
+	shifted := make([]Placement, len(placements))
+	for index, placement := range placements {
+		shifted[index] = Placement{Position: placement.Position.Add(offset), Rotation: placement.Rotation}
+	}
+	return shifted
+}
 
 type Placement struct {
 	Position godot.Vec // pixels, arena space
@@ -70,11 +98,10 @@ func IsSupplyLevel(levelID string) bool {
 	return LevelNumber(levelID) == 8
 }
 
-// Levels 3 to 5 are graded as an assault: a stream of evaders against one
-// scattered line, rather than the single approach of levels 1 and 2.
+// Levels 1 to 5 are graded as an assault: a stream of evaders against one line.
 func IsAssaultLevel(levelID string) bool {
 	number := LevelNumber(levelID)
-	return number >= 3 && number <= 5
+	return number >= 1 && number <= 5
 }
 
 // A capture on these levels destroys the defender that made it, so the line

@@ -15,10 +15,10 @@
 			href: '/gamemodes/levels',
 			variant: 'blue',
 			name: 'Levels',
-			tagline: 'Single player · three levels',
+			tagline: 'Single player · eight levels',
 			blurb:
-				'Place a ring of defenders around the planet and program how they hunt. Submissions are replayed on dedicated workers and scored on how often the evader is spotted and caught.',
-			facts: ['3 levels', 'Headless benchmarks', 'Replays and charts']
+				'Place or scatter defenders around the planet and program how they hunt. Submissions are replayed on dedicated workers and scored on how many evaders are spotted and caught, and on how well the defenders circle.',
+			facts: ['8 levels', 'Headless benchmarks', 'Replays and charts']
 		},
 		{
 			href: '/gamemodes/survive',
