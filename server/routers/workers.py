@@ -6,8 +6,8 @@ from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 import merge
 from auth import require_admin
 from app_settings import (
-    ASSAULT_SWEEP_MAX,
     ASSAULT_SWEEP_TRIALS,
+    assault_sweep_max,
     get_enemy_start,
     get_seed,
     get_sweep_max,
@@ -50,7 +50,7 @@ def _total_units(evaluation):
         return 1
     trials = int(evaluation.trials or 0)
     if is_assault_level(evaluation.level_id):
-        return max(1, trials + ASSAULT_SWEEP_MAX * ASSAULT_SWEEP_TRIALS)
+        return max(1, trials + assault_sweep_max(evaluation.level_id) * ASSAULT_SWEEP_TRIALS)
     return max(1, trials + get_sweep_max() * get_sweep_trials())
 
 
@@ -104,7 +104,7 @@ def _sweep_params(evaluation):
     # An assault match runs a whole stream of evaders, so the level 1 and 2 sweep
     # budget would put an assault job past the job timeout on a modest worker.
     if is_assault_level(evaluation.level_id):
-        return ASSAULT_SWEEP_MAX, ASSAULT_SWEEP_TRIALS
+        return assault_sweep_max(evaluation.level_id), ASSAULT_SWEEP_TRIALS
     return get_sweep_max(), get_sweep_trials()
 
 

@@ -251,6 +251,9 @@ func runAssaultSweep(options Options, matchFrames int, rules AssaultRules, tick 
 			progress = append(progress, SweepProgressSeries{N: defenders, Points: curve})
 		}
 
+		if rules.Mode == AssaultModeStream {
+			continue
+		}
 		if wins == ran {
 			clean++
 			if clean >= WaveConsecutiveMax {

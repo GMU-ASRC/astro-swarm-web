@@ -211,8 +211,12 @@
 			<div class="stat">
 				<div class="label">Defender sweep</div>
 				<div>
-					Grows until {settings.assault_clean_streak ?? 3} consecutive clean counts, capped at n={settings.assault_sweep_max ??
-						40}
+					{#if settings.stream_levels?.includes(levelId)}
+						Every n from 1 to {settings.stream_sweep_max ?? 100}
+					{:else}
+						Grows until {settings.assault_clean_streak ?? 3} consecutive clean counts, capped at n={settings.assault_sweep_max ??
+							40}
+					{/if}
 					x {settings.assault_sweep_trials ?? 20} trials
 				</div>
 			</div>

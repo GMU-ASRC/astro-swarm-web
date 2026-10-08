@@ -37,6 +37,7 @@ const (
 	// the server's own assault budget and are what a run falls back on when the
 	// server does not report one.
 	DefaultAssaultSweepMax    = 40 // count, largest defender count in an assault ring sweep
+	DefaultStreamSweepMax     = 100
 	DefaultAssaultSweepTrials = 20 // count, trials per defender count in an assault ring sweep
 )
 

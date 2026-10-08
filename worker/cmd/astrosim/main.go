@@ -201,6 +201,9 @@ func simulateTarget(options CommandOptions, explicit map[string]bool, server str
 	if bench.IsAssaultLevel(levelID) {
 		if !explicit["n-max"] {
 			options.SweepMax = bench.DefaultAssaultSweepMax
+			if bench.AssaultMode(levelID) == bench.AssaultModeStream {
+				options.SweepMax = bench.DefaultStreamSweepMax
+			}
 		}
 		if !explicit["sweep-trials"] {
 			options.SweepTrials = bench.DefaultAssaultSweepTrials

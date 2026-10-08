@@ -48,6 +48,8 @@ ATTRITION_LEVELS = ["farp4", "farp5"]
 ASSAULT_TRIALS = 100
 ASSAULT_CLEAN_STREAK = 3
 ASSAULT_SWEEP_MAX = 40
+STREAM_LEVELS = ["farp1", "farp2"]
+STREAM_SWEEP_MAX = 100
 ASSAULT_SWEEP_TRIALS = 20
 SIEGE_EVADERS = 5
 
@@ -97,6 +99,10 @@ def is_swarm_level(level_id):
 
 def is_assault_level(level_id):
     return level_id in ASSAULT_LEVELS
+
+
+def assault_sweep_max(level_id):
+    return STREAM_SWEEP_MAX if level_id in STREAM_LEVELS else ASSAULT_SWEEP_MAX
 
 
 def has_attrition(level_id):
