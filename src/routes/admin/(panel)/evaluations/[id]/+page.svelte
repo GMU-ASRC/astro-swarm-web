@@ -462,7 +462,9 @@
 				{#if sweepProgress.length > 0}
 					<WaveHeatmapCard series={sweepProgress} key="capture_rate" title="Capture Rate, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-capture.png`)} />
 					<WaveHeatmapCard series={sweepProgress} key="risk" title="Risk, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-risk.png`)} />
-					<WaveHeatmapCard series={sweepProgress} key="defenders" title="Defenders Remaining, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)} />
+					{#if hasAttrition}
+						<WaveHeatmapCard series={sweepProgress} key="defenders" title="Defenders Remaining, Wave by Wave" downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/ring-attrition.png`)} />
+					{/if}
 				{/if}
 				{#if sweepAttrition.length > 0}
 					<ChartCard config={sweepAttritionConfig(sweepAttrition)} downloadUrl={apiUrl(`/api/evaluations/${ev.id}/chart/sweep-attrition.png`)} />
@@ -478,7 +480,7 @@
 			<p class="meta">The player's own piloted run, rendered from the movement recorded in game.</p>
 		{:else if isAssault}
 			<h2>Run Data ({outcomes.length})</h2>
-			<p class="meta">{outcomes.length} trials against the submitted defender scatter. Each one runs until the line is spent or the clock stops, and is green only if nothing reached the planet. Each trial varies the scatter and the spawn bearings. The first {ev.results?.replay_trials ?? 0} keep a recording you can replay.</p>
+			<p class="meta">{outcomes.length} trials against the submitted defender scatter. Each one runs until the line is spent or the clock stops, and is green only if nothing reached the planet. Each trial varies the scatter and the spawn bearings.{replayTrials < outcomes.length ? ` The first ${replayTrials} keep a recording you can replay.` : ' Click a run to replay it.'}</p>
 		{:else}
 			<h2>Run Data ({outcomes.length})</h2>
 			<p class="meta">The player's own defender placements against {outcomes.length} random enemy spawns — green intercepted, red reached the planet, yellow timed out. Click a run to replay it.</p>

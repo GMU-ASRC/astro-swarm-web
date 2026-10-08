@@ -307,7 +307,8 @@ evader slot, since only one is ever in flight; in siege mode there is one per ev
 runs are far longer than a single approach, so only every `AssaultRecordStride` physics frame
 is recorded (the job's replay `fps` is set to match) and only the first `AssaultReplayTrials`
 trials keep a recording at all. The rest are graded but not replayable, and the site marks
-their cells accordingly.
+their cells accordingly. Stream mode (Levels 1 and 2) is the exception: every placement trial
+and every sweep run keeps a recording.
 
 ### Running an assault entry
 

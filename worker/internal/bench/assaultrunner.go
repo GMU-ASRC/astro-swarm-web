@@ -51,7 +51,8 @@ func buildAssaultTrials(options Options) []assaultJob {
 	if defenders < 1 {
 		defenders = RingCount
 	}
-	keepsLayout := AssaultMode(options.LevelID) == AssaultModeStream && len(options.Placements) > 0
+	streaming := AssaultMode(options.LevelID) == AssaultModeStream
+	keepsLayout := streaming && len(options.Placements) > 0
 	jobs := make([]assaultJob, 0, options.TrialCount)
 	for index := 0; index < options.TrialCount; index++ {
 		trial := options.TrialStart + index
@@ -64,13 +65,14 @@ func buildAssaultTrials(options Options) []assaultJob {
 			defenders:  defenders,
 			seed:       options.Seed + AssaultTrialSeedOffset + int64(trial),
 			placements: placements,
-			record:     options.Record && trial < AssaultReplayTrials,
+			record:     options.Record && (streaming || trial < AssaultReplayTrials),
 		})
 	}
 	return jobs
 }
 
 func buildAssaultSweepStep(options Options, defenders int) []assaultJob {
+	streaming := AssaultMode(options.LevelID) == AssaultModeStream
 	jobs := make([]assaultJob, 0, options.SweepTrials)
 	for trial := 0; trial < options.SweepTrials; trial++ {
 		jobs = append(jobs, assaultJob{
@@ -79,7 +81,7 @@ func buildAssaultSweepStep(options Options, defenders int) []assaultJob {
 			defenders:  defenders,
 			seed:       options.Seed + AssaultSweepSeedOffset + int64(defenders)*SweepSeedStride + int64(trial),
 			placements: ArenaFor(options.LevelID).Shifted(RingPlacements(options.Seed+AssaultSweepSeedOffset, trial, options.SweepTrials, defenders)),
-			record:     options.Record && (trial == 0 || (defenders <= AssaultReplaySweepNMax && trial < AssaultReplaySweepMax)),
+			record:     options.Record && (streaming || trial == 0 || (defenders <= AssaultReplaySweepNMax && trial < AssaultReplaySweepMax)),
 		})
 	}
 	return jobs

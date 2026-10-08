@@ -585,7 +585,7 @@
 							{#if isAssault}
 								Each cell is one trial: a stream of evaders against the submitted scatter, run
 								until the line is spent or the clock stops. Green held, red let one through.
-								{#if replayTrials > 0}
+								{#if replayTrials > 0 && replayTrials < outcomes.length}
 									Only the first {replayTrials} keep a recording; the rest are counted but cannot be
 									replayed.
 								{/if}
