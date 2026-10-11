@@ -9,6 +9,7 @@
 		ringTicks,
 		type HeatmapKey
 	} from '$lib/ts/heatmapScale';
+	import { downloadHeatmapPng, heatmapFileName } from '$lib/ts/heatmapExport';
 
 	let {
 		series,
@@ -26,10 +27,25 @@
 	const GAP = 1;
 	const MAX_FACED_LABELS = 20;
 
-	const READINGS: Record<HeatmapKey, { low: string; high: string; reading: string }> = {
-		capture_rate: { low: '0%', high: '100%', reading: 'red is a low capture rate, blue a high one' },
-		risk: { low: '100%', high: '0%', reading: 'red is a high risk, blue a low one' },
-		defenders: { low: 'none left', high: 'all of n left', reading: 'red is a ring worn down, blue a ring still whole' }
+	const MISSING_FILL = '#f3f4f6';
+	const LEGEND_STOPS = [0, 0.25, 0.5, 0.75, 1];
+
+	const READINGS: Record<HeatmapKey, { label: string; ticks: string[]; reading: string }> = {
+		capture_rate: {
+			label: 'Capture rate',
+			ticks: ['0%', '25%', '50%', '75%', '100%'],
+			reading: 'red is a low capture rate, blue a high one'
+		},
+		risk: {
+			label: 'Risk',
+			ticks: ['100%', '75%', '50%', '25%', '0%'],
+			reading: 'red is a high risk, blue a low one'
+		},
+		defenders: {
+			label: 'Defenders remaining, as a share of ring size n',
+			ticks: ['0%', '25%', '50%', '75%', '100%'],
+			reading: 'red is a ring worn down, blue a ring still whole'
+		}
 	};
 
 	let hovered = $state<{ row: number; column: number } | null>(null);
@@ -47,6 +63,28 @@
 	let facedStep = $derived(Math.max(1, Math.ceil(columns / MAX_FACED_LABELS)));
 	let reading = $derived(READINGS[key]);
 	let hoveredValue = $derived(hovered ? grid.values[hovered.row][hovered.column] : null);
+	let hasMissingCells = $derived(grid.values.some((rowValues) => rowValues.includes(null)));
+	let legendColors = $derived(LEGEND_STOPS.map((stop) => divergingShade(stop)));
+	let legendGradient = $derived(legendColors.join(', '));
+	let subtitle = $derived(`Rows are ring size n, columns are evaders faced. ${reading.reading}.`);
+	let downloadFailed = $state(false);
+
+	async function downloadHeatmap() {
+		if (!svgElement) return;
+		downloadFailed = false;
+		const legend = {
+			label: reading.label,
+			ticks: reading.ticks,
+			stops: LEGEND_STOPS,
+			colors: legendColors,
+			missingColor: hasMissingCells ? MISSING_FILL : null
+		};
+		try {
+			await downloadHeatmapPng({ plot: svgElement, title, subtitle, legend }, heatmapFileName(title));
+		} catch {
+			downloadFailed = true;
+		}
+	}
 
 	function cellX(column: number): number {
 		return LEFT + column * cellWidth;
@@ -57,7 +95,7 @@
 	}
 
 	function fillFor(row: number, value: number | null): string {
-		if (value === null) return '#f3f4f6';
+		if (value === null) return MISSING_FILL;
 		return divergingShade(goodnessOf(key, value, grid.rings[row]));
 	}
 
@@ -86,7 +124,7 @@
 	<div class="heatmap-plot">
 		<div class="heatmap-head">
 			<h3>{title}</h3>
-			<p>Rows are ring size n, columns are evaders faced. {reading.reading}.</p>
+			<p>{subtitle}</p>
 		</div>
 
 		<div class="heatmap-frame">
@@ -139,20 +177,37 @@
 		</div>
 
 		<div class="heatmap-legend">
-			<div
-				class="legend-bar"
-				style="background: linear-gradient(to right, {divergingShade(0)}, {divergingShade(0.25)}, {divergingShade(0.5)}, {divergingShade(0.75)}, {divergingShade(1)});"
-			></div>
-			<div class="legend-ends"><span>{reading.low}</span><span>{reading.high}</span></div>
+			<div class="legend-scale">
+				<span class="legend-title">{reading.label}</span>
+				<div class="legend-bar" style="background: linear-gradient(to right, {legendGradient});"></div>
+				<div class="legend-ticks">
+					{#each reading.ticks as tick, index (index)}
+						<span style="left: {LEGEND_STOPS[index] * 100}%;">{tick}</span>
+					{/each}
+				</div>
+			</div>
+			{#if hasMissingCells}
+				<div class="legend-missing">
+					<span class="legend-swatch" style="background: {MISSING_FILL};"></span>
+					No data
+				</div>
+			{/if}
 		</div>
 	</div>
 
 	<div class="heatmap-actions">
+		<button type="button" class="btn btn-sm btn-ghost" onclick={downloadHeatmap}>
+			<Icon icon="ph:download-simple-bold" width="14" />
+			Download heatmap
+		</button>
 		{#if downloadUrl}
 			<a class="btn btn-sm btn-ghost" href={downloadUrl}>
 				<Icon icon="ph:download-simple-bold" width="14" />
 				Download line graph
 			</a>
+		{/if}
+		{#if downloadFailed}
+			<span class="download-error">The heatmap could not be downloaded.</span>
 		{/if}
 		<details class="heatmap-table">
 			<summary>Data table</summary>
@@ -258,10 +313,24 @@
 	}
 
 	.heatmap-legend {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 0.5rem 1.5rem;
+	}
+
+	.legend-scale {
 		display: grid;
 		gap: 3px;
-		justify-self: center;
-		width: min(260px, 100%);
+		width: min(300px, 100%);
+	}
+
+	.legend-title {
+		font-size: 0.72rem;
+		font-weight: 600;
+		color: #374151;
+		text-align: center;
 	}
 
 	.legend-bar {
@@ -270,11 +339,41 @@
 		border: 1px solid #e5e7eb;
 	}
 
-	.legend-ends {
-		display: flex;
-		justify-content: space-between;
+	.legend-ticks {
+		position: relative;
+		height: 1.1em;
 		font-size: 0.72rem;
 		color: #6b7280;
+	}
+
+	.legend-ticks span {
+		position: absolute;
+		top: 0;
+		transform: translateX(-50%);
+		white-space: nowrap;
+	}
+
+	.legend-ticks span:first-child {
+		transform: none;
+	}
+
+	.legend-ticks span:last-child {
+		transform: translateX(-100%);
+	}
+
+	.legend-missing {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.72rem;
+		color: #6b7280;
+	}
+
+	.legend-swatch {
+		width: 12px;
+		height: 12px;
+		border-radius: 2px;
+		border: 1px solid #d1d5db;
 	}
 
 	.heatmap-actions {
@@ -282,6 +381,12 @@
 		flex-wrap: wrap;
 		align-items: flex-start;
 		gap: 0.6rem;
+	}
+
+	.download-error {
+		align-self: center;
+		font-size: 0.78rem;
+		color: #b91c1c;
 	}
 
 	.heatmap-table {
