@@ -522,28 +522,6 @@
 	margin: 1rem 0;
 }
 
-.admin .level-block {
-	margin: 0 0 0.75rem 0;
-	padding: 1rem 1.1rem;
-	background: var(--color-surface);
-	border: 1px solid var(--color-line);
-	border-left: 2px solid var(--color-brand);
-}
-
-.admin .toggle {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.45rem;
-	cursor: pointer;
-	color: var(--color-body);
-}
-
-.admin .toggle input {
-	width: 1rem;
-	height: 1rem;
-	accent-color: var(--color-brand);
-}
-
 .admin input[type='number'],
 .admin input[type='text'],
 .admin input[type='date'],
@@ -610,6 +588,97 @@
 	margin: 0 0 0.75rem 0;
 	color: var(--color-faint);
 	font-size: 0.8rem;
+}
+
+.admin .settings-panel {
+	padding: 1.1rem 1.2rem;
+	background: var(--color-surface);
+	border: 1px solid var(--color-line);
+}
+
+.admin .field-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem;
+}
+
+.admin .field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.admin .field-label {
+	font-size: 0.66rem;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--color-faint);
+}
+
+.admin .field input[type='number'] {
+	width: 9rem;
+}
+
+.admin .field input[type='text'] {
+	width: 14rem;
+}
+
+.admin .switch {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55rem;
+	cursor: pointer;
+	color: var(--color-body);
+	font-size: 0.85rem;
+}
+
+.admin .switch input {
+	position: absolute;
+	opacity: 0;
+	width: 1px;
+	height: 1px;
+}
+
+.admin .switch .track {
+	position: relative;
+	width: 2.2rem;
+	height: 1.2rem;
+	background: var(--color-surface-raised);
+	border: 1px solid var(--color-line-strong);
+	transition: background 0.15s, border-color 0.15s;
+}
+
+.admin .switch .track::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: calc(1.2rem - 6px);
+	height: calc(1.2rem - 6px);
+	background: var(--color-faint);
+	transition: transform 0.15s, background 0.15s;
+}
+
+.admin .switch input:checked + .track {
+	background: color-mix(in srgb, var(--color-win) 18%, transparent);
+	border-color: color-mix(in srgb, var(--color-win) 55%, transparent);
+}
+
+.admin .switch input:checked + .track::after {
+	transform: translateX(1rem);
+	background: var(--color-win);
+}
+
+.admin .switch input:focus-visible + .track {
+	outline: 2px solid var(--color-brand);
+	outline-offset: 2px;
+}
+
+.admin .switch input:disabled + .track {
+	opacity: 0.5;
 }
 
 @media (max-width: 768px) {

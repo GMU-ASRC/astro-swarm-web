@@ -1,11 +1,7 @@
-import { apiUrl } from '$lib/ts/api';
+import { redirect } from '@sveltejs/kit';
+import { levelNumberOf } from '$lib/ts/adminSettings';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = ({ fetch, params }) => {
-	const settingsPromise = (async () => {
-		const res = await fetch(apiUrl('/api/evaluations/settings'));
-		return res.ok ? await res.json() : null;
-	})();
-
-	return { settingsPromise, levelSlug: params.level };
+export const load: PageLoad = ({ params }) => {
+	redirect(308, `/admin/settings#level-${levelNumberOf(params.level)}`);
 };
