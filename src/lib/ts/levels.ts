@@ -6,6 +6,7 @@ export interface LevelInfo {
 	slug: string;
 	name: string;
 	subtitle: string;
+	tagline: string;
 	piloted: boolean;
 	variant: ShipVariant;
 	summary: string;
@@ -19,6 +20,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '1',
 		name: 'Level 1',
 		subtitle: 'Defense',
+		tagline: 'Place up to six defenders and spot ten incoming evaders.',
 		piloted: false,
 		variant: 'blue',
 		summary:
@@ -31,10 +33,11 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '2',
 		name: 'Level 2',
 		subtitle: 'Scatter',
+		tagline: 'Scatter a swarm of defenders and capture two evaders per defender by touch.',
 		piloted: false,
 		variant: 'gold',
 		summary:
-			'Field 5, 25, 50 or 100 defenders scattered at random in a larger arena. After a ten second head start, ten evaders come in one after another and each has to be captured by touch. Scored on the share captured, with the average circliness of the defenders mill by mill.',
+			'Field 5, 25, 50, 100, 250 or 500 defenders scattered at random in a larger arena. After a ten second head start, two evaders per defender come in one after another and each has to be captured by touch. Scored on the share captured, with the average circliness of the defenders mill by mill.',
 		rateLabel: 'capture rate'
 	},
 	{
@@ -43,10 +46,11 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '3',
 		name: 'Level 3',
 		subtitle: 'Waves',
+		tagline: 'Hold two waves, each sending one evader per defender at once.',
 		piloted: false,
 		variant: 'green',
 		summary:
-			'Evaders arrive one at a time, each from a fresh random bearing. A defender that catches one survives and takes the next, so nothing is spent. The level plays five waves; the benchmark keeps sending them until the clock runs out. The score is the share of evaders destroyed.',
+			'Pick 5 to 500 defenders. Two waves come in, each sending one evader per defender all at once around the ring. A defender that catches one survives and takes the next, so nothing is spent. The score is the share of evaders destroyed.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -55,10 +59,11 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '4',
 		name: 'Level 4',
 		subtitle: 'Attrition',
+		tagline: 'Every capture costs a defender, so make each trade count.',
 		piloted: false,
 		variant: 'red',
 		summary:
-			'The same waves, but a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
+			'Five scattered defenders face evaders one at a time, each from a fresh bearing, and a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -67,6 +72,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '5',
 		name: 'Level 5',
 		subtitle: 'Siege',
+		tagline: 'Five evaders strike at once and five defenders must stop them all.',
 		piloted: false,
 		variant: 'purple',
 		summary:
@@ -79,6 +85,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '6',
 		name: 'Level 6',
 		subtitle: 'Pilot',
+		tagline: 'Fly the evader yourself against the best Level 2 algorithm.',
 		piloted: true,
 		variant: 'red',
 		summary:
@@ -91,6 +98,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '7',
 		name: 'Level 7',
 		subtitle: 'Swarm',
+		tagline: 'Lead two milling swarms together and walk the mill onto the planet.',
 		piloted: true,
 		variant: 'purple',
 		summary:
@@ -103,6 +111,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '8',
 		name: 'Level 8',
 		subtitle: 'Supply',
+		tagline: 'Fly a shuttle to split defenders between two planets under attack.',
 		piloted: true,
 		variant: 'gold',
 		summary:

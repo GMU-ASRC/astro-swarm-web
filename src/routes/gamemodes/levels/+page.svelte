@@ -77,9 +77,9 @@
 				<div class="level-body">
 					<div class="level-title">
 						<h2 class="level-name">{level.name}</h2>
-						<span class="badge" class:badge-warn={level.piloted}>{level.subtitle}</span>
+						<span class="badge">{level.subtitle}</span>
 					</div>
-					<p class="level-summary">{level.summary}</p>
+					<p class="level-summary">{level.tagline}</p>
 				</div>
 
 				<div class="level-numbers">
