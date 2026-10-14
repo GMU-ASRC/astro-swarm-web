@@ -36,6 +36,8 @@ func AssaultMode(levelID string) string {
 	switch LevelNumber(levelID) {
 	case 1, 2:
 		return AssaultModeStream
+	case 3:
+		return AssaultModeGroupWaves
 	case 5:
 		return AssaultModeSiege
 	}

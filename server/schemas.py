@@ -71,7 +71,7 @@ class EvaluationSubmit:
 
 
 DEFAULT_PLACEMENT_LIMIT = 6
-PLACEMENT_LIMITS = {"farp2": 100}
+PLACEMENT_LIMITS = {"farp2": 500, "farp3": 500}
 
 MAX_RUN_SECONDS = 180
 MAX_RUN_FPS = 60

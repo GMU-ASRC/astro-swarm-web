@@ -234,13 +234,18 @@ single win or loss.
 
 | Level | Mode | Arrival | Attrition | Ends when |
 |---|---|---|---|---|
-| 3 | Waves | One at a time off the ring, a fresh random bearing each time | No | The clock stops |
-| 4 | Waves | The same | Yes | The line is spent, or the clock stops |
+| 3 | Group waves | Two waves, each one evader per defender at once, spread around the ring | No | Both waves are resolved, or the clock stops |
+| 4 | Waves | One at a time off the ring, a fresh random bearing each time | Yes | The line is spent, or the clock stops |
 | 5 | Siege | Five at once, spread around the arena border | Yes | Every evader is destroyed or has reached the planet |
 
-In waves mode the next evader launches `WaveGapFrames` after the last one resolves, so a run
+In group waves mode (level 3) a wave of `D` evaders, one per defender, launches at evenly spread
+bearings from a random start, and the second launches `WaveGapFrames` after every evader of the
+first has resolved. `GroupWaveCount` is 2, so a run sends `E = 2 * D` evaders and ends once both
+waves are resolved. A run that runs out of clock first is a timeout.
+
+In waves mode (level 4) the next evader launches `WaveGapFrames` after the last one resolves, so a run
 sends as many as the clock allows. **This is on purpose longer than the level.** The game caps
-levels 3 and 4 at five waves, which is enough for a player to feel out an algorithm without
+level 4 at five waves, which is enough for a player to feel out an algorithm without
 sitting through a four-minute run; the benchmark keeps going until the line is spent or the
 clock stops, so a defense that only survives the opening does not score as though it had held.
 An entry's published rate is therefore taken over far more evaders than the player watched. In siege mode `SiegeEvaders` launch together at
@@ -303,12 +308,28 @@ The site, the server PNGs and the worker's own charts all pick their colors the 
 
 Replay frames carry a fixed slot per ship for the whole trial, dead ships included as `-1`, so
 a defender lost to a trade does not shift every slot after it. In waves mode there is one
-evader slot, since only one is ever in flight; in siege mode there is one per evader. These
+evader slot, since only one is ever in flight; in siege mode there is one per evader, and in
+group waves mode one per defender. These
 runs are far longer than a single approach, so only every `AssaultRecordStride` physics frame
 is recorded (the job's replay `fps` is set to match) and only the first `AssaultReplayTrials`
 trials keep a recording at all. The rest are graded but not replayable, and the site marks
 their cells accordingly. Stream mode (Levels 1 and 2) is the exception: every placement trial
 and every sweep run keeps a recording.
+
+## Evader scaling (levels 2 and 3)
+
+With `D` the number of defenders in a run (the submitted layout, or the ring size `n` in the
+sweep), levels 2 and 3 size the attack to the line:
+
+| Level | Evaders | Timing |
+|---|---|---|
+| 2 | `E = StreamEvadersPerDefender * D = 2 * D` | One every `max(1, round(StreamIntervalFrames * StreamBaseDefenders / D))` = `round(900 / D)` frames after the 600-frame head start |
+| 3 | `E = GroupWaveCount * D = 2 * D` | Two waves of `D` at once, `WaveGapFrames` apart |
+
+At `D = 5` level 2 reproduces the old stream of ten evaders 180 frames apart, and its stream
+always lasts about 30 seconds. Level 1 is not scaled: it keeps `StreamEvaders` (10) every
+`StreamIntervalFrames` (180). `streamPlan` in `internal/bench/assault.go` holds the level 2
+equations.
 
 ### Running an assault entry
 

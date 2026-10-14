@@ -8,22 +8,28 @@ import (
 	"astroswarm/worker/internal/sim"
 )
 
-// Levels 3 to 5 all pit one scattered line against a stream of evaders. Waves
+// Levels 3 to 5 all pit one scattered line against a stream of evaders. Group
+// waves send one evader per defender at once, a fixed number of times; waves
 // send them one at a time for as long as the line lasts; a siege sends the
 // whole group at once off the arena edges.
 const (
-	AssaultModeWaves  = "waves"
-	AssaultModeSiege  = "siege"
-	AssaultModeStream = "stream"
+	AssaultModeGroupWaves = "group_waves"
+	AssaultModeWaves      = "waves"
+	AssaultModeSiege      = "siege"
+	AssaultModeStream     = "stream"
+
+	GroupWaveCount = 2
 
 	WaveGapFrames      = 90      // frames between one evader resolving and the next wave launching
 	WaveSpawnSeedShift = 4400000 // rng seed offset for the spawn bearings of a run
 	WaveConsecutiveMax = 3       // count of consecutive clean defender counts that ends the sweep
 
-	StreamEvaders           = 10
-	StreamIntervalFrames    = 180
-	StreamLevel2DelayFrames = 600
-	StreamSpawnRadius       = 750.0
+	StreamEvaders            = 10
+	StreamIntervalFrames     = 180
+	StreamEvadersPerDefender = 2
+	StreamBaseDefenders      = 5
+	StreamLevel2DelayFrames  = 600
+	StreamSpawnRadius        = 750.0
 
 	SiegeEvaders     = 5    // count, evaders that arrive together in a siege
 	SiegeEdgeInset   = 60.0 // pixels the siege spawn band sits inside the arena border
@@ -58,6 +64,7 @@ type AssaultRules struct {
 	StartDelayFrames  int
 	VanishOnDetect    bool
 	TrackCircliness   bool
+	StreamScales      bool
 }
 
 func RulesFor(levelID string) AssaultRules {
@@ -68,6 +75,7 @@ func RulesFor(levelID string) AssaultRules {
 		rules.VanishOnDetect = number == 1
 		if number == 2 {
 			rules.StartDelayFrames = StreamLevel2DelayFrames
+			rules.StreamScales = true
 		}
 	}
 	return rules
@@ -130,6 +138,10 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	arena := input.Rules.Arena
 	siege := input.Rules.Mode == AssaultModeSiege
 	stream := input.Rules.Mode == AssaultModeStream
+	groupWaves := input.Rules.Mode == AssaultModeGroupWaves
+	groupWaveSize := max(1, len(input.Placements))
+	groupWavesLaunched := 0
+	streamTotal, streamInterval := streamPlan(input.Rules, len(input.Placements))
 	world := sim.NewWorld(godot.NewRNGFromInt(input.Seed), input.SinglePrecision)
 	spawnRNG := godot.NewRNGFromInt(input.Seed + WaveSpawnSeedShift)
 
@@ -165,7 +177,9 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	if siege {
 		slots = SiegeEvaders
 	} else if stream {
-		slots = StreamEvaders
+		slots = streamTotal
+	} else if groupWaves {
+		slots = groupWaveSize
 	}
 	inFlight := make([]*assaultEvader, slots)
 
@@ -193,14 +207,28 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			angle := base + slice + spawnRNG.RandfRange(-SiegeAngleJitter, SiegeAngleJitter)
 			launch(SiegeEdgePoint(arena, angle))
 		}
-	} else if !stream {
+	}
+
+	launchGroupWave := func() {
+		base := spawnRNG.Randf() * godot.Tau
+		for index := 0; index < groupWaveSize; index++ {
+			slice := godot.Tau * float64(index) / float64(groupWaveSize)
+			angle := base + slice + spawnRNG.RandfRange(-SiegeAngleJitter, SiegeAngleJitter)
+			launch(arena.Center.Add(godot.Vec{X: EnemySpawnRadius}.Rotated(angle)))
+		}
+		groupWavesLaunched++
+	}
+
+	if groupWaves {
+		launchGroupWave()
+	} else if !siege && !stream {
 		launch(waveSpawn(spawnRNG, arena))
 	}
 
 	streamTimer := input.Rules.StartDelayFrames
 	if stream && streamTimer <= 0 {
 		launch(streamSpawn(spawnRNG, arena))
-		streamTimer = StreamIntervalFrames
+		streamTimer = streamInterval
 	}
 	circliness := CirclinessTracker{}
 
@@ -278,11 +306,11 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		}
 
 		if stream {
-			if output.Launched < StreamEvaders {
+			if output.Launched < streamTotal {
 				streamTimer--
 				if streamTimer <= 0 {
 					launch(streamSpawn(spawnRNG, arena))
-					streamTimer = StreamIntervalFrames
+					streamTimer = streamInterval
 				}
 			} else if allSlotsFree(inFlight) {
 				if endFrame < 0 {
@@ -294,6 +322,23 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			}
 		} else if siege {
 			if allSlotsFree(inFlight) {
+				if endFrame < 0 {
+					endFrame = frame + AssaultTailFrames
+				}
+				if frame >= endFrame {
+					break
+				}
+			}
+		} else if groupWaves {
+			if !allSlotsFree(inFlight) {
+				gap = WaveGapFrames
+			} else if groupWavesLaunched < GroupWaveCount {
+				gap--
+				if gap <= 0 {
+					gap = WaveGapFrames
+					launchGroupWave()
+				}
+			} else {
 				if endFrame < 0 {
 					endFrame = frame + AssaultTailFrames
 				}
@@ -316,23 +361,36 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 
 	output.EndTime = frameToTime(frame)
 	output.Circliness = circliness.Average()
-	output.Outcome = classifyAssault(output, siege, stream)
+	output.Outcome = classifyAssault(output, siege, stream, streamTotal, groupWaves && groupWavesLaunched < GroupWaveCount)
 	return output
 }
 
-// A run is clean only if nothing touched the planet. A siege that ran out of
-// clock with evaders still inbound decided nothing, so it times out instead.
-func classifyAssault(output AssaultOutput, siege bool, stream bool) string {
+// A run is clean only if nothing touched the planet. A siege or group wave run
+// that ran out of clock with evaders still inbound decided nothing, so it times
+// out instead.
+func classifyAssault(output AssaultOutput, siege bool, stream bool, streamTotal int, wavesUnsent bool) string {
 	if output.Breaches > 0 {
 		return OutcomeLose
 	}
-	if siege && output.Resolved < output.Launched {
+	if wavesUnsent {
 		return OutcomeTimeout
 	}
-	if stream && (output.Launched < StreamEvaders || output.Resolved < output.Launched) {
+	if (siege || output.Mode == AssaultModeGroupWaves) && output.Resolved < output.Launched {
+		return OutcomeTimeout
+	}
+	if stream && (output.Launched < streamTotal || output.Resolved < output.Launched) {
 		return OutcomeTimeout
 	}
 	return OutcomeWin
+}
+
+func streamPlan(rules AssaultRules, defenders int) (int, int) {
+	if !rules.StreamScales || defenders < 1 {
+		return StreamEvaders, StreamIntervalFrames
+	}
+	total := StreamEvadersPerDefender * defenders
+	interval := max(1, int(math.Round(float64(StreamIntervalFrames*StreamBaseDefenders)/float64(defenders))))
+	return total, interval
 }
 
 func streamSpawn(rng *godot.RNG, arena Arena) godot.Vec {
