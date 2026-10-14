@@ -91,13 +91,13 @@ export function apmChartConfig(match: SurviveMatch): ChartConfiguration {
 				y: {
 					beginAtZero: true,
 					grace: '8%',
-					title: { display: true, text: 'APM', color: TEXT },
+					title: { display: true, text: 'Actions per minute (APM)', color: TEXT },
 					ticks: { color: TEXT },
 					grid: { color: GRID }
 				},
 				x: {
 					offset: true,
-					title: { display: true, text: 'Match time', color: TEXT },
+					title: { display: true, text: 'Match time (mm:ss)', color: TEXT },
 					ticks: { color: TEXT, maxTicksLimit: 12 },
 					grid: { color: GRID }
 				}

@@ -32,17 +32,17 @@
 
 	const READINGS: Record<HeatmapKey, { label: string; ticks: string[]; reading: string }> = {
 		capture_rate: {
-			label: 'Capture rate',
+			label: 'Capture rate (%)',
 			ticks: ['0%', '25%', '50%', '75%', '100%'],
 			reading: 'red is a low capture rate, blue a high one'
 		},
 		risk: {
-			label: 'Risk',
+			label: 'Risk (%)',
 			ticks: ['100%', '75%', '50%', '25%', '0%'],
 			reading: 'red is a high risk, blue a low one'
 		},
 		defenders: {
-			label: 'Defenders remaining, as a share of ring size n',
+			label: 'Defenders left, as a share of ring size n (%)',
 			ticks: ['0%', '25%', '50%', '75%', '100%'],
 			reading: 'red is a ring worn down, blue a ring still whole'
 		}
@@ -156,7 +156,7 @@
 						<text class="axis-text" x={cellX(column) + cellWidth / 2} y={TOP + plotHeight + 16} text-anchor="middle">{faced}</text>
 					{/if}
 				{/each}
-				<text class="axis-title" x={LEFT + plotWidth / 2} y={height - 8} text-anchor="middle">Evaders faced</text>
+				<text class="axis-title" x={LEFT + plotWidth / 2} y={height - 8} text-anchor="middle">Evaders faced (n)</text>
 				<text class="axis-title" x="14" y={TOP + plotHeight / 2} text-anchor="middle" transform="rotate(-90 14 {TOP + plotHeight / 2})">Ring size (n)</text>
 
 				{#if hovered}

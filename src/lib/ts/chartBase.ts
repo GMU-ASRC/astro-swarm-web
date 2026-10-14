@@ -1,4 +1,4 @@
-import type { ChartConfiguration } from 'chart.js';
+import type { Chart, ChartConfiguration, LegendItem } from 'chart.js';
 
 export const GRID = '#e5e7eb';
 export const TEXT = '#374151';
@@ -89,7 +89,6 @@ export function baseOptions(
 	title: string,
 	yTitle: string,
 	xTitle: string,
-	showLegend = false,
 	subtitle = ''
 ) {
 	return {
@@ -106,7 +105,7 @@ export function baseOptions(
 				padding: { bottom: 10 }
 			},
 			legend: {
-				display: showLegend,
+				display: true,
 				labels: { color: TEXT, boxWidth: 10, boxHeight: 10, padding: 8, font: { size: 10 } }
 			}
 		},
@@ -122,6 +121,33 @@ export function baseOptions(
 				ticks: { color: TEXT },
 				grid: { color: GRID },
 				offset: true
+			}
+		}
+	};
+}
+
+// A bar chart with one dataset colors each bar on its own, so its legend names
+// every bar instead of the single dataset.
+export function categoryLegend<T extends ReturnType<typeof baseOptions>>(options: T): T {
+	const generateLabels = (chart: Chart): LegendItem[] => {
+		const colors = chart.data.datasets[0]?.backgroundColor as string[];
+		return (chart.data.labels ?? []).map((label, index) => ({
+			text: String(label),
+			fillStyle: colors[index],
+			strokeStyle: colors[index],
+			lineWidth: 0,
+			hidden: false,
+			index
+		}));
+	};
+	return {
+		...options,
+		plugins: {
+			...options.plugins,
+			legend: {
+				...options.plugins.legend,
+				labels: { ...options.plugins.legend.labels, generateLabels },
+				onClick: () => {}
 			}
 		}
 	};

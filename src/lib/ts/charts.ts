@@ -5,6 +5,7 @@ import {
 	DETECTION,
 	SUCCESS,
 	baseOptions,
+	categoryLegend,
 	percentScale,
 	placementSource,
 	rateOf,
@@ -26,12 +27,13 @@ export function headlineRatesConfig(
 	trials: number,
 	assault = false
 ): ChartConfiguration {
-	const options = baseOptions(
-		'Outcome Rates',
-		assault ? 'Evaders (%)' : 'Trials (%)',
-		'',
-		false,
-		placementSource(trials)
+	const options = categoryLegend(
+		baseOptions(
+			'Outcome Rates',
+			assault ? 'Share of evaders (%)' : 'Share of trials (%)',
+			'Outcome',
+			placementSource(trials)
+		)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
 
@@ -63,9 +65,8 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 
 	const options = baseOptions(
 		'Cumulative Win Rate',
-		'Wins (%)',
-		'Trial',
-		false,
+		'Cumulative win rate (%)',
+		'Trial number (n)',
 		placementSource(outcomes.length)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -75,7 +76,7 @@ export function lineConfig(outcomes: string[]): ChartConfiguration {
 		data: {
 			labels,
 			datasets: [
-				{ label: 'Defenders win', data, borderColor: DETECTION, backgroundColor: DETECTION, pointRadius: 0, borderWidth: 2, tension: 0.1 }
+				{ label: 'Cumulative win rate (%)', data, borderColor: DETECTION, backgroundColor: DETECTION, pointRadius: 0, borderWidth: 2, tension: 0.1 }
 			]
 		},
 		options
@@ -96,12 +97,13 @@ export function barConfig(outcomes: string[]): ChartConfiguration {
 		(100 * counts.timeout) / total
 	];
 
-	const options = baseOptions(
-		'Outcome Breakdown',
-		'Trials (%)',
-		'',
-		false,
-		placementSource(outcomes.length)
+	const options = categoryLegend(
+		baseOptions(
+			'Outcome Breakdown',
+			'Share of trials (%)',
+			'Outcome',
+			placementSource(outcomes.length)
+		)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
 
@@ -126,7 +128,7 @@ function sweepRateConfig(
 	const points = sweepPoints(rows);
 	const rate = (row: SweepRow) => rateOf(row, rateKey, timeKey);
 
-	const options = baseOptions(title, yTitle, 'Ring size (n)', false, sweepSource(rows));
+	const options = baseOptions(title, yTitle, 'Ring size (n)', sweepSource(rows));
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
@@ -169,7 +171,6 @@ export function combinedRatesConfig(rows: SweepRow[]): ChartConfiguration {
 		'Detection and Capture Rates by Ring Size',
 		'Rate (%)',
 		'Ring size (n)',
-		true,
 		sweepSource(rows)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -215,15 +216,14 @@ export function timesConfig(detection: number[], capture: number[]): ChartConfig
 		data: {
 			labels,
 			datasets: [
-				{ label: 'Detection time', data: clamp(detection), backgroundColor: '#4ade80' },
-				{ label: 'Capture time', data: clamp(capture), backgroundColor: '#f87171' }
+				{ label: 'Detection time (s)', data: clamp(detection), backgroundColor: '#4ade80' },
+				{ label: 'Capture time (s)', data: clamp(capture), backgroundColor: '#f87171' }
 			]
 		},
 		options: baseOptions(
 			'Detection and Capture Times',
 			'Time (s)',
-			'Trial',
-			true,
+			'Trial number (n)',
 			placementSource(count)
 		)
 	};

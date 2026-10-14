@@ -60,7 +60,8 @@ def _draw_trend(fig, card):
     ax.yaxis.set_major_formatter(PercentFormatter(decimals=0))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_title(card.trend_title, color=MUTED, fontsize=14)
-    ax.set_xlabel("Trial", color=MUTED, fontsize=12)
+    ax.set_xlabel("Trial number (n)", color=MUTED, fontsize=12)
+    ax.set_ylabel("Rate (%)", color=MUTED, fontsize=12)
     ax.tick_params(colors=MUTED)
     for spine in ax.spines.values():
         spine.set_color(SPINE)

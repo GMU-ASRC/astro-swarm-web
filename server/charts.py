@@ -67,13 +67,14 @@ def render_line_png(outcomes, username, level_id, eval_id, date_label):
         ys.append(100.0 * wins / (index + 1))
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, ys, color="#1f77b4", linewidth=2)
-    ax.set_title("Cumulative Detection Rate")
-    ax.set_xlabel("Trial")
-    ax.set_ylabel("Detection Rate (%)")
+    ax.plot(xs, ys, color="#1f77b4", linewidth=2, label="Cumulative win rate (%)")
+    ax.set_title("Cumulative Win Rate")
+    ax.set_xlabel("Trial number (n)")
+    ax.set_ylabel("Cumulative win rate (%)")
     _percent_axis(ax)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
+    ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
@@ -93,13 +94,14 @@ def _render_sweep_rate_png(rows, rate_key, time_key, color, title, ylabel, meta)
     ys = [_sweep_rate(point, rate_key, time_key) for point in points]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, ys, color=color, linewidth=2)
+    ax.plot(xs, ys, color=color, linewidth=2, label=ylabel)
     ax.set_title(title)
     ax.set_xlabel("Ring size (n)")
     ax.set_ylabel(ylabel)
     _percent_axis(ax)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
+    ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(*meta), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
@@ -135,8 +137,8 @@ def render_risk_png(rows, username, level_id, eval_id, date_label):
     captures = [_sweep_rate(point, "capture_rate", "capture_time") for point in points]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk")
-    ax.plot(xs, captures, color="#16a34a", linewidth=2, label="Capture rate")
+    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk (%)")
+    ax.plot(xs, captures, color="#16a34a", linewidth=2, label="Capture rate (%)")
     ax.set_title("Risk by Ring Size")
     ax.set_xlabel("Ring size (n)")
     ax.set_ylabel("Risk (%)")
@@ -163,13 +165,13 @@ def render_trial_risk_png(destroyed, resolved, username, level_id, eval_id, date
     overall = 100.0 - 100.0 * sum(destroyed) / total_resolved if total_resolved else 100.0
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk in this trial")
+    ax.plot(xs, risks, color="#dc2626", linewidth=2, label="Risk in this trial (%)")
     ax.plot(
         xs, [overall] * len(xs), color="#6b7280", linewidth=2, linestyle="--",
         label=f"Risk across every trial - {round(overall, 1)}%",
     )
     ax.set_title("Risk per Trial")
-    ax.set_xlabel("Trial")
+    ax.set_xlabel("Trial number (n)")
     ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, xs)
@@ -188,13 +190,14 @@ def render_attrition_png(points, username, level_id, eval_id, date_label):
     ys = [point.get("risk", 0.0) for point in rows]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.plot(xs, ys, color="#dc2626", linewidth=2, marker="o", markersize=4)
+    ax.plot(xs, ys, color="#dc2626", linewidth=2, marker="o", markersize=4, label="Risk (%)")
     ax.set_title("Risk as the Line Thins")
-    ax.set_xlabel("Defenders standing")
+    ax.set_xlabel("Defenders left (n)")
     ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, xs)
     ax.grid(True, color="#e5e7eb")
+    ax.legend(loc="upper right", fontsize=8)
     fig.text(0.5, 0.005, _caption(username, level_id, eval_id, date_label), ha="center", fontsize=8, color="#6b7280")
     fig.tight_layout(rect=OUTER_EDGE)
     return _save(fig)
@@ -261,7 +264,7 @@ def render_sweep_attrition_png(series, username, level_id, eval_id, date_label):
         label = f"n = {entry.get('n')}" if index in anchors else None
         ax.plot(xs, ys, color=colors[index], linewidth=2, label=label)
     ax.set_title("Risk as the Line Thins, per Ring")
-    ax.set_xlabel("Defenders standing")
+    ax.set_xlabel("Defenders left (n)")
     ax.set_ylabel("Risk (%)")
     _percent_axis(ax)
     _padded_xlim(ax, everything)
@@ -297,7 +300,7 @@ def _render_progress_png(series, pick, title, ylabel, meta, percent=True):
         drawn.extend(ys)
         ax.plot(xs, ys, color=colors[index], linewidth=2, label=label)
     ax.set_title(title)
-    ax.set_xlabel("Evaders faced")
+    ax.set_xlabel("Evaders faced (n)")
     ax.set_ylabel(ylabel)
     if percent:
         _percent_axis(ax)
@@ -355,10 +358,10 @@ def render_times_png(detection_times, capture_times, username, level_id, eval_id
     right = [trial + width / 2 for trial in trials]
 
     fig, ax = plt.subplots(figsize=(7.2, 3.8))
-    ax.bar(left, detections, width=width, color="#4ade80", label="Detection time")
-    ax.bar(right, captures, width=width, color="#f87171", label="Capture time")
+    ax.bar(left, detections, width=width, color="#4ade80", label="Detection time (s)")
+    ax.bar(right, captures, width=width, color="#f87171", label="Capture time (s)")
     ax.set_title("Detection and Capture Times")
-    ax.set_xlabel("Trial")
+    ax.set_xlabel("Trial number (n)")
     ax.set_ylabel("Time (s)")
     tallest = max(detections + captures + [0.0])
     ax.set_ylim(0, tallest * 1.18 if tallest > 0 else 1.0)
@@ -382,9 +385,11 @@ def render_bar_png(outcomes, username, level_id, eval_id, date_label):
     colors = ["#4ade80", "#f87171", "#fbbf24"]
 
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
-    ax.bar(labels, values, color=colors)
+    bars = ax.bar(labels, values, color=colors)
     ax.set_title("Outcome Breakdown")
-    ax.set_ylabel("Trials (%)")
+    ax.set_xlabel("Outcome")
+    ax.set_ylabel("Share of trials (%)")
+    ax.legend(bars, labels, loc="upper right", fontsize=8)
     _percent_axis(ax)
     ax.grid(True, axis="y", color="#e5e7eb")
     for index, value in enumerate(values):

@@ -28,7 +28,6 @@ export function riskConfig(rows: SweepRow[]): ChartConfiguration {
 		'Risk by Ring Size',
 		'Risk (%)',
 		'Ring size (n)',
-		true,
 		sweepSource(rows)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -39,7 +38,7 @@ export function riskConfig(rows: SweepRow[]): ChartConfiguration {
 			labels: points.map((point) => point.n),
 			datasets: [
 				{
-					label: 'Risk',
+					label: 'Risk (%)',
 					data: points.map(riskOf),
 					borderColor: RISK,
 					backgroundColor: RISK,
@@ -47,7 +46,7 @@ export function riskConfig(rows: SweepRow[]): ChartConfiguration {
 					borderWidth: 2
 				},
 				{
-					label: 'Capture rate',
+					label: 'Capture rate (%)',
 					data: points.map((point) => rateOf(point, 'capture_rate', 'capture_time')),
 					borderColor: SUCCESS,
 					backgroundColor: SUCCESS,
@@ -76,8 +75,7 @@ export function trialRiskConfig(destroyed: number[], resolved: number[]): ChartC
 	const options = baseOptions(
 		'Risk per Trial',
 		'Risk (%)',
-		'Trial',
-		true,
+		'Trial number (n)',
 		placementSource(labels.length)
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -88,7 +86,7 @@ export function trialRiskConfig(destroyed: number[], resolved: number[]): ChartC
 			labels,
 			datasets: [
 				{
-					label: 'Risk in this trial',
+					label: 'Risk in this trial (%)',
 					data: risks,
 					borderColor: RISK,
 					backgroundColor: RISK,
@@ -118,8 +116,7 @@ export function attritionRiskConfig(rows: AttritionRow[]): ChartConfiguration {
 	const options = baseOptions(
 		'Risk as the Line Thins',
 		'Risk (%)',
-		'Defenders standing',
-		false,
+		'Defenders left (n)',
 		`${launched} evaders launched across every trial`
 	);
 	options.scales.y = percentScale(options.scales.y) as never;
@@ -130,7 +127,7 @@ export function attritionRiskConfig(rows: AttritionRow[]): ChartConfiguration {
 			labels: points.map((point) => point.defenders),
 			datasets: [
 				{
-					label: 'Risk',
+					label: 'Risk (%)',
 					data: points.map((point) => point.risk),
 					borderColor: RISK,
 					backgroundColor: RISK,
@@ -160,8 +157,7 @@ export function sweepAttritionConfig(series: AttritionSeries[]): ChartConfigurat
 	const options = baseOptions(
 		'Risk as the Line Thins, per Ring',
 		'Risk (%)',
-		'Defenders standing',
-		true,
+		'Defenders left (n)',
 		rampSource(
 			`${series.length} ${series.length === 1 ? 'ring size' : 'ring sizes'} measured`,
 			chosen.length
@@ -213,7 +209,7 @@ export function comparisonConfig(
 	}
 	const labels = [...sizes].sort((a, b) => a - b);
 
-	const options = baseOptions(title, yTitle, 'Ring size (n)', true, comparisonSource(entries));
+	const options = baseOptions(title, yTitle, 'Ring size (n)', comparisonSource(entries));
 	options.scales.y = percentScale(options.scales.y) as never;
 
 	return {
@@ -253,7 +249,6 @@ export function circlinessComparisonConfig(entries: ComparisonEntry[]): ChartCon
 		'Circliness by Ring Size',
 		'Circliness (0 to 1)',
 		'Ring size (n)',
-		true,
 		comparisonSource(entries)
 	);
 	options.scales.y = unitScale(options.scales.y) as never;
