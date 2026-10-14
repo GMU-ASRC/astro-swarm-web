@@ -50,7 +50,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'green',
 		summary:
-			'Pick 5 to 500 defenders. Two waves come in, each sending one evader per defender all at once around the ring. A defender that catches one survives and takes the next, so nothing is spent. The score is the share of evaders destroyed.',
+			'Field 5, 25, 50, 100, 250 or 500 defenders. Two waves come in, each sending one evader per defender all at once around the ring. A defender that catches one survives and takes the next, so nothing is spent. The score is the share of evaders destroyed.',
 		rateLabel: 'capture success rate'
 	},
 	{

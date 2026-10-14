@@ -62,16 +62,21 @@ class EvaluationSubmit:
             raise ValueError("algorithm must be a list")
         if not isinstance(self.placements, list):
             raise ValueError("placements must be a list")
-        placement_limit = PLACEMENT_LIMITS.get(self.level_id, DEFAULT_PLACEMENT_LIMIT)
-        if len(self.placements) > placement_limit:
-            raise ValueError("placements must not exceed %d defenders" % placement_limit)
+        defender_options = DEFENDER_COUNT_OPTIONS.get(self.level_id)
+        if defender_options is not None:
+            if len(self.placements) not in defender_options:
+                choices = ", ".join(str(count) for count in defender_options)
+                raise ValueError("placements must hold one of %s defenders" % choices)
+        elif len(self.placements) > DEFAULT_PLACEMENT_LIMIT:
+            raise ValueError("placements must not exceed %d defenders" % DEFAULT_PLACEMENT_LIMIT)
         self.trials = max(100, int(self.trials))
         if self.trials > 500:
             raise ValueError("trials must not exceed 500")
 
 
 DEFAULT_PLACEMENT_LIMIT = 6
-PLACEMENT_LIMITS = {"farp2": 500, "farp3": 500}
+SCATTER_DEFENDER_COUNTS = (5, 25, 50, 100, 250, 500)
+DEFENDER_COUNT_OPTIONS = {"farp2": SCATTER_DEFENDER_COUNTS, "farp3": SCATTER_DEFENDER_COUNTS}
 
 MAX_RUN_SECONDS = 180
 MAX_RUN_FPS = 60
