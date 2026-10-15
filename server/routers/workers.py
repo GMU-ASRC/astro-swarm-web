@@ -115,6 +115,7 @@ def _job_payload(evaluation):
         "job_id": evaluation.id,
         "evaluation_id": evaluation.id,
         "algorithm": evaluation.algorithm or [],
+        "genome_schedule": evaluation.genome_schedule or [],
         "placements": evaluation.placements or [],
         "run": _pending_run(evaluation),
         "trials": evaluation.trials,

@@ -3,7 +3,7 @@ import json
 import random
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, Response, jsonify, request, send_file
 from sqlalchemy.orm import defer
@@ -56,6 +56,9 @@ from schemas import MAX_RUN_FPS, MAX_RUN_SECONDS, EvaluationSubmit, RunSubmit, r
 
 MAX_XP_PER_LEVEL_UNIT = 100
 PILOT_LEVEL_MAX_XP = 1000
+ENTRY_BASE_COINS = 10
+ENTRY_COINS_PER_LEVEL = 15
+PAID_ENTRIES_PER_DAY = 5
 
 evaluations_bp = Blueprint("evaluations", __name__, url_prefix="/api/evaluations")
 
@@ -68,24 +71,22 @@ def _get_eval_light(eval_id: str):
     )
 
 
-def _submission_key(algorithm, placements, trials):
-    return json.dumps(
-        {"a": algorithm or [], "p": placements or [], "t": trials},
-        sort_keys=True,
-        separators=(",", ":"),
-    )
+def _submission_key(algorithm, placements, trials, schedule=None):
+    content = {"a": algorithm or [], "p": placements or [], "t": trials}
+    if schedule and len(schedule) > 1:
+        content["g"] = schedule
+    return json.dumps(content, sort_keys=True, separators=(",", ":"))
 
 
-def _dedup_key(algorithm, placements):
-    return json.dumps(
-        {"a": algorithm or [], "p": placements or []},
-        sort_keys=True,
-        separators=(",", ":"),
-    )
+def _dedup_key(algorithm, placements, schedule=None):
+    content = {"a": algorithm or [], "p": placements or []}
+    if schedule and len(schedule) > 1:
+        content["g"] = schedule
+    return json.dumps(content, sort_keys=True, separators=(",", ":"))
 
 
-def _find_player_duplicate(player_id, level_id, algorithm, placements):
-    key = _dedup_key(algorithm, placements)
+def _find_player_duplicate(player_id, level_id, algorithm, placements, schedule=None):
+    key = _dedup_key(algorithm, placements, schedule)
     candidates = (
         PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
         .filter(
@@ -96,13 +97,13 @@ def _find_player_duplicate(player_id, level_id, algorithm, placements):
         .all()
     )
     for candidate in candidates:
-        if _dedup_key(candidate.algorithm, candidate.placements) == key:
+        if _dedup_key(candidate.algorithm, candidate.placements, candidate.genome_schedule) == key:
             return candidate
     return None
 
 
-def _find_matching_done(level_id, algorithm, placements, trials):
-    key = _submission_key(algorithm, placements, trials)
+def _find_matching_done(level_id, algorithm, placements, trials, schedule=None):
+    key = _submission_key(algorithm, placements, trials, schedule)
     sweep_max = get_sweep_max()
     candidates = (
         PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
@@ -110,7 +111,7 @@ def _find_matching_done(level_id, algorithm, placements, trials):
         .all()
     )
     for candidate in candidates:
-        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials) != key:
+        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials, candidate.genome_schedule) != key:
             continue
         # Only reuse a result that was produced under the current ring-sweep size,
         # so changing n/n2 in settings forces a fresh run instead of stale reuse.
@@ -528,7 +529,7 @@ def submit_evaluation():
         raise BadRequest("Level is disabled")
 
     duplicate = _find_player_duplicate(
-        parsed.player_id, parsed.level_id, parsed.algorithm, parsed.placements
+        parsed.player_id, parsed.level_id, parsed.algorithm, parsed.placements, parsed.genome_schedule
     )
     if duplicate is not None:
         raise Conflict("You have already submitted this algorithm and placement for this level")
@@ -539,6 +540,7 @@ def submit_evaluation():
         level_id=parsed.level_id,
         algorithm=parsed.algorithm,
         placements=parsed.placements,
+        genome_schedule=parsed.genome_schedule,
         trials=parsed.trials,
         status="queued",
         game_version=parsed.game_version,
@@ -547,7 +549,9 @@ def submit_evaluation():
     )
     db.session.add(evaluation)
 
-    existing = _find_matching_done(parsed.level_id, parsed.algorithm, parsed.placements, parsed.trials)
+    existing = _find_matching_done(
+        parsed.level_id, parsed.algorithm, parsed.placements, parsed.trials, parsed.genome_schedule
+    )
     if existing is not None:
         evaluation.results = existing.results
         evaluation.replays = existing.replays
@@ -591,6 +595,7 @@ def submit_run():
         level_id=parsed.level_id,
         algorithm=parsed.algorithm,
         placements=parsed.placements,
+        genome_schedule=parsed.genome_schedule,
         trials=1,
         status="queued",
         game_version=parsed.game_version,
@@ -732,6 +737,25 @@ def _success_fraction(evaluation):
     return max(0.0, min(1.0, float(rate) / 100.0))
 
 
+def _entry_coins(evaluation, others, rate):
+    window_start = datetime.now(timezone.utc) - timedelta(days=1)
+    paid_today = [
+        e for e in others
+        if e.level_number() == evaluation.level_number()
+        and (e.coins_awarded or 0) > 0
+        and e.created_at is not None
+        and _as_utc(e.created_at) >= window_start
+    ]
+    if len(paid_today) >= PAID_ENTRIES_PER_DAY:
+        return 0, "Coin limit reached for this level today. Entries pay coin again tomorrow."
+    coins = ENTRY_BASE_COINS + round(ENTRY_COINS_PER_LEVEL * evaluation.level_number() * rate)
+    return coins, ""
+
+
+def _as_utc(value):
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
 @evaluations_bp.post("/<eval_id>/claim-xp")
 def claim_xp(eval_id: str):
     require_admin()
@@ -749,6 +773,7 @@ def claim_xp(eval_id: str):
     if evaluation.xp_awarded is not None:
         return jsonify({
             "xp": evaluation.xp_awarded,
+            "coins": evaluation.coins_awarded or 0,
             "already_claimed": True,
             "max_xp": max_xp,
             "success_rate": round(_success_fraction(evaluation) * 100.0, 1),
@@ -780,10 +805,14 @@ def claim_xp(eval_id: str):
         else:
             xp = 0
 
+    coins, coin_note = _entry_coins(evaluation, others, rate)
     evaluation.xp_awarded = xp
+    evaluation.coins_awarded = coins
     db.session.commit()
     return jsonify({
         "xp": xp,
+        "coins": coins,
+        "coin_note": coin_note,
         "already_claimed": False,
         "max_xp": max_xp,
         "success_rate": round(rate * 100.0, 1),

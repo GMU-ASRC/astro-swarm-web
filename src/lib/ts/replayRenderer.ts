@@ -20,10 +20,36 @@ const SWARM_A = '#ff6a52';
 const SWARM_B = '#7c9eff';
 const LEADER = '#ffd54a';
 
+export const GENOME_STAGE_COLORS = [
+	DEFENDER,
+	'#4fd18c',
+	'#ffb347',
+	'#c97aff',
+	'#4fd9e0',
+	'#ff7aa8',
+	'#d4e057',
+	'#ff8a66',
+	'#8fa3ad'
+];
+
+export function genomeStageColor(stage: number): string {
+	return GENOME_STAGE_COLORS[Math.min(Math.max(stage, 0), GENOME_STAGE_COLORS.length - 1)];
+}
+
+export function genomeStage(replay: Replay, frameIndex: number): number {
+	let stage = 0;
+	for (const switchFrame of replay.genome_switches ?? []) {
+		if (frameIndex >= switchFrame) stage++;
+	}
+	return stage;
+}
+
 // In swarm mode the recorded ships are two milling groups followed by the
 // player-flown leader, so they are colored by group instead of by team.
-export function shipColor(replay: Replay, mode: ReplayMode, slot: number): string {
-	if (mode !== 'swarm') return slot >= replay.defenders ? EVADER : DEFENDER;
+export function shipColor(replay: Replay, mode: ReplayMode, slot: number, frameIndex = 0): string {
+	if (mode !== 'swarm') {
+		return slot >= replay.defenders ? EVADER : genomeStageColor(genomeStage(replay, frameIndex));
+	}
 	if (slot >= replay.defenders) return LEADER;
 	return slot < replay.defenders / 2 ? SWARM_A : SWARM_B;
 }
@@ -81,8 +107,7 @@ export function drawStage(
 		const y = frame[slot * 3 + 1];
 		const rotation = (frame[slot * 3 + 2] * Math.PI) / 180;
 		if (x < 0) continue;
-		const cone =
-			mode === 'swarm' ? `${shipColor(replay, mode, slot)}22` : 'rgba(124,158,255,0.16)';
+		const cone = `${shipColor(replay, mode, slot, overlay.frameIndex)}${mode === 'swarm' ? '22' : '29'}`;
 		drawCone(ctx, x * sx, y * sy, rotation, coneRadius, halfAngle, cone);
 	}
 
@@ -94,7 +119,7 @@ export function drawStage(
 		const y = frame[slot * 3 + 1];
 		const rotation = (frame[slot * 3 + 2] * Math.PI) / 180;
 		if (x < 0) continue;
-		const color = shipColor(replay, mode, slot);
+		const color = shipColor(replay, mode, slot, overlay.frameIndex);
 		drawHull(ctx, x * sx, y * sy, hullRadius, color);
 		drawShip(ctx, x * sx, y * sy, rotation, color);
 	}

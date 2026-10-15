@@ -3,6 +3,7 @@
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
+	import { genomeStageColor } from '$lib/ts/replayRenderer';
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
@@ -34,6 +35,7 @@
 
 	// svelte-ignore state_referenced_locally
 	let ev: PlayerEvaluation = $state(data.evaluation);
+	let genomeStages = $derived(ev.genome_schedule ?? []);
 
 	let level = $derived(levelById(ev.level_id) ?? FARP_LEVELS[0]);
 	let dateLabel = $derived((ev.completed_at ?? ev.created_at).slice(0, 10));
@@ -644,18 +646,41 @@
 					</section>
 				{/if}
 
-				<section class="block">
-					<h2 class="section-title">
-						{isSwarm
-							? 'Swarm agent algorithm'
-							: isPilot && !isSupply
-								? 'Opponent algorithm'
-								: 'Defender algorithm'}
-					</h2>
-					<div class="card algorithm">
-						<AlgorithmView scripts={ev.algorithm} />
-					</div>
-				</section>
+				{#if genomeStages.length > 1}
+					<section class="block">
+						<h2 class="section-title">Genome switches</h2>
+						<p class="block-note">
+							The defenders changed genome {genomeStages.length - 1}
+							{genomeStages.length === 2 ? 'time' : 'times'} as the line thinned. In the replays each
+							genome flies in its own color, and the benchmark switches at the same share of the line.
+						</p>
+						{#each genomeStages as stage, index}
+							<div class="card algorithm genome-stage">
+								<div class="genome-stage-head">
+									<span class="genome-swatch" style={`background:${genomeStageColor(index)}`}></span>
+									<strong>{stage.name}</strong>
+									<span class="genome-stage-at">
+										{index === 0 ? `From launch, n = ${stage.at_defenders}` : `Switched at n = ${stage.at_defenders}`}
+									</span>
+								</div>
+								<AlgorithmView scripts={stage.algorithm} />
+							</div>
+						{/each}
+					</section>
+				{:else}
+					<section class="block">
+						<h2 class="section-title">
+							{isSwarm
+								? 'Swarm agent algorithm'
+								: isPilot && !isSupply
+									? 'Opponent algorithm'
+									: 'Defender algorithm'}
+						</h2>
+						<div class="card algorithm">
+							<AlgorithmView scripts={ev.algorithm} />
+						</div>
+					</section>
+				{/if}
 			{:else if !pending}
 				<div class="notice">No benchmark data available.</div>
 			{/if}
@@ -839,5 +864,25 @@
 		margin-top: 1.25rem;
 		padding: 1.4rem;
 		overflow-x: auto;
+	}
+
+	.genome-stage-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+		margin-bottom: 1rem;
+		color: var(--color-heading);
+	}
+
+	.genome-swatch {
+		width: 0.9rem;
+		height: 0.9rem;
+		flex-shrink: 0;
+	}
+
+	.genome-stage-at {
+		color: var(--color-faint);
+		font-size: 0.8rem;
 	}
 </style>

@@ -127,6 +127,12 @@ export interface PlacementInfo {
 	rot: number;
 }
 
+export interface GenomeStage {
+	name: string;
+	at_defenders: number;
+	algorithm: any[];
+}
+
 export interface PlayerEvaluation {
 	id: string;
 	player_id: string;
@@ -137,6 +143,7 @@ export interface PlayerEvaluation {
 	game_version?: string;
 	defender_count?: number;
 	algorithm: any[];
+	genome_schedule?: GenomeStage[];
 	placements: PlacementInfo[];
 	status: string;
 	progress: number;
@@ -146,6 +153,7 @@ export interface PlayerEvaluation {
 	attacker_rate?: number | null;
 	defender_rate?: number | null;
 	xp_awarded?: number | null;
+	coins_awarded?: number | null;
 	error: string | null;
 	created_at: string;
 	completed_at: string | null;
@@ -168,6 +176,7 @@ export interface PlayerListItem {
 	attacker_rate?: number | null;
 	defender_rate?: number | null;
 	xp_awarded?: number | null;
+	coins_awarded?: number | null;
 	created_at: string;
 	completed_at: string | null;
 }
@@ -206,5 +215,6 @@ export interface Replay {
 	planet: [number, number, number];
 	arena: [number, number];
 	stats?: RunStats;
+	genome_switches?: number[];
 	frames: number[][];
 }

@@ -188,6 +188,7 @@ class PlayerEvaluation(db.Model):
     level_id = db.Column(db.String(40), default="farp1", index=True)
     algorithm = db.Column(db.JSON, default=list)
     placements = db.Column(db.JSON, default=list)
+    genome_schedule = db.Column(db.JSON, default=list)
 
     status = db.Column(db.String(12), default="queued")
     progress = db.Column(db.Float, default=0.0)
@@ -209,6 +210,7 @@ class PlayerEvaluation(db.Model):
     game_version = db.Column(db.String(20), default="v0.0.4")
     defender_count = db.Column(db.Integer, default=0)
     xp_awarded = db.Column(db.Integer, nullable=True)
+    coins_awarded = db.Column(db.Integer, nullable=True)
     collisions = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(
@@ -247,6 +249,7 @@ class PlayerEvaluation(db.Model):
             "game_version": self.game_version or "v0.0.4",
             "defender_count": self.defender_count or 0,
             "algorithm": self.algorithm or [],
+            "genome_schedule": self.genome_schedule or [],
             "placements": self.placements or [],
             "status": self.status,
             "progress": self.progress or 0.0,
@@ -256,6 +259,7 @@ class PlayerEvaluation(db.Model):
             "attacker_rate": results.get("attacker_rate"),
             "defender_rate": results.get("defender_rate"),
             "xp_awarded": self.xp_awarded,
+            "coins_awarded": self.coins_awarded,
             "error": self.error,
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -280,6 +284,7 @@ class PlayerEvaluation(db.Model):
             "attacker_rate": results.get("attacker_rate"),
             "defender_rate": results.get("defender_rate"),
             "xp_awarded": self.xp_awarded,
+            "coins_awarded": self.coins_awarded,
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
@@ -355,6 +360,7 @@ class PlayerEvaluation(db.Model):
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
                     "stats": run.get("stats", {}),
+                    "genome_switches": run.get("genome_switches", []),
                     "frames": frames,
                 }
         return None
@@ -422,6 +428,7 @@ class PlayerEvaluation(db.Model):
                 "hull": replays.get("hull"),
                 "planet": replays.get("planet"),
                 "arena": replays.get("arena"),
+                "genome_switches": entry.get("genome_switches", []),
                 "frames": frames,
             }
         return None
@@ -444,6 +451,7 @@ class PlayerEvaluation(db.Model):
                     "fov": replays.get("fov", 70),
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
+                    "genome_switches": run.get("genome_switches", []),
                     "frames": frames,
                 }
         return None

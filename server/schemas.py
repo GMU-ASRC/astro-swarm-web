@@ -37,6 +37,35 @@ class LeaderboardSubmit:
             raise ValueError("time_seconds must be between 2.0 and 90.0")
         self.time_seconds = float(self.time_seconds)
 
+GENOME_SWITCH_LEVELS = ("farp4", "farp5", "farp8")
+MAX_GENOME_STAGES = 9
+GENOME_NAME_MAX_LENGTH = 24
+
+
+def validate_genome_schedule(schedule, level_id):
+    if not isinstance(schedule, list):
+        raise ValueError("genome_schedule must be a list")
+    if len(schedule) > 1 and level_id not in GENOME_SWITCH_LEVELS:
+        raise ValueError("genome switches are only allowed on levels 4 and up")
+    if len(schedule) > MAX_GENOME_STAGES:
+        raise ValueError("genome_schedule must not exceed %d stages" % MAX_GENOME_STAGES)
+    previous = None
+    for stage in schedule:
+        if not isinstance(stage, dict):
+            raise ValueError("each genome stage must be an object")
+        name = stage.get("name")
+        if not isinstance(name, str) or not (1 <= len(name) <= GENOME_NAME_MAX_LENGTH):
+            raise ValueError("genome stage name must be between 1 and %d characters" % GENOME_NAME_MAX_LENGTH)
+        if not isinstance(stage.get("algorithm"), list):
+            raise ValueError("genome stage algorithm must be a list")
+        at_defenders = stage.get("at_defenders")
+        if isinstance(at_defenders, bool) or not isinstance(at_defenders, int) or at_defenders < 0:
+            raise ValueError("genome stage at_defenders must be a whole number")
+        if previous is not None and at_defenders >= previous:
+            raise ValueError("each genome switch must happen at fewer defenders than the last")
+        previous = at_defenders
+
+
 @dataclass
 class EvaluationSubmit:
     player_id: str
@@ -47,9 +76,11 @@ class EvaluationSubmit:
     trials: int = 100
     game_version: str = "v0.0.4"
     collisions: bool = False
+    genome_schedule: list = field(default_factory=list)
 
     def __post_init__(self):
         self.collisions = bool(self.collisions)
+        validate_genome_schedule(self.genome_schedule, self.level_id)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
@@ -111,8 +142,10 @@ class RunSubmit:
     algorithm: list = field(default_factory=list)
     placements: list = field(default_factory=list)
     game_version: str = "v0.0.4"
+    genome_schedule: list = field(default_factory=list)
 
     def __post_init__(self):
+        validate_genome_schedule(self.genome_schedule, self.level_id)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
@@ -161,6 +194,13 @@ class RunSubmit:
             raise ValueError("run.goal_time must not exceed %d seconds" % max_seconds)
         if len(frames) / fps > max_seconds + 5:
             raise ValueError("run must not exceed %d seconds" % max_seconds)
+
+        switches = self.run.get("genome_switches", [])
+        if not isinstance(switches, list) or len(switches) >= MAX_GENOME_STAGES:
+            raise ValueError("run.genome_switches must be a list of at most %d frames" % (MAX_GENOME_STAGES - 1))
+        for frame_index in switches:
+            if isinstance(frame_index, bool) or not isinstance(frame_index, int) or not (0 <= frame_index <= len(frames)):
+                raise ValueError("run.genome_switches must hold frame indexes within the run")
 
         stats = self.run.get("stats")
         if stats is not None:

@@ -24,6 +24,8 @@ STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS defender_count integer DEFAULT 0",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS xp_awarded integer",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS collisions boolean DEFAULT false",
+    "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS genome_schedule json DEFAULT '[]'::json",
+    "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS coins_awarded integer",
     "ALTER TABLE workers DROP COLUMN IF EXISTS max_jobs",
     # One worker runs one whole evaluation, so the job state moved onto the
     # evaluation itself and the shard table is gone.
