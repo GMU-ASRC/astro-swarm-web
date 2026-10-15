@@ -49,6 +49,7 @@ const (
 
 type AssaultInput struct {
 	Algorithm       []blocks.Script
+	GenomeStages    []GenomeStage
 	Placements      []Placement
 	Rules           AssaultRules
 	Seed            int64
@@ -111,6 +112,9 @@ type AssaultOutput struct {
 	FovDegrees    float64
 	Speed         float64
 	HullRadius    float64
+
+	GenomeSwitches     int
+	GenomeSwitchFrames []int
 }
 
 type assaultDefender struct {
@@ -127,13 +131,7 @@ type assaultEvader struct {
 }
 
 func RunAssaultMatch(input AssaultInput) AssaultOutput {
-	config := blocks.ConfigFromScripts(input.Algorithm, blocks.ShipConfig{
-		ViewDistance: sim.DefaultViewDistance,
-		FovDegrees:   sim.DefaultFovDegrees,
-		Speed:        sim.DefaultSpeed,
-		TurnSpeed:    sim.DefaultTurnRate,
-		HullRadius:   sim.DefaultHullRadius,
-	})
+	config := blocks.ConfigFromScripts(input.Algorithm, defaultShipConfig())
 
 	arena := input.Rules.Arena
 	siege := input.Rules.Mode == AssaultModeSiege
@@ -231,6 +229,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		streamTimer = streamInterval
 	}
 	circliness := CirclinessTracker{}
+	genomes := newGenomeSwitcher(input.GenomeStages, len(live))
 
 	delta := 1.0 / float64(PhysicsTicksPerSecond)
 	gap := WaveGapFrames
@@ -293,6 +292,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 				world.Remove(catcher)
 				killDefender(defenders, catcher)
 				output.DefendersLost++
+				genomes.update(live, len(output.Frames))
 			}
 			output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live), Destroyed: true})
 		}
@@ -360,6 +360,8 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	}
 
 	output.EndTime = frameToTime(frame)
+	output.GenomeSwitches = genomes.switches
+	output.GenomeSwitchFrames = genomes.frames
 	output.Circliness = circliness.Average()
 	output.Outcome = classifyAssault(output, siege, stream, streamTotal, groupWaves && groupWavesLaunched < GroupWaveCount)
 	return output

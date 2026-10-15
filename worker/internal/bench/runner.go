@@ -15,6 +15,7 @@ import (
 type Options struct {
 	LevelID          string
 	Algorithm        []blocks.Script
+	GenomeStages     []GenomeStage
 	Placements       []Placement
 	Trials           int
 	TrialStart       int

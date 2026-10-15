@@ -83,6 +83,10 @@ func NewShip(team int, program []blocks.Script) *Ship {
 	return ship
 }
 
+func (s *Ship) SetProgram(program []blocks.Script) {
+	s.executor = blocks.NewExecutor(s, program)
+}
+
 func (s *Ship) ApplyConfig(config blocks.ShipConfig) {
 	s.ViewDistance = config.ViewDistance
 	s.FovDegrees = config.FovDegrees

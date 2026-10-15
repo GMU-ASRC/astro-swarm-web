@@ -44,10 +44,11 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 	}
 
 	options := bench.Options{
-		LevelID:    levelID,
-		Algorithm:  algorithm,
-		Placements: job.benchPlacements(),
-		Trials:     job.Trials,
+		LevelID:      levelID,
+		Algorithm:    algorithm,
+		GenomeStages: job.genomeStages(),
+		Placements:   job.benchPlacements(),
+		Trials:       job.Trials,
 		// A job is a whole evaluation, so it always runs the full range.
 		TrialStart:       0,
 		TrialCount:       job.Trials,
@@ -143,6 +144,8 @@ func renderPilotRun(run PilotRun) bench.JobResult {
 			GoalTime:      run.GoalTime,
 			FramesPacked:  bench.PackFrames(run.Frames),
 			Stats:         run.Stats,
+
+			GenomeSwitches: run.GenomeSwitches,
 		}},
 		SweepRuns: []bench.ReplaySweepRun{},
 		Meta: bench.JobMeta{

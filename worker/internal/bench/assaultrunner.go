@@ -105,6 +105,7 @@ func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, rules A
 				current := jobs[index]
 				output := RunAssaultMatch(AssaultInput{
 					Algorithm:       options.Algorithm,
+					GenomeStages:    options.GenomeStages,
 					Placements:      current.placements,
 					Rules:           rules,
 					Seed:            current.seed,
@@ -489,6 +490,7 @@ func packAssaultRuns(trials []assaultResult) []ReplayRun {
 		}
 		if len(item.output.Frames) > 0 {
 			run.FramesPacked = PackFrames(item.output.Frames)
+			run.GenomeSwitches = item.output.GenomeSwitchFrames
 		}
 		runs = append(runs, run)
 		index++
@@ -506,6 +508,7 @@ func assaultStats(output AssaultOutput) map[string]float64 {
 		"lost":      float64(output.DefendersLost),
 		"detected":  float64(output.Detected),
 		"end_time":  output.EndTime,
+		"switches":  float64(output.GenomeSwitches),
 	}
 	if output.Circliness >= 0.0 {
 		stats["circliness"] = round3(output.Circliness)
@@ -562,6 +565,7 @@ func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {
 		}
 		if len(items[0].output.Frames) > 0 {
 			run.FramesPacked = PackFrames(items[0].output.Frames)
+			run.GenomeSwitches = items[0].output.GenomeSwitchFrames
 		}
 		for _, item := range items {
 			if len(item.output.Frames) == 0 {
@@ -575,6 +579,8 @@ func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {
 				GoalTime:      item.output.GoalTime,
 				FramesPacked:  PackFrames(item.output.Frames),
 				Stats:         assaultStats(item.output),
+
+				GenomeSwitches: item.output.GenomeSwitchFrames,
 			})
 		}
 		runs = append(runs, run)

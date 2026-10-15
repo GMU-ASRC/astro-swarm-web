@@ -2,6 +2,7 @@ package worker
 
 import (
 	"astroswarm/worker/internal/bench"
+	"astroswarm/worker/internal/blocks"
 	"astroswarm/worker/internal/entry"
 	"astroswarm/worker/internal/godot"
 )
@@ -33,17 +34,45 @@ type PilotRun struct {
 	Planet        []int              `json:"planet"`
 	Arena         []int              `json:"arena"`
 	Stats         map[string]float64 `json:"stats"`
+
+	GenomeSwitches []int `json:"genome_switches"`
+}
+
+type GenomeStageInput struct {
+	Name        string `json:"name"`
+	AtDefenders int    `json:"at_defenders"`
+	Algorithm   any    `json:"algorithm"`
 }
 
 type Job struct {
-	JobID        string            `json:"job_id"`
-	EvaluationID string            `json:"evaluation_id"`
-	Algorithm    any               `json:"algorithm"`
-	Placements   []entry.Placement `json:"placements"`
-	Run          *PilotRun         `json:"run"`
-	Trials       int               `json:"trials"`
-	TotalUnits   int               `json:"total_units"`
-	Config       JobConfig         `json:"config"`
+	JobID          string             `json:"job_id"`
+	EvaluationID   string             `json:"evaluation_id"`
+	Algorithm      any                `json:"algorithm"`
+	GenomeSchedule []GenomeStageInput `json:"genome_schedule"`
+	Placements     []entry.Placement  `json:"placements"`
+	Run            *PilotRun          `json:"run"`
+	Trials         int                `json:"trials"`
+	TotalUnits     int                `json:"total_units"`
+	Config         JobConfig          `json:"config"`
+}
+
+func (j Job) genomeStages() []bench.GenomeStage {
+	line := len(j.Placements)
+	if line < 1 || len(j.GenomeSchedule) < 2 {
+		return nil
+	}
+	stages := make([]bench.GenomeStage, 0, len(j.GenomeSchedule)-1)
+	for _, item := range j.GenomeSchedule[1:] {
+		program := blocks.NormalizeToScripts(item.Algorithm)
+		if len(program) == 0 || item.AtDefenders >= line {
+			continue
+		}
+		stages = append(stages, bench.GenomeStage{
+			Fraction:  float64(item.AtDefenders) / float64(line),
+			Algorithm: program,
+		})
+	}
+	return stages
 }
 
 func (j Job) benchPlacements() []bench.Placement {

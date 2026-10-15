@@ -123,6 +123,8 @@ type ReplayRun struct {
 	GoalTime      float64            `json:"goal_time"`
 	FramesPacked  string             `json:"frames_packed"`
 	Stats         map[string]float64 `json:"stats,omitempty"`
+
+	GenomeSwitches []int `json:"genome_switches,omitempty"`
 }
 
 type ReplaySweepRun struct {
@@ -136,6 +138,8 @@ type ReplaySweepRun struct {
 	Defenders     int         `json:"defenders"`
 	TrialRuns     []ReplayRun `json:"trial_runs"`
 	FramesPacked  string      `json:"frames_packed"`
+
+	GenomeSwitches []int `json:"genome_switches,omitempty"`
 }
 
 type JobMeta struct {

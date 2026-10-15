@@ -316,6 +316,10 @@ trials keep a recording at all. The rest are graded but not replayable, and the 
 their cells accordingly. Stream mode (Levels 1 and 2) is the exception: every placement trial
 and every sweep run keeps a recording.
 
+## Genome schedules
+
+A job may carry a `genome_schedule`. Stage 0 is the launch genome at the starting line size D; each later stage switches at a defender count n. The worker turns each into a share `n / D` (`genomeStages` in `internal/worker/types.go`) and, every time a capture removes a defender, reprograms the survivors with the latest stage whose share the line has fallen to (`internal/bench/genome.go`). Using the share rather than n keeps a switch meaningful at every ring size in the sweep. Each run reports how many switches happened in its stats and, when it is recorded, the frame of each switch in `genome_switches`, which the site uses to recolor the defenders.
+
 ## Evader scaling (levels 2 and 3)
 
 With `D` the number of defenders in a run (the submitted layout, or the ring size `n` in the
