@@ -375,6 +375,7 @@
 					<th>Trials</th>
 					<th>Rate</th>
 					<th>XP</th>
+					<th>Coins</th>
 					<th>Created</th>
 					<th>Actions</th>
 				</tr>
@@ -398,6 +399,7 @@
 						<td>{entry.trials ?? '—'}</td>
 						<td>{rate(entry.success_rate)}</td>
 						<td>{entry.xp_awarded ?? '—'}</td>
+						<td>{entry.coins_awarded ?? '—'}</td>
 						<td>{when(entry.created_at)}</td>
 						<td>
 							<div class="actions">
@@ -440,7 +442,7 @@
 						</td>
 					</tr>
 				{:else}
-					<tr><td colspan="11">No entries.</td></tr>
+					<tr><td colspan="12">No entries.</td></tr>
 				{/each}
 			</tbody>
 		</table>

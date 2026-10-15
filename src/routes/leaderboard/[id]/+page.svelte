@@ -21,6 +21,7 @@
 		status: string;
 		success_rate: number | null;
 		xp_awarded: number | null;
+		coins_awarded?: number | null;
 		game_version?: string;
 		created_at: string;
 	}
@@ -151,7 +152,9 @@
 						<span class="entry-result">
 							{entry.success_rate != null
 								? `${entry.success_rate}% ${entry.is_attack ? 'evasion' : 'detection'}`
-								: 'pending'} · {entry.xp_awarded != null ? `${entry.xp_awarded} XP` : 'unclaimed'}
+								: 'pending'} · {entry.xp_awarded != null
+									? `${entry.xp_awarded} XP, ${entry.coins_awarded ?? 0} coins`
+									: 'unclaimed'}
 						</span>
 						<span class="entry-version">{entry.game_version ?? 'v0.0.4'}</span>
 						<span class="badge {statusClass(entry.status)}">{entry.status}</span>
