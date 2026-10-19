@@ -20,11 +20,11 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '1',
 		name: 'Level 1',
 		subtitle: 'Defense',
-		tagline: 'Place up to six defenders and spot ten incoming evaders.',
+		tagline: 'Place up to twenty defenders and spot ten incoming evaders.',
 		piloted: false,
 		variant: 'blue',
 		summary:
-			'Place up to six defenders around the planet and program how they sweep. Ten evaders come in one after another, and any evader a defender spots vanishes. Scored on the share spotted, with the average circliness of the defenders mill by mill.',
+			'Place up to twenty defenders around the planet and program how they sweep. Ten evaders come in one after another, and any evader a defender spots vanishes. Scored on the share spotted, with the average circliness of the defenders mill by mill.',
 		rateLabel: 'spot rate'
 	},
 	{

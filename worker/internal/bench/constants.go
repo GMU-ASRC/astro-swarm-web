@@ -14,7 +14,7 @@ const (
 	PlanetRadius = 120.0  // pixels
 	GoalMargin   = 16.0   // pixels past PlanetRadius that still counts as reaching the planet
 
-	MaxDefenders = 6     // count, largest hand placed defender layout
+	MaxDefenders = 20    // count, largest hand placed defender layout
 	EnemySpeed   = 105.0 // pixels/second (2.625 m/s)
 
 	DefaultTrials          = 100       // count, trials per benchmark run
