@@ -103,16 +103,26 @@ class EvaluationSubmit:
             if len(self.placements) not in defender_options:
                 choices = ", ".join(str(count) for count in defender_options)
                 raise ValueError("placements must hold one of %s defenders" % choices)
-        elif len(self.placements) > DEFAULT_PLACEMENT_LIMIT:
-            raise ValueError("placements must not exceed %d defenders" % DEFAULT_PLACEMENT_LIMIT)
+        elif len(self.placements) > placement_limit_for(self.level_id):
+            raise ValueError("placements must not exceed %d defenders" % placement_limit_for(self.level_id))
         self.trials = max(100, int(self.trials))
         if self.trials > 500:
             raise ValueError("trials must not exceed 500")
 
 
 DEFAULT_PLACEMENT_LIMIT = 6
+PLACEMENT_LIMITS = {"farp1": 20}
 SCATTER_DEFENDER_COUNTS = (5, 25, 50, 100, 250, 500)
-DEFENDER_COUNT_OPTIONS = {"farp2": SCATTER_DEFENDER_COUNTS, "farp3": SCATTER_DEFENDER_COUNTS}
+ATTRITION_DEFENDER_COUNTS = (5, 10, 15, 20)
+DEFENDER_COUNT_OPTIONS = {
+    "farp2": SCATTER_DEFENDER_COUNTS,
+    "farp3": SCATTER_DEFENDER_COUNTS,
+    "farp4": ATTRITION_DEFENDER_COUNTS,
+}
+
+
+def placement_limit_for(level_id):
+    return PLACEMENT_LIMITS.get(level_id, DEFAULT_PLACEMENT_LIMIT)
 
 MAX_RUN_SECONDS = 180
 MAX_RUN_FPS = 60
