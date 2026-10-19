@@ -13,6 +13,14 @@ const (
 	levyLongestStep  = 3.0 // seconds, longest random walk leg
 )
 
+func (s *Ship) turnCommandFor(params map[string]any) float64 {
+	value := blocks.ParamFloat(params, "value", 90.0)
+	if blocks.ParamString(params, "unit", "degrees") == "percent" {
+		return s.TurnRate * godot.Clamp(value, 0.0, 100.0) / 100.0
+	}
+	return math.Min(godot.DegToRad(value), s.TurnRate)
+}
+
 func (s *Ship) ExecAction(blockType string, params map[string]any, delta float64, state *blocks.ActionState) bool {
 	if blockType == "set_var_random" {
 		low := int64(blocks.ParamFloat(params, "min", 0.0))
@@ -53,10 +61,10 @@ func (s *Ship) ExecAction(blockType string, params map[string]any, delta float64
 		state.Remaining -= delta
 		return state.Remaining <= 0.0
 	case "turn_left":
-		s.turnCommand = -godot.DegToRad(blocks.ParamFloat(params, "value", 90.0))
+		s.turnCommand = -s.turnCommandFor(params)
 		return blocks.Done
 	case "turn_right":
-		s.turnCommand = godot.DegToRad(blocks.ParamFloat(params, "value", 90.0))
+		s.turnCommand = s.turnCommandFor(params)
 		return blocks.Done
 	case "turn_left_by":
 		s.turnCommand = 0.0

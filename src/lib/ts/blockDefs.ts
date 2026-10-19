@@ -105,8 +105,8 @@ const BLOCK_DEFS: Record<string, BlockDef> = {
 	do_stop: { label: 'Stop', category: 'action' },
 	do_wander: { label: 'Wander randomly', category: 'action' },
 	do_random_walk: { label: 'Random walk', category: 'action' },
-	do_turn_left: { label: 'Turn left at', category: 'action', suffix: '°/s', step: 5 },
-	do_turn_right: { label: 'Turn right at', category: 'action', suffix: '°/s', step: 5 },
+	do_turn_left: { label: 'Turn left at', category: 'action', parts: ['Turn left at', '$value:number', '$unit:turn_unit'] },
+	do_turn_right: { label: 'Turn right at', category: 'action', parts: ['Turn right at', '$value:number', '$unit:turn_unit'] },
 	do_turn_left_by: { label: 'Turn left by', category: 'action', suffix: '°', step: 1 },
 	do_turn_right_by: { label: 'Turn right by', category: 'action', suffix: '°', step: 1 },
 	do_face: { label: 'Face the target', category: 'action' },
@@ -116,6 +116,10 @@ const BLOCK_DEFS: Record<string, BlockDef> = {
 	do_stop_sim: { label: 'Stop simulation', category: 'action' },
 	do_pause_sim: { label: 'Pause simulation', category: 'action' }
 };
+
+const TURN_UNIT_LABELS: Record<string, string> = { degrees: '°/s', percent: '% of turn rate' };
+
+const PART_DEFAULTS: Record<string, string> = { turn_unit: 'degrees' };
 
 const OPERATOR_SYMBOLS: Record<string, string> = { '!=': '≠', '<=': '≤', '>=': '≥' };
 
@@ -146,7 +150,7 @@ export function blockParts(block: Block, names: BlockNames = {}): BlockPart[] {
 			continue;
 		}
 		const [key, format = 'plain'] = piece.slice(1).split(':');
-		const value = params[key];
+		const value = params[key] ?? PART_DEFAULTS[format];
 		if (value === undefined || value === null || value === '') continue;
 		parts.push({ kind: 'value', text: formatValue(value, format, def, names) });
 	}
@@ -157,7 +161,7 @@ function formatValue(value: unknown, format: string, def: BlockDef, names: Block
 	switch (format) {
 		case 'single':
 			if (typeof value !== 'number') return names.species?.[String(value)] ?? String(value);
-			return `${value.toFixed((def.step ?? 1) >= 1 ? 0 : 1)}${def.suffix ?? ''}`;
+			return `${trimNumber(value)}${def.suffix ?? ''}`;
 		case 'seconds':
 			return typeof value === 'number' ? trimNumber(value) : String(value);
 		case 'number':
@@ -166,6 +170,8 @@ function formatValue(value: unknown, format: string, def: BlockDef, names: Block
 			return names.species?.[String(value)] ?? String(value);
 		case 'zone':
 			return names.zones?.[String(value)] ?? `Zone ${Number(value) + 1}`;
+		case 'turn_unit':
+			return TURN_UNIT_LABELS[String(value)] ?? String(value);
 		case 'operator':
 			return OPERATOR_SYMBOLS[String(value)] ?? String(value);
 		case 'target':
