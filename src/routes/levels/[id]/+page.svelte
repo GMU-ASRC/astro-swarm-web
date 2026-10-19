@@ -657,7 +657,7 @@
 						{#each genomeStages as stage, index}
 							<div class="card algorithm genome-stage">
 								<div class="genome-stage-head">
-									<span class="genome-swatch" style={`background:${genomeStageColor(index)}`}></span>
+									<span class="genome-swatch" style={`background:${stage.color ? `#${stage.color}` : genomeStageColor(index)}`}></span>
 									<strong>{stage.name}</strong>
 									<span class="genome-stage-at">
 										{index === 0 ? `From launch, n = ${stage.at_defenders}` : `Switched at n = ${stage.at_defenders}`}

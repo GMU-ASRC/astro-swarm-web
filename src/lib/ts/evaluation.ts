@@ -129,6 +129,7 @@ export interface PlacementInfo {
 
 export interface GenomeStage {
 	name: string;
+	color?: string;
 	at_defenders: number;
 	algorithm: any[];
 }

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -40,6 +41,7 @@ class LeaderboardSubmit:
 GENOME_SWITCH_LEVELS = ("farp4", "farp5", "farp8")
 MAX_GENOME_STAGES = 9
 GENOME_NAME_MAX_LENGTH = 24
+GENOME_COLOR_PATTERN = re.compile(r"^[0-9a-fA-F]{6}$")
 
 
 def validate_genome_schedule(schedule, level_id):
@@ -58,6 +60,9 @@ def validate_genome_schedule(schedule, level_id):
             raise ValueError("genome stage name must be between 1 and %d characters" % GENOME_NAME_MAX_LENGTH)
         if not isinstance(stage.get("algorithm"), list):
             raise ValueError("genome stage algorithm must be a list")
+        color = stage.get("color")
+        if color is not None and (not isinstance(color, str) or not GENOME_COLOR_PATTERN.match(color)):
+            raise ValueError("genome stage color must be a six digit hex color")
         at_defenders = stage.get("at_defenders")
         if isinstance(at_defenders, bool) or not isinstance(at_defenders, int) or at_defenders < 0:
             raise ValueError("genome stage at_defenders must be a whole number")
