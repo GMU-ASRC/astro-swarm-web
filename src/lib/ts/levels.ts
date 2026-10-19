@@ -23,7 +23,7 @@ export const TRAINING_LEVEL: LevelInfo = {
 	piloted: false,
 	variant: 'purple',
 	summary:
-		'Dr. Blob walks through sensors, chasing and milling, then hands over a sandbox. Place up to twenty defenders, program them in the workspace and run the swarm. Holding a circliness of 0.5 unlocks Level 1. Every run is scored on its average circliness over the first 30 seconds, and each commander keeps their best score on the leaderboard.',
+		'Dr. Blob walks through sensors, chasing and milling, then hands over a sandbox. Place up to twenty defenders, program them in the workspace and run the swarm. Averaging over 0.5 circliness for 10 seconds unlocks Level 1. Keep the swarm running to push the score higher: the leaderboard keeps each commander's best 10 second average.',
 	rateLabel: 'circliness'
 };
 

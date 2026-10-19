@@ -26,7 +26,7 @@
 {#if shown.length === 0}
 	<div class="notice">
 		{rows.length === 0
-			? 'No training scores yet. Run the sandbox in game for 30 seconds to appear here.'
+			? 'No training scores yet. Run the sandbox in game for 10 seconds to appear here.'
 			: 'No commanders match that search.'}
 	</div>
 {:else}
