@@ -63,7 +63,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'red',
 		summary:
-			'Five scattered defenders face evaders one at a time, each from a fresh bearing, and a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
+			'Five to twenty scattered defenders face evaders one at a time, each from a fresh bearing, and a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
 		rateLabel: 'capture success rate'
 	},
 	{
