@@ -36,6 +36,10 @@ export function genomeStageColor(stage: number): string {
 	return GENOME_STAGE_COLORS[Math.min(Math.max(stage, 0), GENOME_STAGE_COLORS.length - 1)];
 }
 
+export function replayGenomeColor(replay: Replay, stage: number): string {
+	return replay.genome_colors?.[stage] ?? genomeStageColor(stage);
+}
+
 export function genomeStage(replay: Replay, frameIndex: number): number {
 	let stage = 0;
 	for (const switchFrame of replay.genome_switches ?? []) {
@@ -48,7 +52,7 @@ export function genomeStage(replay: Replay, frameIndex: number): number {
 // player-flown leader, so they are colored by group instead of by team.
 export function shipColor(replay: Replay, mode: ReplayMode, slot: number, frameIndex = 0): string {
 	if (mode !== 'swarm') {
-		return slot >= replay.defenders ? EVADER : genomeStageColor(genomeStage(replay, frameIndex));
+		return slot >= replay.defenders ? EVADER : replayGenomeColor(replay, genomeStage(replay, frameIndex));
 	}
 	if (slot >= replay.defenders) return LEADER;
 	return slot < replay.defenders / 2 ? SWARM_A : SWARM_B;

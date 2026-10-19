@@ -217,5 +217,6 @@ export interface Replay {
 	arena: [number, number];
 	stats?: RunStats;
 	genome_switches?: number[];
+	genome_colors?: (string | null)[];
 	frames: number[][];
 }

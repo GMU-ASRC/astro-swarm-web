@@ -339,6 +339,13 @@ class PlayerEvaluation(db.Model):
             ],
         }
 
+    def _genome_colors(self):
+        colors = []
+        for stage in self.genome_schedule or []:
+            color = stage.get("color") if isinstance(stage, dict) else None
+            colors.append("#" + color if isinstance(color, str) else None)
+        return colors
+
     def replay_for(self, trial: int):
         replays = self._cached_replays()
         for run in replays.get("runs", []):
@@ -361,6 +368,7 @@ class PlayerEvaluation(db.Model):
                     "arena": replays.get("arena"),
                     "stats": run.get("stats", {}),
                     "genome_switches": run.get("genome_switches", []),
+                    "genome_colors": self._genome_colors(),
                     "frames": frames,
                 }
         return None
@@ -429,6 +437,7 @@ class PlayerEvaluation(db.Model):
                 "planet": replays.get("planet"),
                 "arena": replays.get("arena"),
                 "genome_switches": entry.get("genome_switches", []),
+                "genome_colors": self._genome_colors(),
                 "frames": frames,
             }
         return None
@@ -452,6 +461,7 @@ class PlayerEvaluation(db.Model):
                     "planet": replays.get("planet"),
                     "arena": replays.get("arena"),
                     "genome_switches": run.get("genome_switches", []),
+                    "genome_colors": self._genome_colors(),
                     "frames": frames,
                 }
         return None
