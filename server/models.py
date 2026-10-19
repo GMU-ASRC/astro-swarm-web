@@ -612,6 +612,35 @@ class SurviveMatch(db.Model):
         return data
 
 
+class TrainingScore(db.Model):
+    __tablename__ = "training_scores"
+
+    id = db.Column(db.String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    player_id = db.Column(db.String(36), unique=True, nullable=False)
+    username = db.Column(db.String(30), nullable=False)
+    game_version = db.Column(db.String(20), default="v0.0.9")
+    circliness = db.Column(db.Float, nullable=False)
+    defenders = db.Column(db.Integer, default=0)
+    algorithm = db.Column(db.JSON, default=list)
+    placements = db.Column(db.JSON, default=list)
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self, rank=None):
+        return {
+            "id": self.id,
+            "rank": rank,
+            "player_id": self.player_id,
+            "username": self.username,
+            "circliness": round(self.circliness, 4),
+            "defenders": self.defenders or 0,
+            "game_version": self.game_version,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class LeaderboardEntry(db.Model):
     __tablename__ = "leaderboard_entries"
 

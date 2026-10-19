@@ -20,6 +20,7 @@ from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
 from routers.simulator import simulator_bp
 from routers.survive import survive_bp
+from routers.training import training_bp
 from routers.version import version_bp
 from routers.workers import workers_bp
 
@@ -149,6 +150,7 @@ def create_app():
     app.register_blueprint(version_bp)
     app.register_blueprint(evaluations_bp)
     app.register_blueprint(survive_bp)
+    app.register_blueprint(training_bp)
     app.register_blueprint(simulator_bp)
     app.register_blueprint(workers_bp)
     app.register_blueprint(admin_bp)

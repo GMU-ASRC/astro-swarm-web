@@ -13,6 +13,20 @@ export interface LevelInfo {
 	rateLabel: string;
 }
 
+export const TRAINING_LEVEL: LevelInfo = {
+	number: 0,
+	id: 'farp0',
+	slug: '0',
+	name: 'Level 0',
+	subtitle: 'Training',
+	tagline: 'Place up to twenty defenders and get them circling the planet together.',
+	piloted: false,
+	variant: 'purple',
+	summary:
+		'Dr. Blob walks through sensors, chasing and milling, then hands over a sandbox. Place up to twenty defenders, program them in the workspace and run the swarm. Holding a circliness of 0.5 unlocks Level 1. Every run is scored on its average circliness over the first 30 seconds, and each commander keeps their best score on the leaderboard.',
+	rateLabel: 'circliness'
+};
+
 export const FARP_LEVELS: LevelInfo[] = [
 	{
 		number: 1,

@@ -2,10 +2,12 @@
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
 	import type { PlayerListItem } from '$lib/ts/evaluation';
-	import { FARP_LEVELS, canonicalLevelId, type LevelInfo } from '$lib/ts/levels';
+	import { FARP_LEVELS, TRAINING_LEVEL, canonicalLevelId, type LevelInfo } from '$lib/ts/levels';
+	import { circlinessText, type TrainingScoreRow } from '$lib/ts/training';
 
 	interface PageData {
 		playersPromise: Promise<{ players: PlayerListItem[]; apiError: boolean }>;
+		trainingPromise: Promise<{ rows: TrainingScoreRow[]; apiError: boolean }>;
 	}
 
 	let { data }: { data: PageData } = $props();
@@ -13,6 +15,22 @@
 	let players = $state<PlayerListItem[]>([]);
 	let apiError = $state(false);
 	let loading = $state(true);
+	let trainingRows = $state<TrainingScoreRow[]>([]);
+	let trainingLoading = $state(true);
+	let bestTraining = $derived(trainingRows.length > 0 ? trainingRows[0].circliness : null);
+
+	$effect(() => {
+		let active = true;
+		trainingLoading = true;
+		data.trainingPromise.then((result) => {
+			if (!active) return;
+			trainingRows = result.rows;
+			trainingLoading = false;
+		});
+		return () => {
+			active = false;
+		};
+	});
 
 	$effect(() => {
 		let active = true;
@@ -65,6 +83,34 @@
 		{#if apiError}
 			<div class="notice notice-error">Communication error. Unable to load level data.</div>
 		{/if}
+
+		<a href={`/gamemodes/levels/${TRAINING_LEVEL.slug}`} class="card-link level">
+			<div class="level-art">
+				<Spaceship variant={TRAINING_LEVEL.variant} size="64" />
+			</div>
+
+			<div class="level-body">
+				<div class="level-title">
+					<h2 class="level-name">{TRAINING_LEVEL.name}</h2>
+					<span class="badge">{TRAINING_LEVEL.subtitle}</span>
+				</div>
+				<p class="level-summary">{TRAINING_LEVEL.tagline}</p>
+			</div>
+
+			<div class="level-numbers">
+				<div>
+					<div class="level-value">{trainingLoading ? '—' : trainingRows.length}</div>
+					<div class="level-caption">commanders</div>
+				</div>
+				<div>
+					<div class="level-value">
+						{trainingLoading || bestTraining === null ? '—' : circlinessText(bestTraining)}
+					</div>
+					<div class="level-caption">best {TRAINING_LEVEL.rateLabel}</div>
+				</div>
+				<Icon icon="ph:arrow-right-bold" width="16" color="var(--color-brand)" />
+			</div>
+		</a>
 
 		{#each FARP_LEVELS as level}
 			{@const entries = entriesFor(level)}

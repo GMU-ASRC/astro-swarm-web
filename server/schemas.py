@@ -111,6 +111,7 @@ class EvaluationSubmit:
 
 
 DEFAULT_PLACEMENT_LIMIT = 6
+TRAINING_PLACEMENT_LIMIT = 20
 PLACEMENT_LIMITS = {"farp1": 20}
 SCATTER_DEFENDER_COUNTS = (5, 25, 50, 100, 250, 500)
 ATTRITION_DEFENDER_COUNTS = (5, 10, 15, 20)
@@ -123,6 +124,35 @@ DEFENDER_COUNT_OPTIONS = {
 
 def placement_limit_for(level_id):
     return PLACEMENT_LIMITS.get(level_id, DEFAULT_PLACEMENT_LIMIT)
+
+@dataclass
+class TrainingScoreSubmit:
+    player_id: str
+    username: str
+    circliness: float
+    algorithm: list = field(default_factory=list)
+    placements: list = field(default_factory=list)
+    game_version: str = "v0.0.9"
+
+    def __post_init__(self):
+        if not isinstance(self.player_id, str) or len(self.player_id) != 36:
+            raise ValueError("player_id must be exactly 36 characters")
+        if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
+            raise ValueError("username must be between 1 and 30 characters")
+        if isinstance(self.circliness, bool) or not isinstance(self.circliness, (int, float)):
+            raise ValueError("circliness must be a number")
+        if not (0.0 <= self.circliness <= 1.0):
+            raise ValueError("circliness must be between 0 and 1")
+        self.circliness = float(self.circliness)
+        if not isinstance(self.game_version, str) or len(self.game_version) > 20:
+            raise ValueError("game_version must be a string up to 20 characters")
+        if not isinstance(self.algorithm, list):
+            raise ValueError("algorithm must be a list")
+        if not isinstance(self.placements, list):
+            raise ValueError("placements must be a list")
+        if not (2 <= len(self.placements) <= TRAINING_PLACEMENT_LIMIT):
+            raise ValueError("placements must hold between 2 and %d defenders" % TRAINING_PLACEMENT_LIMIT)
+
 
 MAX_RUN_SECONDS = 180
 MAX_RUN_FPS = 60
