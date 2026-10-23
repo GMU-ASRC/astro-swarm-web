@@ -86,11 +86,11 @@ export const FARP_LEVELS: LevelInfo[] = [
 		slug: '5',
 		name: 'Level 5',
 		subtitle: 'Siege',
-		tagline: 'Five evaders strike at once and five defenders must stop them all.',
+		tagline: 'Five evaders strike at once and five to twenty defenders must stop them all.',
 		piloted: false,
 		variant: 'purple',
 		summary:
-			'No waves. Five evaders spawn at once around the edges of the arena and all drive at the planet, arriving in a stagger. Attrition is on, so five defenders have to make five clean trades.',
+			'No waves. Five evaders spawn at once around the edges of the arena and all drive at the planet, arriving in a stagger. Attrition is on, so every capture costs a defender, and a line of five to twenty has to make five clean trades.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -98,48 +98,62 @@ export const FARP_LEVELS: LevelInfo[] = [
 		id: 'farp6',
 		slug: '6',
 		name: 'Level 6',
-		subtitle: 'Pilot',
-		tagline: 'Fly the evader yourself against the best Level 2 algorithm.',
+		subtitle: 'Swarm',
+		tagline: 'Lead two milling swarms together and walk the mill onto the planet.',
 		piloted: true,
-		variant: 'red',
+		variant: 'purple',
 		summary:
-			'You fly the evader yourself against the best submitted Level 2 algorithm. Each entry is a single recorded flight rather than a benchmark.',
-		rateLabel: 'goal reached'
+			'Two milling swarms and one human-flown leader. Each agent sees in a 90° cone out to 4.25 m. Holding the two groups merged for one second passes the level; the full run walks the mill onto the planet and leaves without breaking it. Each entry is a recorded flight scored on a milling loss.',
+		rateLabel: 'passed'
 	},
 	{
 		number: 7,
 		id: 'farp7',
 		slug: '7',
 		name: 'Level 7',
-		subtitle: 'Swarm',
-		tagline: 'Lead two milling swarms together and walk the mill onto the planet.',
+		subtitle: 'Supply',
+		tagline: 'Fly a shuttle to split defenders between two planets under attack.',
 		piloted: true,
-		variant: 'purple',
+		variant: 'gold',
 		summary:
-			'Two milling swarms and one human-flown leader. Merge the groups, walk the mill onto the planet and leave without breaking it. Each entry is a recorded flight scored on a milling loss.',
-		rateLabel: 'swarm delivered'
+			'Two planets on two separate seeds. Pick 10 or 25 defenders; they all start on planet A and planet B starts empty, and each planet is attacked by half as many evaders as the line holds (5 or 12). Attrition is on, so a capture destroys the defender as well as the evader. The defenders run the submitted algorithm during the deployment window too, and the player flies a shuttle their sensors read as an ally, steering them with their own sees-ally rule and leading them through the jump gate between the planets, or calling them across, before the window closes. Then both planets are attacked at once, each evader landing on a planet picked at random, with the gates still open and the shuttle still flying. Each entry is a recorded flight scored on the share of evaders stopped across the pair.',
+		rateLabel: 'evaders stopped'
 	},
 	{
 		number: 8,
 		id: 'farp8',
 		slug: '8',
 		name: 'Level 8',
-		subtitle: 'Supply',
-		tagline: 'Fly a shuttle to split defenders between two planets under attack.',
+		subtitle: 'Triad',
+		tagline: 'Split one line across three planets through two jump gates.',
 		piloted: true,
-		variant: 'gold',
+		variant: 'green',
 		summary:
-			'Two planets on two separate seeds. Ten defenders start on planet A and planet B starts empty, and both are attacked by five evaders each. The defenders run the submitted algorithm during the deployment window too, and the player flies a shuttle their sensors read as an ally, steering them with their own sees-ally rule and calling them across between the planets before the window closes, then both assaults play out back to back on that split with the shuttle still flying. Each entry is a recorded flight scored on the share of evaders stopped across the pair.',
+			'Level 7 across three planets. Planet A is the hub: its right edge is the jump gate to planet B and its bottom edge the gate to planet C, and each of those gates straight back to A. Pick 10, 25 or 50 defenders; they all start on planet A, each planet is attacked by a third as many evaders as the line holds (3, 8 or 16), and attrition is on. The player steers the line with the shuttle during the deployment window, then all three planets are attacked at once, each evader landing on a planet picked at random. Each entry is a recorded flight scored on the share of evaders stopped across all three.',
 		rateLabel: 'evaders stopped'
 	}
 ];
 
-export const PILOT_LEVELS = [6, 7, 8];
+export const HIDDEN_PILOT_LEVEL: LevelInfo = {
+	number: 9,
+	id: 'farp9',
+	slug: '9',
+	name: 'Pilot',
+	subtitle: 'Evasion',
+	tagline: 'Fly the evader yourself against the best Level 2 algorithm.',
+	piloted: true,
+	variant: 'red',
+	summary:
+		'You fly the evader yourself against the best submitted Level 2 algorithm. Each entry is a single recorded flight rather than a benchmark. This level is no longer listed in the game.',
+	rateLabel: 'goal reached'
+};
+
+export const PILOT_LEVELS = [6, 7, 8, 9];
 export const ASSAULT_LEVELS = [1, 2, 3, 4, 5];
 export const STREAM_LEVELS = [1, 2];
 export const ATTRITION_LEVELS = [4, 5];
-export const SWARM_LEVEL = 7;
-export const SUPPLY_LEVEL = 8;
+export const SWARM_LEVEL = 6;
+export const SUPPLY_LEVELS = [7, 8];
 
 export function canonicalLevelId(levelId: string): string {
 	if (!levelId || levelId === 'farp') return 'farp1';
@@ -152,7 +166,7 @@ export function levelBySlug(slug: string): LevelInfo | undefined {
 
 export function levelById(levelId: string): LevelInfo | undefined {
 	const canonical = canonicalLevelId(levelId);
-	return FARP_LEVELS.find((level) => level.id === canonical);
+	return [...FARP_LEVELS, HIDDEN_PILOT_LEVEL].find((level) => level.id === canonical);
 }
 
 export function levelNumber(levelId: string | null | undefined): number {
@@ -169,7 +183,7 @@ export function isSwarm(level: number): boolean {
 }
 
 export function isSupply(level: number): boolean {
-	return level === SUPPLY_LEVEL;
+	return SUPPLY_LEVELS.includes(level);
 }
 
 export function isAssault(level: number): boolean {
@@ -185,9 +199,9 @@ export function hasAttrition(level: number): boolean {
 }
 
 export function levelName(level: number): string {
-	if (isSupply(level)) return `Level ${level} · Supply`;
+	if (isSupply(level)) return `Level ${level} · ${level === 8 ? 'Triad' : 'Supply'}`;
 	if (isSwarm(level)) return `Level ${level} · Swarm`;
-	if (isPilot(level)) return `Level ${level} · Evasion`;
+	if (level === HIDDEN_PILOT_LEVEL.number) return 'Pilot · Evasion';
 	if (level === 5) return `Level ${level} · Siege`;
 	if (isStream(level)) return `Level ${level} · ${level === 2 ? 'Scatter' : 'Defense'}`;
 	if (isAssault(level)) return `Level ${level} · Waves`;

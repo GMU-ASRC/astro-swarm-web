@@ -123,7 +123,7 @@
 	<SettingsSection
 		id="recorded-runs"
 		title="Recorded runs"
-		description="Levels 6 to 8 are flown by the player, so nothing is simulated. These limits are checked on upload."
+		description="Levels 6 and 7 and the hidden pilot level are flown by the player, so nothing is simulated. These limits are checked on upload."
 	>
 		<RecordedRunLimits {settings} />
 	</SettingsSection>

@@ -23,7 +23,7 @@
 		attritionRiskConfig,
 		sweepAttritionConfig,
 	} from '$lib/ts/levelCharts';
-	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
+	import { swarmOutcomeLabel, supplyOutcomeLabel, supplyPlanetCount, type PlayerEvaluation, type Replay } from '$lib/ts/evaluation';
 	import { EVADER_CONFIG, PILOT_EVADER_CONFIG, LEADER_CONFIG, configRows, defenderConfig } from '$lib/ts/shipConfig';
 	import { FARP_LEVELS, levelById } from '$lib/ts/levels';
 
@@ -109,6 +109,7 @@
 
 	let stats = $derived.by(() => ev.results?.stats ?? selectedReplay?.stats ?? {});
 	let supplyHeld = $derived(pilotOutcome === 'win');
+	let supplyPlanets = $derived(supplyPlanetCount(stats));
 
 	let placementGroups = $derived<ReplayGroup[]>([
 		{
@@ -343,21 +344,35 @@
 				{#if isSupply}
 					<div class="headline">
 						<div class="headline-value" class:won={supplyHeld} class:lost={!supplyHeld}>
-							{supplyHeld ? 'Both planets held' : 'Line broken'}
+							{supplyOutcomeLabel(pilotOutcome, stats)}
 						</div>
 						<div class="headline-label">
-							{ev.results?.evaders_destroyed ?? 0} of {ev.results?.evaders_resolved ?? 0} evaders stopped across the pair
+							{ev.results?.evaders_destroyed ?? 0} of {ev.results?.evaders_resolved ?? 0} evaders stopped across {supplyPlanets > 2 ? `all ${supplyPlanets} planets` : 'the pair'}
 						</div>
 					</div>
 
 					<div class="stat-grid">
+						<div class="stat">
+							<div class="stat-value">{stats.defenders_total ?? 10}</div>
+							<div class="stat-label">Defenders fielded</div>
+						</div>
 						<div class="stat">
 							<div class="stat-value">{stats.defenders_a ?? 0}</div>
 							<div class="stat-label">Defenders left on planet A</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{stats.defenders_b ?? 0}</div>
-							<div class="stat-label">Defenders called across to planet B</div>
+							<div class="stat-label">Defenders moved to planet B</div>
+						</div>
+						{#if supplyPlanets > 2}
+							<div class="stat">
+								<div class="stat-value">{stats.defenders_c ?? 0}</div>
+								<div class="stat-label">Defenders moved to planet C</div>
+							</div>
+						{/if}
+						<div class="stat">
+							<div class="stat-value">{(stats.lost_a ?? 0) + (stats.lost_b ?? 0) + (stats.lost_c ?? 0)}</div>
+							<div class="stat-label">Defenders lost in captures</div>
 						</div>
 						<div class="stat">
 							<div class="stat-value">{stats.breached_a ?? 0}</div>
@@ -367,6 +382,12 @@
 							<div class="stat-value">{stats.breached_b ?? 0}</div>
 							<div class="stat-label">Evaders through on planet B</div>
 						</div>
+						{#if supplyPlanets > 2}
+							<div class="stat">
+								<div class="stat-value">{stats.breached_c ?? 0}</div>
+								<div class="stat-label">Evaders through on planet C</div>
+							</div>
+						{/if}
 						<div class="stat">
 							<div class="stat-value">{ev.results?.crossings ?? stats.trips ?? 0}</div>
 							<div class="stat-label">Jump gate crossings flown</div>
@@ -379,7 +400,7 @@
 				{:else if isSwarm}
 					<div class="headline">
 						<div class="headline-value" class:won={pilotOutcome === 'win'} class:lost={pilotOutcome !== 'win'}>
-							{pilotOutcome === 'win' ? 'Swarm delivered' : 'Out of time'}
+							{swarmOutcomeLabel(pilotOutcome, stats)}
 						</div>
 						<div class="headline-label">Piloted swarm run</div>
 					</div>
@@ -608,8 +629,8 @@
 						<h2 class="section-title">Recorded flight</h2>
 						<p class="block-note">
 							{#if isSupply}
-								Both assaults back to back, rendered from the movement recorded in game: planet A
-								first, then planet B, each with the share of the force the player left there.
+								The assault as the player saw it, rendered from the movement recorded in game. Every
+								planet is fought at once, and the recording follows whichever planet the shuttle was on.
 							{:else}
 								The player's own flight, rendered from the movement recorded in game.
 							{/if}

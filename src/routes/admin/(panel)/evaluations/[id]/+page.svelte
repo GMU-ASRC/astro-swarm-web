@@ -12,7 +12,7 @@
 		attritionRiskConfig,
 		sweepAttritionConfig,
 	} from '$lib/ts/levelCharts';
-	import type { PlayerEvaluation, Replay } from '$lib/ts/evaluation';
+	import { swarmOutcomeLabel, supplyOutcomeLabel, type PlayerEvaluation, type Replay } from '$lib/ts/evaluation';
 	import {
 		isPilot as pilotLevel,
 		isSwarm as swarmLevel,
@@ -98,8 +98,8 @@
 
 	let pilotOutcomeLabel = $derived.by(() => {
 		const outcome = outcomes[0] ?? 'timeout';
-		if (isSupply) return outcome === 'win' ? 'Both planets held' : 'Line broken';
-		if (isSwarm) return outcome === 'win' ? 'Swarm delivered' : 'Out of time';
+		if (isSupply) return supplyOutcomeLabel(outcome, ev?.results?.stats ?? selectedReplay?.stats ?? {});
+		if (isSwarm) return swarmOutcomeLabel(outcome, ev?.results?.stats ?? selectedReplay?.stats ?? {});
 		if (outcome === 'win') return 'Planet reached';
 		return outcome === 'lose' ? 'Caught' : 'Out of time';
 	});

@@ -31,15 +31,16 @@ LEVELS = [
 # Levels whose entries are player-piloted runs: the worker renders the recorded
 # run into a replay instead of simulating anything.
 PILOT_LEVELS = [
-    {"id": "farp6", "name": "Level 6 - Evasion (Pilot)"},
-    {"id": "farp7", "name": "Level 7 - Swarm (Merge)"},
-    {"id": "farp8", "name": "Level 8 - Supply (Allocation)"},
+    {"id": "farp6", "name": "Level 6 - Swarm (Merge)"},
+    {"id": "farp7", "name": "Level 7 - Supply (Allocation)"},
+    {"id": "farp8", "name": "Level 8 - Triad (Three planets)"},
+    {"id": "farp9", "name": "Pilot - Evasion (Hidden)"},
 ]
 
-# Level 8 splits one force across two planets and records both assaults, so its
+# Level 7 splits one force across two planets and records both assaults, so its
 # entry carries two garrisons and two fights rather than one.
-SUPPLY_LEVELS = ["farp8"]
-SWARM_LEVELS = ["farp7"]
+SUPPLY_LEVELS = ["farp7", "farp8"]
+SWARM_LEVELS = ["farp6"]
 
 # Levels 1 to 5 grade a stream of evaders against one line rather than a single
 # approach, so they get their own trial and sweep budget.

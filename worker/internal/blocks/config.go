@@ -45,7 +45,7 @@ func ApplyConfigBlock(blockType string, params map[string]any, config *ShipConfi
 	case "set_view":
 		config.ViewDistance = ParamFloat(params, "value", config.ViewDistance/PixelsPerMeter) * PixelsPerMeter
 	case "set_fov":
-		config.FovDegrees = math.Min(180.0, ParamFloat(params, "value", config.FovDegrees))
+		config.FovDegrees = math.Max(0.0, math.Min(180.0, ParamFloat(params, "value", config.FovDegrees)))
 	case "set_size":
 		config.HullRadius = ParamFloat(params, "value", 6.0)
 	default:

@@ -8,7 +8,7 @@
 		LevelSweepEntry,
 		PlayerListItem
 	} from '$lib/ts/evaluation';
-	import { canonicalLevelId, hasAttrition, isStream, type LevelInfo } from '$lib/ts/levels';
+	import { canonicalLevelId, hasAttrition, isStream, isSupply, isSwarm, type LevelInfo } from '$lib/ts/levels';
 
 	type View = 'entries' | 'leaderboard' | 'comparison';
 
@@ -267,10 +267,10 @@
 										{level.piloted ? 'Rendering' : 'Benchmarking'} · {Math.round(
 											(player.progress ?? 0) * 100
 										)}%
-									{:else if level.piloted && level.number === 8}
+									{:else if level.piloted && isSupply(level.number)}
 										{player.success_rate ?? 0}% {level.rateLabel} · piloted run
-									{:else if level.piloted && level.number === 7}
-										{player.success_rate ? 'Swarm delivered' : 'Not delivered'} · piloted run
+									{:else if level.piloted && isSwarm(level.number)}
+										{player.success_rate ? 'Passed' : 'Not passed'} · piloted run
 									{:else if level.piloted}
 										{player.success_rate ? 'Planet reached' : 'No goal'} · piloted run
 									{:else if player.success_rate !== null && player.success_rate !== undefined}

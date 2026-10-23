@@ -101,7 +101,7 @@ def _assault_summary(runs):
     }
 
 
-# Level 8 splits one force across two planets and plays both assaults in one
+# Level 7 splits one force across two planets and plays both assaults in one
 # recording, so the headline is the share of evaders stopped across the pair
 # rather than a single win or loss.
 def _supply_summary(runs):
@@ -110,10 +110,11 @@ def _supply_summary(runs):
         return {}
 
     stats = supply[0]["stats"]
-    destroyed = int(stats.get("destroyed_a", 0)) + int(stats.get("destroyed_b", 0))
-    breaches = int(stats.get("breached_a", 0)) + int(stats.get("breached_b", 0))
+    letters = "abc"[: int(stats.get("planets", 2))]
+    destroyed = sum(int(stats.get("destroyed_" + letter, 0)) for letter in letters)
+    breaches = sum(int(stats.get("breached_" + letter, 0)) for letter in letters)
 
-    return {
+    summary = {
         "success_rate": round(float(stats.get("hold_rate", 0.0)), 1),
         "evader_destroyed_rate": round(float(stats.get("hold_rate", 0.0)), 1),
         "evaders_destroyed": destroyed,
@@ -122,8 +123,14 @@ def _supply_summary(runs):
         "defenders_a": int(stats.get("defenders_a", 0)),
         "defenders_b": int(stats.get("defenders_b", 0)),
         "defenders_delivered": int(stats.get("delivered", 0)),
+        "defenders_total": int(stats.get("defenders_total", 10)),
+        "defenders_lost": sum(int(stats.get("lost_" + letter, 0)) for letter in letters),
         "crossings": int(stats.get("trips", 0)),
+        "planets": len(letters),
     }
+    for letter in letters[2:]:
+        summary["defenders_" + letter] = int(stats.get("defenders_" + letter, 0))
+    return summary
 
 
 def _sweep_point(run):

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, NotFound
 
 from auth import require_admin
 from database import db
@@ -26,6 +26,14 @@ def get_leaderboard():
         .all()
     )
     return jsonify([score.to_dict(rank=index + 1) for index, score in enumerate(scores)]), 200
+
+
+@training_bp.get("/scores/<player_id>")
+def get_score(player_id):
+    score = TrainingScore.query.filter_by(player_id=player_id).first()
+    if score is None:
+        raise NotFound("Training score not found")
+    return jsonify(score.to_detail_dict()), 200
 
 
 @training_bp.post("/scores")

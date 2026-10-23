@@ -99,6 +99,14 @@ export interface RunStats {
 	lost?: number;
 	end_time?: number;
 	merge_time?: number;
+	defenders_total?: number;
+	evaders_per_planet?: number;
+	lost_a?: number;
+	lost_b?: number;
+	lost_c?: number;
+	planets?: number;
+	merge_passed?: number;
+	merge_pass_seconds?: number;
 	deliver_time?: number;
 	escape_time?: number;
 	minimum_loss?: number;
@@ -112,13 +120,30 @@ export interface RunStats {
 	escape_distance?: number;
 	defenders_a?: number;
 	defenders_b?: number;
+	defenders_c?: number;
 	destroyed_a?: number;
 	destroyed_b?: number;
+	destroyed_c?: number;
 	breached_a?: number;
 	breached_b?: number;
+	breached_c?: number;
 	delivered?: number;
 	trips?: number;
 	hold_rate?: number;
+}
+
+export function swarmOutcomeLabel(outcome: string, stats: RunStats): string {
+	if (outcome !== 'win') return 'Out of time';
+	return stats.delivered === 0 && stats.merge_passed ? 'Swarms merged' : 'Swarm delivered';
+}
+
+export function supplyPlanetCount(stats: RunStats): number {
+	return stats.planets ?? 2;
+}
+
+export function supplyOutcomeLabel(outcome: string, stats: RunStats): string {
+	if (outcome !== 'win') return 'Line broken';
+	return supplyPlanetCount(stats) > 2 ? 'All planets held' : 'Both planets held';
 }
 
 export interface PlacementInfo {

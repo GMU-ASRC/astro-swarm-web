@@ -103,12 +103,14 @@ def _pilot_card(level_name, results, outcomes):
 
 def _swarm_card(level_name, results, outcomes):
     stats = results.get("stats") or {}
-    delivered = outcomes[0] == "win"
+    passed = outcomes[0] == "win"
+    merge_only = passed and stats.get("delivered") == 0 and bool(stats.get("merge_passed"))
+    headline = "Swarms merged" if merge_only else "Swarm delivered" if passed else "Out of time"
     return EntryCard(
         level_name=level_name,
-        headline="Swarm delivered" if delivered else "Out of time",
+        headline=headline,
         caption="piloted swarm run",
-        positive=delivered,
+        positive=passed,
         facts=[
             ("Merged", format_time(stats.get("merge_time"))),
             ("Delivered", format_time(stats.get("deliver_time"))),
@@ -122,16 +124,16 @@ def _supply_card(level_name, results, outcomes):
     held = outcomes[0] == "win"
     destroyed = results.get("evaders_destroyed", 0)
     resolved = results.get("evaders_resolved", 0)
+    planets = int(stats.get("planets", 2))
+    facts = [("Evaders stopped", f"{results.get('success_rate', 0)}%")]
+    for letter in "ABC"[:planets]:
+        facts.append((f"Through on planet {letter}", str(stats.get("breached_" + letter.lower(), 0))))
     return EntryCard(
         level_name=level_name,
-        headline="Both planets held" if held else "Line broken",
-        caption=f"{destroyed} of {resolved} evaders stopped across the pair",
+        headline=("Both planets held" if planets == 2 else "All planets held") if held else "Line broken",
+        caption=f"{destroyed} of {resolved} evaders stopped across {'the pair' if planets == 2 else 'all three planets'}",
         positive=held,
-        facts=[
-            ("Evaders stopped", f"{results.get('success_rate', 0)}%"),
-            ("Through on planet A", str(stats.get("breached_a", 0))),
-            ("Through on planet B", str(stats.get("breached_b", 0))),
-        ],
+        facts=facts,
     )
 
 

@@ -89,13 +89,14 @@ type Placement struct {
 // in game, and the worker renders it rather than simulating anything.
 func IsPilotLevel(levelID string) bool {
 	number := LevelNumber(levelID)
-	return number == 6 || number == 7 || number == 8
+	return number >= 6 && number <= 9
 }
 
-// Level 8 splits one force across two planets and records both assaults into a
-// single run, so its recording holds two fights rather than one flight.
+// Levels 7 and 8 split one force across two or three planets and record every assault into a
+// single run, so its recording holds several fights rather than one flight.
 func IsSupplyLevel(levelID string) bool {
-	return LevelNumber(levelID) == 8
+	number := LevelNumber(levelID)
+	return number == 7 || number == 8
 }
 
 // Levels 1 to 5 are graded as an assault: a stream of evaders against one line.

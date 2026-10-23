@@ -232,10 +232,11 @@ class PlayerEvaluation(db.Model):
             return int(digits)
         return 1
 
-    # Levels 6 and 7 put the player on the attacking side. Level 8 is back on
-    # defense, so its rate reads as detection like the earlier levels.
+    # Level 6 and the hidden pilot level put the player on the attacking side.
+    # Level 7 is back on defense, so its rate reads as detection like the
+    # earlier levels.
     def is_attack_level(self):
-        return 6 <= self.level_number() <= 7
+        return self.level_number() in (6, 9)
 
     def to_dict(self):
         results = self._results_dict()
@@ -639,6 +640,12 @@ class TrainingScore(db.Model):
             "game_version": self.game_version,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    def to_detail_dict(self):
+        detail = self.to_dict()
+        detail["algorithm"] = self.algorithm or []
+        detail["placements"] = self.placements or []
+        return detail
 
 
 class LeaderboardEntry(db.Model):

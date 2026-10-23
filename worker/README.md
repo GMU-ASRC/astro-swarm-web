@@ -395,7 +395,7 @@ A strong entry finishes in a handful of steps; a weak one keeps climbing until i
 or hits the ceiling. `WaveConsecutiveMax` in `internal/bench/assault.go` is the run length that
 counts as settled.
 
-Level 6, 7 and 8 entries are piloted recordings rather than simulations, so `astrosim` refuses them.
+Level 6, 7 and 8 entries, and the hidden pilot level (`farp9`), are piloted recordings rather than simulations, so `astrosim` refuses them.
 
 ## Charts
 

@@ -38,7 +38,7 @@ class LeaderboardSubmit:
             raise ValueError("time_seconds must be between 2.0 and 90.0")
         self.time_seconds = float(self.time_seconds)
 
-GENOME_SWITCH_LEVELS = ("farp4", "farp5", "farp8")
+GENOME_SWITCH_LEVELS = ("farp4", "farp5", "farp7", "farp8")
 MAX_GENOME_STAGES = 9
 GENOME_NAME_MAX_LENGTH = 24
 GENOME_COLOR_PATTERN = re.compile(r"^[0-9a-fA-F]{6}$")
@@ -119,6 +119,7 @@ DEFENDER_COUNT_OPTIONS = {
     "farp2": SCATTER_DEFENDER_COUNTS,
     "farp3": SCATTER_DEFENDER_COUNTS,
     "farp4": ATTRITION_DEFENDER_COUNTS,
+    "farp5": ATTRITION_DEFENDER_COUNTS,
 }
 
 
@@ -163,15 +164,24 @@ VALID_RUN_OUTCOMES = ("win", "lose", "timeout")
 # submitted placements plus the one ship the player flies.
 DEFAULT_RUN_LIMITS = {"max_ships": 6, "max_seconds": MAX_RUN_SECONDS, "frame_slots": None}
 
-# Level 7 flies a leader against two milling swarms and level 8 records two
+# Level 6 flies a leader against two milling swarms and level 7 records two
 # assaults back to back, so both record far more ships than the defense levels
-# and run for longer. Level 8 records over a fixed layout instead: ten defender
-# slots, then five evader slots, then the flown shuttle, with the slots a fight
-# is not using sent as -1.
+# and run for longer. Level 7 records over a fixed layout instead: one slot per
+# defender in the chosen line, then one per evader a planet faces, then the
+# flown shuttle, with the slots a fight is not using sent as -1.
 RUN_LIMITS = {
-    "farp7": {"max_ships": 24, "max_seconds": 300, "frame_slots": None},
-    "farp8": {"max_ships": 24, "max_seconds": 300, "frame_slots": 16},
+    "farp6": {"max_ships": 24, "max_seconds": 300, "frame_slots": None},
+    "farp7": {"max_ships": 40, "max_seconds": 300, "frame_slots": None, "defender_options": (10, 25), "planets": 2},
+    "farp8": {"max_ships": 60, "max_seconds": 400, "frame_slots": None, "defender_options": (10, 25, 50), "planets": 3},
 }
+
+
+def supply_evaders_per_planet(defenders, planets):
+    return defenders // planets
+
+
+def supply_frame_slots(defenders, planets):
+    return defenders + supply_evaders_per_planet(defenders, planets) + 1
 
 
 def run_limits_for(level_id):
@@ -224,6 +234,13 @@ class RunSubmit:
             raise ValueError("run.frames must not exceed %d frames" % max_frames)
 
         slots = limits.get("frame_slots")
+        defender_options = limits.get("defender_options")
+        if defender_options:
+            defenders = self.run.get("defenders")
+            if defenders not in defender_options or len(self.placements) > defenders:
+                choices = ", ".join(str(count) for count in defender_options)
+                raise ValueError("run.defenders must be one of %s and match the placements" % choices)
+            slots = supply_frame_slots(defenders, limits["planets"])
         width = slots * 3 if slots else len(self.placements) * 3 + 3
         for frame in frames:
             if not isinstance(frame, list) or len(frame) != width:

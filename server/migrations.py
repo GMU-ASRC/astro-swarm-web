@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 LEVEL_SHIFT_KEY = "level_ids_shifted_v2"
 PILOT_SHIFT_KEY = "level_ids_shifted_v3"
+PILOT_HIDDEN_KEY = "level_ids_shifted_v4"
+PILOT_HIDDEN_RENAMES = (("farp6", "farp9"), ("farp7", "farp6"), ("farp8", "farp7"))
 
 STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
@@ -53,6 +55,18 @@ STATEMENTS = [
     " ON CONFLICT (key) DO NOTHING" % (PILOT_SHIFT_KEY, LEVEL_SHIFT_KEY),
     "INSERT INTO app_settings (key, value) VALUES ('%s', '1')"
     " ON CONFLICT (key) DO NOTHING" % LEVEL_SHIFT_KEY,
+    *[
+        "UPDATE player_evaluations SET level_id = '%s' WHERE level_id = '%s'"
+        " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % (new_id, old_id, PILOT_HIDDEN_KEY)
+        for old_id, new_id in PILOT_HIDDEN_RENAMES
+    ],
+    *[
+        "UPDATE app_settings SET key = 'level_enabled_%s' WHERE key = 'level_enabled_%s'"
+        " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % (new_id, old_id, PILOT_HIDDEN_KEY)
+        for old_id, new_id in PILOT_HIDDEN_RENAMES
+    ],
+    "INSERT INTO app_settings (key, value) VALUES ('%s', '1')"
+    " ON CONFLICT (key) DO NOTHING" % PILOT_HIDDEN_KEY,
     "ALTER TABLE player_evaluations ALTER COLUMN level_id SET DEFAULT 'farp1'",
     "ALTER TABLE player_evaluations SET ("
     " autovacuum_vacuum_scale_factor = 0.02,"

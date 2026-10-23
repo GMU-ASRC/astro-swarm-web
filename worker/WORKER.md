@@ -89,10 +89,12 @@ System stats are read from `/proc` and `statfs` rather than psutil, and report t
 Replay frames are delta-encoded, zlib-compressed at level 9, and base64 encoded — the format
 `models._unpack_frames` reads.
 
-Level 6, 7 and 8 jobs carry a `run` payload rather than an algorithm. Nothing is simulated;
-the recorded trajectory is packed into a single-run replay. A Level 8 recording holds both of
-its planet assaults back to back over a fixed sixteen slot layout — ten defenders, five
-evaders, then the flown shuttle — so slots the fight is not using come through as `-1`.
+Level 6, 7 and 8 jobs, and the hidden pilot level (`farp9`), carry a `run` payload rather than an algorithm. Nothing is simulated;
+the recorded trajectory is packed into a single-run replay. A Level 7 or 8 recording holds every
+planet assault back to back (two planets for Level 7, three for Level 8) over a fixed slot
+layout — one slot per defender in the chosen line (10 or 25 on Level 7, 10, 25 or 50 on Level 8),
+one per evader a planet faces (the line divided by the planet count), then the flown shuttle — so slots the
+fight is not using, including defenders lost to attrition, come through as `-1`.
 
 Level 3, 4 and 5 jobs are simulated as assaults rather than single-evader matches, described
 in the assault benchmark section of `README.md`.
