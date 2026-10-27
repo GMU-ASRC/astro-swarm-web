@@ -44,7 +44,11 @@ SERVER_URL=https://astroswarm.autonomousrobotics.club API_SECRET_KEY=... ./astro
 | `SERVER_URL` | Base url of the web server | `http://server:5050` |
 | `API_SECRET_KEY` | Must match the server's key | `dev_secret_key` |
 | `WORKER_NAME` | Display name in the admin panel | hostname |
-| `SIM_WORKERS` | Matches simulated in parallel within the job | core count |
+| `WORKER_CORES` | Cores shared by every running evaluation | container CPU limit, or host cores |
+| `JOB_SLOTS` | Evaluations run at the same time | `4` |
+| `CORES_PER_JOB` | When set and `JOB_SLOTS` is unset, slots become `WORKER_CORES / CORES_PER_JOB` | unset |
+| `SIM_WORKERS` | Cap on matches simulated in parallel within one evaluation | `WORKER_CORES` |
+| `UPLOAD_CHUNK_KB` | Size of each replay upload request, keep it under the proxy body limit | `512` |
 | `WORKER_POLL_SECONDS` | Idle poll interval | `3` |
 | `WORKER_CANCEL_POLL_SECONDS` | Progress and cancellation poll interval | `2` |
 | `EVAL_TIMEOUT_SECONDS` | Max wall-clock time per job | `3600` |
@@ -53,12 +57,28 @@ SERVER_URL=https://astroswarm.autonomousrobotics.club API_SECRET_KEY=... ./astro
 | `EVAL_SWEEP_SPAWN` | `fixed` or `varied` ring-sweep evader spawn | `fixed` |
 
 `GODOT_RELEASE_TAG`, `GODOT_SERVER_BIN`, `GODOT_PCK`, `GODOT_DIR`, `EVAL_FIXED_FPS`, and
-`WORKER_MAX_JOBS` are gone — there is no Godot build, the physics step is fixed at 60 Hz in
-code, and a worker holds exactly one job at a time.
+`WORKER_MAX_JOBS` are gone. There is no Godot build, the physics step is fixed at 60 Hz in
+code, and `JOB_SLOTS` replaces `WORKER_MAX_JOBS`.
 
-An evaluation is never split. The server queues it as a single unit, one worker claims it,
-and that worker simulates every match in it across `SIM_WORKERS` goroutines. To add
-throughput, run more workers: each takes a different evaluation.
+An evaluation is never split. The server queues it as a single unit and one worker claims it.
+A worker holds up to `JOB_SLOTS` evaluations at once and claims as many as it has free slots.
+Every running evaluation feeds its matches into one shared pool of `WORKER_CORES` cores, so a
+lone evaluation uses the whole machine and four evaluations split it evenly. By default a
+worker runs 4 evaluations at once.
+
+Each recorded replay is packed as soon as its match finishes, on the same core, so the result
+is ready to send the moment the last match ends.
+
+A finished job is delivered in small requests, never one large one:
+
+1. Every recorded replay is sent as raw zlib bytes in `UPLOAD_CHUNK_KB` chunks to
+   `POST /api/worker/jobs/<job>/replays/<upload>/<key>?offset=N`, four replays at a time. A
+   failed chunk is retried on its own and the server resumes from the offset it already has.
+   The server stores each replay as a file under `UPLOAD_DIR/replays`.
+2. The summary (outcomes, rates, sweep points and the replay file paths) is posted
+   gzip-compressed to `/api/worker/jobs/<job>/result`. This marks the entry done.
+
+The job reports `Uploading replays i/n` and then `Saving results` while this happens.
 
 ### EVAL_SWEEP_SPAWN
 

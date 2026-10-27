@@ -34,6 +34,7 @@ type Options struct {
 	VariedSweepSpawn bool
 	Record           bool
 	Workers          int
+	Cores            *CorePool
 	Context          context.Context
 	Progress         func(done, total int)
 }
@@ -326,7 +327,7 @@ func groupSweep(sweep []jobResult) ([]int, map[int]*sweepBucket) {
 			output := item.output
 			bucket.first = &output
 		}
-		if len(item.output.Frames) > 0 && isTrialReplay(defenders, item.job.trial) {
+		if item.output.FramesPacked != "" && isTrialReplay(defenders, item.job.trial) {
 			bucket.replays = append(bucket.replays, item)
 		}
 	}
@@ -365,7 +366,7 @@ func packPlacementRuns(placement []jobResult) []ReplayRun {
 			DetectionTime: item.output.DetectionTime,
 			CaptureTime:   item.output.CaptureTime,
 			GoalTime:      item.output.GoalTime,
-			FramesPacked:  PackFrames(item.output.Frames),
+			FramesPacked:  item.output.FramesPacked,
 		})
 	}
 	return runs
@@ -397,7 +398,7 @@ func packSweepRuns(sweep []jobResult) []ReplaySweepRun {
 			run.DetectionTime = bucket.first.DetectionTime
 			run.CaptureTime = bucket.first.CaptureTime
 			run.GoalTime = bucket.first.GoalTime
-			run.FramesPacked = PackFrames(bucket.first.Frames)
+			run.FramesPacked = bucket.first.FramesPacked
 		}
 		sort.SliceStable(bucket.replays, func(a, b int) bool {
 			return bucket.replays[a].job.trial < bucket.replays[b].job.trial
@@ -409,7 +410,7 @@ func packSweepRuns(sweep []jobResult) []ReplaySweepRun {
 				DetectionTime: item.output.DetectionTime,
 				CaptureTime:   item.output.CaptureTime,
 				GoalTime:      item.output.GoalTime,
-				FramesPacked:  PackFrames(item.output.Frames),
+				FramesPacked:  item.output.FramesPacked,
 			})
 		}
 		runs = append(runs, run)
@@ -428,25 +429,25 @@ func runJobs(jobs []job, options Options, matchFrames, goalTailFrames int) []job
 		go func() {
 			defer group.Done()
 			for index := range queue {
-				if options.Context.Err() != nil {
-					continue
-				}
 				current := jobs[index]
-				output := RunMatch(MatchInput{
-					Algorithm:       options.Algorithm,
-					Placements:      current.placements,
-					EnemyStart:      current.spawn,
-					Seed:            current.seed,
-					MatchFrames:     matchFrames,
-					GoalTailFrames:  goalTailFrames,
-					Collisions:      options.Collisions,
-					SinglePrecision: options.SinglePrecision,
-					Record:          current.record,
+				options.Cores.run(options.Context, func() {
+					output := RunMatch(MatchInput{
+						Algorithm:       options.Algorithm,
+						Placements:      current.placements,
+						EnemyStart:      current.spawn,
+						Seed:            current.seed,
+						MatchFrames:     matchFrames,
+						GoalTailFrames:  goalTailFrames,
+						Collisions:      options.Collisions,
+						SinglePrecision: options.SinglePrecision,
+						Record:          current.record,
+					})
+					output.packFrames()
+					results[index] = jobResult{job: current, output: output, ran: true}
+					if options.Progress != nil {
+						options.Progress(int(atomic.AddInt64(&done, 1)), len(jobs))
+					}
 				})
-				results[index] = jobResult{job: current, output: output, ran: true}
-				if options.Progress != nil {
-					options.Progress(int(atomic.AddInt64(&done, 1)), len(jobs))
-				}
 			}
 		}()
 	}

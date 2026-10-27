@@ -54,7 +54,7 @@
 				<th>Name</th>
 				<th>Host</th>
 				<th>Status</th>
-				<th>Current job</th>
+				<th>Jobs</th>
 				<th>Last seen</th>
 			</tr>
 		</thead>
@@ -71,7 +71,7 @@
 						<td>{worker.name}</td>
 						<td>{worker.hostname || '—'}</td>
 						<td><span class="pill {statusClass(worker.status)}">{worker.status}</span></td>
-						<td>{worker.current_job_id ? `${worker.current_job_id.slice(0, 8)}…` : '—'}</td>
+						<td>{worker.running_jobs ?? 0} / {worker.job_slots ?? 1}</td>
 						<td>{lastSeen(worker.last_seen)}</td>
 					</tr>
 				{:else}

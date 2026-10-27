@@ -64,7 +64,8 @@ func (w *Worker) executeJob(ctx context.Context, job Job, report progressReporte
 		Collisions:       config.Collisions,
 		VariedSweepSpawn: w.variedSweepSpawn(config),
 		Record:           true,
-		Workers:          w.settings.SimWorkers,
+		Workers:          w.capacity.MatchesPerJob,
+		Cores:            w.cores,
 		Context:          ctx,
 		Progress:         jobProgress(job, report),
 	}

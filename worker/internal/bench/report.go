@@ -121,7 +121,8 @@ type ReplayRun struct {
 	DetectionTime float64            `json:"detection_time"`
 	CaptureTime   float64            `json:"capture_time"`
 	GoalTime      float64            `json:"goal_time"`
-	FramesPacked  string             `json:"frames_packed"`
+	FramesPacked  string             `json:"frames_packed,omitempty"`
+	FramesFile    string             `json:"frames_file,omitempty"`
 	Stats         map[string]float64 `json:"stats,omitempty"`
 
 	GenomeSwitches []int `json:"genome_switches,omitempty"`
@@ -137,7 +138,8 @@ type ReplaySweepRun struct {
 	CaptureRate   float64     `json:"capture_rate"`
 	Defenders     int         `json:"defenders"`
 	TrialRuns     []ReplayRun `json:"trial_runs"`
-	FramesPacked  string      `json:"frames_packed"`
+	FramesPacked  string      `json:"frames_packed,omitempty"`
+	FramesFile    string      `json:"frames_file,omitempty"`
 
 	GenomeSwitches []int `json:"genome_switches,omitempty"`
 }

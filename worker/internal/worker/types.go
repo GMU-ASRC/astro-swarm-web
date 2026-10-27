@@ -100,6 +100,8 @@ type HeartbeatRequest struct {
 	WorkerID    string         `json:"worker_id"`
 	Status      string         `json:"status"`
 	CurrentJob  string         `json:"current_job"`
+	CurrentJobs []string       `json:"current_jobs"`
+	JobSlots    int            `json:"job_slots"`
 	SystemStats map[string]any `json:"system_stats"`
 }
 
@@ -110,6 +112,7 @@ type HeartbeatResponse struct {
 
 type ClaimRequest struct {
 	WorkerID string `json:"worker_id"`
+	Slots    int    `json:"slots"`
 }
 
 type ClaimResponse struct {
@@ -130,7 +133,14 @@ type ProgressResponse struct {
 
 type ResultRequest struct {
 	WorkerID string          `json:"worker_id"`
+	UploadID string          `json:"upload_id"`
 	Result   bench.JobResult `json:"result"`
+}
+
+type ReplayChunkResponse struct {
+	Accepted bool   `json:"accepted"`
+	Size     int    `json:"size"`
+	Path     string `json:"path"`
 }
 
 type ResultResponse struct {

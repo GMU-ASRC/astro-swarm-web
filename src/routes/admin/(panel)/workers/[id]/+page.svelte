@@ -140,7 +140,7 @@
 			/>
 		</div>
 	</div>
-	<p class="meta">A worker holds one evaluation at a time and simulates its matches across every core it has.</p>
+	<p class="meta">A worker runs one evaluation per job slot. Every running evaluation shares the same pool of cores, so a lone evaluation still uses all of them.</p>
 	<div class="actions">
 		<button onclick={saveSettings} disabled={!editingName}>Save settings</button>
 	</div>
@@ -151,6 +151,8 @@
 			<tbody>
 				<tr><th>Connection</th><td>{worker.enabled ? 'Enabled' : 'Disconnected by admin'}</td></tr>
 				<tr><th>Online</th><td>{worker.online ? 'Yes' : 'No'}</td></tr>
+				<tr><th>Job slots</th><td>{worker.running_jobs ?? 0} running / {worker.job_slots ?? 1} slots</td></tr>
+				<tr><th>Cores in use</th><td>{worker.system_stats?.busy_cores ?? '—'} / {worker.system_stats?.usable_cores ?? worker.system_stats?.cpu_count ?? '—'}</td></tr>
 				<tr><th>Last seen</th><td>{when(worker.last_seen)}</td></tr>
 				<tr><th>First seen</th><td>{when(worker.created_at)}</td></tr>
 			</tbody>

@@ -52,8 +52,12 @@ services:
       API_SECRET_KEY: ${API_SECRET_KEY}
       WORKER_NAME: ${WORKER_NAME:-worker}
       WORKER_ID: ${WORKER_ID:-}
-      # Matches run in parallel within the one job this worker holds.
-      # Defaults to the container's core count.
+      # Evaluations run at once. Defaults to 4, or usable cores / CORES_PER_JOB when that is set.
+      JOB_SLOTS: ${JOB_SLOTS:-}
+      CORES_PER_JOB: ${CORES_PER_JOB:-}
+      # Cores shared by every running evaluation. Defaults to the container's limit.
+      WORKER_CORES: ${WORKER_CORES:-}
+      # Cap on parallel matches inside one evaluation. Defaults to WORKER_CORES.
       SIM_WORKERS: ${SIM_WORKERS:-}
       # fixed reproduces the Godot benchmarker: one evader spawn for every ring
       # sweep run. varied stratifies the approach angle per trial and regrades

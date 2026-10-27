@@ -13,6 +13,7 @@ from auth import require_admin
 import charts
 import merge
 import rating
+import replay_cleanup
 import thumbnail
 from entry_card import build_entry_card
 from app_settings import (
@@ -469,9 +470,12 @@ def delete_player(player_id: str):
     entries = PlayerEvaluation.query.filter_by(player_id=player_id).all()
     if not entries:
         raise NotFound("Player not found")
+    entry_ids = [entry.id for entry in entries]
     for entry in entries:
         db.session.delete(entry)
     db.session.commit()
+    for entry_id in entry_ids:
+        replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(entry_id))
     return jsonify({"deleted": len(entries)})
 
 
@@ -827,6 +831,7 @@ def delete_evaluation(eval_id: str):
         raise BadRequest("Evaluation not found")
     db.session.delete(evaluation)
     db.session.commit()
+    replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(eval_id))
     return "", 204
 
 
@@ -869,6 +874,7 @@ def resimulate_evaluation(eval_id: str):
     evaluation.replays = {"pending_run": pending_run} if pending_run is not None else {}
     queue_evaluation(evaluation)
     db.session.commit()
+    replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(eval_id))
 
     return jsonify(evaluation.to_dict()), 202
 

@@ -7,6 +7,20 @@ import (
 	"encoding/json"
 )
 
+func (output *MatchOutput) packFrames() {
+	if len(output.Frames) > 0 {
+		output.FramesPacked = PackFrames(output.Frames)
+	}
+	output.Frames = nil
+}
+
+func (output *AssaultOutput) packFrames() {
+	if len(output.Frames) > 0 {
+		output.FramesPacked = PackFrames(output.Frames)
+	}
+	output.Frames = nil
+}
+
 func PackFrames(frames [][]int) string {
 	if len(frames) == 0 {
 		return ""
@@ -34,7 +48,7 @@ func PackFrames(frames [][]int) string {
 	}
 
 	var compressed bytes.Buffer
-	writer, err := zlib.NewWriterLevel(&compressed, zlib.BestCompression)
+	writer, err := zlib.NewWriterLevel(&compressed, zlib.DefaultCompression)
 	if err != nil {
 		return ""
 	}

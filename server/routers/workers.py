@@ -1,9 +1,14 @@
+import gzip
+import json
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 import merge
+import replay_cleanup
+import replay_files
 from auth import require_admin
 from app_settings import (
     ASSAULT_SWEEP_TRIALS,
@@ -28,6 +33,55 @@ def _require_api_key():
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+MAX_CLAIM_SLOTS = 64
+
+
+def _json_body():
+    raw = request.get_data()
+    if request.headers.get("Content-Encoding", "").lower() == "gzip":
+        try:
+            raw = gzip.decompress(raw)
+        except OSError:
+            raise BadRequest("Invalid gzip body")
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise BadRequest("Invalid JSON body")
+    return data if isinstance(data, dict) else {}
+
+
+def _requested_slots(data):
+    try:
+        slots = int(data.get("slots", 1))
+    except (TypeError, ValueError):
+        slots = 1
+    return max(1, min(slots, MAX_CLAIM_SLOTS))
+
+
+def _running_count(worker_id):
+    return PlayerEvaluation.query.filter_by(worker_id=worker_id, status="running").count()
+
+
+def _running_counts():
+    rows = (
+        db.session.query(PlayerEvaluation.worker_id, func.count(PlayerEvaluation.id))
+        .filter(PlayerEvaluation.status == "running")
+        .group_by(PlayerEvaluation.worker_id)
+        .all()
+    )
+    return {worker_id: count for worker_id, count in rows if worker_id}
+
+
+def _worker_summary(worker, running_jobs):
+    payload = worker.to_dict()
+    stats = worker.system_stats or {}
+    payload["running_jobs"] = running_jobs
+    payload["job_slots"] = int(stats.get("job_slots") or 1)
+    return payload
 
 
 def queue_evaluation(evaluation):
@@ -201,7 +255,11 @@ def worker_heartbeat():
         return jsonify({"enabled": False, "known": False})
     worker.last_seen = _now()
     worker.reported_status = str(data.get("status", "idle"))[:20]
-    worker.current_job_id = data.get("current_job") or None
+    current_jobs = data.get("current_jobs")
+    if isinstance(current_jobs, list) and current_jobs:
+        worker.current_job_id = str(current_jobs[0])[:64]
+    else:
+        worker.current_job_id = data.get("current_job") or None
     stats = data.get("system_stats")
     if isinstance(stats, dict):
         worker.system_stats = stats
@@ -228,11 +286,10 @@ def claim_jobs():
 
     _reap_stale()
 
-    # One worker runs one whole evaluation at a time.
     claimed = (
         PlayerEvaluation.query.filter_by(status="queued")
         .order_by(PlayerEvaluation.created_at.asc())
-        .limit(1)
+        .limit(_requested_slots(data))
         .with_for_update(skip_locked=True)
         .all()
     )
@@ -248,11 +305,14 @@ def claim_jobs():
             evaluation.total_units = _total_units(evaluation)
         jobs.append(_job_payload(evaluation))
 
-    if jobs:
+    db.session.flush()
+    if _running_count(worker_id) > 0:
         worker.reported_status = "busy"
-        worker.current_job_id = jobs[0]["evaluation_id"]
+        if jobs and not worker.current_job_id:
+            worker.current_job_id = jobs[0]["evaluation_id"]
     else:
         worker.reported_status = "idle"
+        worker.current_job_id = None
     db.session.commit()
     return jsonify({"jobs": jobs, "enabled": True})
 
@@ -286,10 +346,49 @@ def job_progress(job_id):
     return jsonify({"cancel": not owns})
 
 
+@workers_bp.post("/worker/jobs/<job_id>/replays/<upload_id>/<key>")
+def job_replay_chunk(job_id, upload_id, key):
+    _require_api_key()
+    worker_id = request.headers.get("X-Worker-ID", "").strip()
+    try:
+        offset = int(request.args.get("offset", "0"))
+    except ValueError:
+        raise BadRequest("offset must be an integer")
+    if offset < 0:
+        raise BadRequest("offset must not be negative")
+
+    evaluation = db.session.get(PlayerEvaluation, job_id)
+    if evaluation is None:
+        raise NotFound("Job not found")
+    if evaluation.status != "running" or evaluation.worker_id != worker_id:
+        return jsonify({"accepted": False, "size": 0, "path": ""})
+
+    try:
+        path, size = replay_files.write_chunk(job_id, upload_id, key, offset, request.get_data())
+    except replay_files.ReplayFileError as error:
+        raise BadRequest(str(error))
+    evaluation.last_update = _now()
+    db.session.commit()
+    return jsonify({"accepted": True, "size": size, "path": path})
+
+
+def _missing_replay_files(result):
+    for run in result.get("runs") or []:
+        if run.get("frames_file") and not replay_files.exists(run["frames_file"]):
+            return run["frames_file"]
+    for sweep in result.get("sweep_runs") or []:
+        if sweep.get("frames_file") and not replay_files.exists(sweep["frames_file"]):
+            return sweep["frames_file"]
+        for trial in sweep.get("trial_runs") or []:
+            if trial.get("frames_file") and not replay_files.exists(trial["frames_file"]):
+                return trial["frames_file"]
+    return None
+
+
 @workers_bp.post("/worker/jobs/<job_id>/result")
 def job_result(job_id):
     _require_api_key()
-    data = request.get_json(silent=True) or {}
+    data = _json_body()
     worker_id = str(data.get("worker_id", "")).strip()
 
     worker = db.session.get(Worker, worker_id) if worker_id else None
@@ -305,9 +404,17 @@ def job_result(job_id):
         raise NotFound("Job not found")
 
     accepted = evaluation.status == "running" and evaluation.worker_id == worker_id
+    result = data.get("result") or {}
     if accepted:
-        _store_result(evaluation, data.get("result") or {})
+        missing = _missing_replay_files(result)
+        if missing:
+            db.session.rollback()
+            raise BadRequest("Replay file %s was never uploaded" % missing)
+        _store_result(evaluation, result)
     db.session.commit()
+    if accepted:
+        upload_id = str(data.get("upload_id") or "")
+        replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(job_id, keep_upload_id=upload_id))
     # A result for a job this worker no longer owns is dropped. Say so, so the
     # worker logs it instead of treating the job as finished.
     return jsonify({"ok": True, "accepted": accepted})
@@ -347,7 +454,8 @@ def list_workers():
     require_admin()
     _reap_stale()
     workers = Worker.query.order_by(Worker.created_at.asc()).all()
-    return jsonify([worker.to_dict() for worker in workers])
+    counts = _running_counts()
+    return jsonify([_worker_summary(worker, counts.get(worker.id, 0)) for worker in workers])
 
 
 def _requeue_worker_jobs(worker_id):
@@ -389,8 +497,9 @@ def get_worker(worker_id):
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
-    payload = worker.to_dict()
-    payload["jobs"] = _worker_jobs(worker_id)
+    jobs = _worker_jobs(worker_id)
+    payload = _worker_summary(worker, len(jobs))
+    payload["jobs"] = jobs
     return jsonify(payload)
 
 

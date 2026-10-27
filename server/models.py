@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import replay_files
 from database import db
 
 ADMIN_SESSION_TTL_SECONDS = 7 * 24 * 3600
@@ -38,7 +39,20 @@ def _inflate(data):
 def _unpack_frames(packed):
     if not packed:
         return []
-    raw = _inflate(base64.b64decode(packed))
+    return _decode_frames(base64.b64decode(packed))
+
+
+def _run_frames(run):
+    frames_file = run.get("frames_file")
+    if frames_file:
+        compressed = replay_files.read(frames_file)
+        return _decode_frames(compressed) if compressed else []
+    packed = run.get("frames_packed")
+    return _unpack_frames(packed) if packed else run.get("frames", [])
+
+
+def _decode_frames(compressed):
+    raw = _inflate(compressed)
     delta_encoded = json.loads(raw)
     if not delta_encoded:
         return []
@@ -54,7 +68,7 @@ def _unpack_frames(packed):
 # A run only keeps a recording when the worker was asked for one, so the site can
 # grey out the trials it cannot replay instead of opening an empty player.
 def _has_frames(run):
-    return bool(run.get("frames_packed") or run.get("frames"))
+    return bool(run.get("frames_file") or run.get("frames_packed") or run.get("frames"))
 
 
 class SimConfig(db.Model):
@@ -351,8 +365,7 @@ class PlayerEvaluation(db.Model):
         replays = self._cached_replays()
         for run in replays.get("runs", []):
             if run.get("trial") == trial:
-                packed = run.get("frames_packed")
-                frames = _unpack_frames(packed) if packed else run.get("frames", [])
+                frames = _run_frames(run)
                 return {
                     "trial": run.get("trial"),
                     "outcome": run.get("outcome"),
@@ -421,8 +434,7 @@ class PlayerEvaluation(db.Model):
         for entry in run.get("trial_runs", []):
             if entry.get("trial") != trial:
                 continue
-            packed = entry.get("frames_packed")
-            frames = _unpack_frames(packed) if packed else entry.get("frames", [])
+            frames = _run_frames(entry)
             return {
                 "n": run.get("n"),
                 "trial": entry.get("trial"),
@@ -447,8 +459,7 @@ class PlayerEvaluation(db.Model):
         replays = self._cached_replays()
         for run in replays.get("sweep_runs", []):
             if run.get("n") == n:
-                packed = run.get("frames_packed")
-                frames = _unpack_frames(packed) if packed else run.get("frames", [])
+                frames = _run_frames(run)
                 return {
                     "n": run.get("n"),
                     "outcome": run.get("outcome"),

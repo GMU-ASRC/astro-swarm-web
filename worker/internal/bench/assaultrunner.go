@@ -99,24 +99,24 @@ func runAssaultJobs(jobs []assaultJob, options Options, matchFrames int, rules A
 		go func() {
 			defer group.Done()
 			for index := range queue {
-				if options.Context.Err() != nil {
-					continue
-				}
 				current := jobs[index]
-				output := RunAssaultMatch(AssaultInput{
-					Algorithm:       options.Algorithm,
-					GenomeStages:    options.GenomeStages,
-					Placements:      current.placements,
-					Rules:           rules,
-					Seed:            current.seed,
-					MatchFrames:     matchFrames,
-					SinglePrecision: options.SinglePrecision,
-					Record:          current.record,
+				options.Cores.run(options.Context, func() {
+					output := RunAssaultMatch(AssaultInput{
+						Algorithm:       options.Algorithm,
+						GenomeStages:    options.GenomeStages,
+						Placements:      current.placements,
+						Rules:           rules,
+						Seed:            current.seed,
+						MatchFrames:     matchFrames,
+						SinglePrecision: options.SinglePrecision,
+						Record:          current.record,
+					})
+					output.packFrames()
+					results[index] = assaultResult{job: current, output: output, ran: true}
+					if progress != nil {
+						progress()
+					}
 				})
-				results[index] = assaultResult{job: current, output: output, ran: true}
-				if progress != nil {
-					progress()
-				}
 			}
 		}()
 	}
@@ -384,7 +384,7 @@ func fillAssaultResults(report *Report, trials []assaultResult) {
 			circlinessTotal += item.output.Circliness
 			circlinessTrials++
 		}
-		if len(item.output.Frames) > 0 {
+		if item.output.FramesPacked != "" {
 			recorded++
 		}
 		switch item.output.Outcome {
@@ -488,8 +488,8 @@ func packAssaultRuns(trials []assaultResult) []ReplayRun {
 			GoalTime:      item.output.GoalTime,
 			Stats:         assaultStats(item.output),
 		}
-		if len(item.output.Frames) > 0 {
-			run.FramesPacked = PackFrames(item.output.Frames)
+		if item.output.FramesPacked != "" {
+			run.FramesPacked = item.output.FramesPacked
 			run.GenomeSwitches = item.output.GenomeSwitchFrames
 		}
 		runs = append(runs, run)
@@ -563,12 +563,12 @@ func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {
 			CaptureRate:   captureRate,
 			TrialRuns:     []ReplayRun{},
 		}
-		if len(items[0].output.Frames) > 0 {
-			run.FramesPacked = PackFrames(items[0].output.Frames)
+		if items[0].output.FramesPacked != "" {
+			run.FramesPacked = items[0].output.FramesPacked
 			run.GenomeSwitches = items[0].output.GenomeSwitchFrames
 		}
 		for _, item := range items {
-			if len(item.output.Frames) == 0 {
+			if item.output.FramesPacked == "" {
 				continue
 			}
 			run.TrialRuns = append(run.TrialRuns, ReplayRun{
@@ -577,7 +577,7 @@ func packAssaultSweepRuns(sweep []assaultResult) []ReplaySweepRun {
 				DetectionTime: item.output.DetectionTime,
 				CaptureTime:   item.output.CaptureTime,
 				GoalTime:      item.output.GoalTime,
-				FramesPacked:  PackFrames(item.output.Frames),
+				FramesPacked:  item.output.FramesPacked,
 				Stats:         assaultStats(item.output),
 
 				GenomeSwitches: item.output.GenomeSwitchFrames,

@@ -2,17 +2,13 @@ package worker
 
 import (
 	"context"
-	"errors"
 	"log"
+	"runtime"
+	"sort"
 	"sync"
 	"time"
 
 	"astroswarm/worker/internal/bench"
-)
-
-const (
-	resultPostAttempts = 3               // count, tries before the job is reported as failed
-	resultPostBackoff  = 5 * time.Second // seconds added between retries
 )
 
 type Settings struct {
@@ -25,18 +21,25 @@ type Settings struct {
 	JobTimeout       time.Duration
 	ID               string
 	IDFile           string
+	Cores            int
+	JobSlots         int
+	CoresPerJob      int
 	SimWorkers       int
+	UploadChunkBytes int
 	VariedSweepSpawn bool
 }
 
 type Worker struct {
 	id       string
 	settings Settings
+	capacity Capacity
+	cores    *bench.CorePool
 	client   *Client
 	logger   *log.Logger
 
-	mutex     sync.Mutex
-	currentID string
+	mutex       sync.Mutex
+	runningJobs map[string]struct{}
+	jobFinished chan struct{}
 }
 
 func New(settings Settings, logger *log.Logger) (*Worker, error) {
@@ -44,16 +47,28 @@ func New(settings Settings, logger *log.Logger) (*Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	capacity := planCapacity(settings)
+	if capacity.Cores < runtime.GOMAXPROCS(0) {
+		runtime.GOMAXPROCS(capacity.Cores)
+	}
 	return &Worker{
-		id:       id,
-		settings: settings,
-		client:   NewClient(settings.ServerURL, settings.APIKey),
-		logger:   logger,
+		id:          id,
+		settings:    settings,
+		capacity:    capacity,
+		cores:       bench.NewCorePool(capacity.Cores),
+		client:      NewClient(settings.ServerURL, settings.APIKey),
+		logger:      logger,
+		runningJobs: map[string]struct{}{},
+		jobFinished: make(chan struct{}, 1),
 	}, nil
 }
 
 func (w *Worker) ID() string {
 	return w.id
+}
+
+func (w *Worker) Capacity() Capacity {
+	return w.capacity
 }
 
 func (w *Worker) Run(ctx context.Context) {
@@ -66,15 +81,12 @@ func (w *Worker) Run(ctx context.Context) {
 			return
 		}
 
-		if !w.busy() {
-			if claimed := w.claimOne(ctx); claimed != nil {
-				w.startJob(ctx, *claimed)
-			}
-		}
+		w.fillFreeSlots(ctx)
 		w.heartbeat()
 
 		select {
 		case <-ctx.Done():
+		case <-w.jobFinished:
 		case <-time.After(w.settings.PollInterval):
 		}
 	}
@@ -99,8 +111,18 @@ func (w *Worker) register(ctx context.Context) {
 	}
 }
 
-func (w *Worker) claimOne(ctx context.Context) *Job {
-	response, err := w.client.Claim(ClaimRequest{WorkerID: w.id})
+func (w *Worker) fillFreeSlots(ctx context.Context) {
+	freeSlots := w.capacity.JobSlots - w.runningCount()
+	if freeSlots < 1 {
+		return
+	}
+	for _, job := range w.claim(ctx, freeSlots) {
+		w.startJob(ctx, job)
+	}
+}
+
+func (w *Worker) claim(ctx context.Context, slots int) []Job {
+	response, err := w.client.Claim(ClaimRequest{WorkerID: w.id, Slots: slots})
 	if err != nil {
 		w.logger.Printf("claim failed: %v", err)
 		return nil
@@ -113,199 +135,77 @@ func (w *Worker) claimOne(ctx context.Context) *Job {
 	if response.Enabled != nil && !*response.Enabled {
 		return nil
 	}
-	if len(response.Jobs) == 0 {
-		return nil
+	if len(response.Jobs) > slots {
+		return response.Jobs[:slots]
 	}
-	return &response.Jobs[0]
+	return response.Jobs
 }
 
 func (w *Worker) startJob(parent context.Context, job Job) {
 	w.mutex.Lock()
-	w.currentID = job.EvaluationID
+	w.runningJobs[job.EvaluationID] = struct{}{}
 	w.mutex.Unlock()
 
 	go func() {
 		defer func() {
 			w.mutex.Lock()
-			w.currentID = ""
+			delete(w.runningJobs, job.EvaluationID)
 			w.mutex.Unlock()
+			select {
+			case w.jobFinished <- struct{}{}:
+			default:
+			}
 		}()
 		w.execute(parent, job)
 	}()
 }
 
-func (w *Worker) busy() bool {
+func (w *Worker) runningCount() int {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	return w.currentID != ""
+	return len(w.runningJobs)
+}
+
+func (w *Worker) runningIDs() []string {
+	w.mutex.Lock()
+	ids := make([]string, 0, len(w.runningJobs))
+	for id := range w.runningJobs {
+		ids = append(ids, id)
+	}
+	w.mutex.Unlock()
+	sort.Strings(ids)
+	return ids
 }
 
 func (w *Worker) waitUntilIdle() {
-	for w.busy() {
+	for w.runningCount() > 0 {
 		time.Sleep(200 * time.Millisecond)
 	}
 }
 
-func (w *Worker) execute(parent context.Context, job Job) {
-	started := time.Now()
-	ctx, cancel := context.WithTimeout(parent, w.settings.JobTimeout)
-	defer cancel()
-
-	state := &progressState{}
-	stopPolling := make(chan struct{})
-	var pollOnce sync.Once
-	stop := func() { pollOnce.Do(func() { close(stopPolling) }) }
-	defer stop()
-
-	cancelled := make(chan struct{})
-	var cancelOnce sync.Once
-	markCancelled := func() {
-		cancelOnce.Do(func() {
-			close(cancelled)
-			cancel()
-		})
-	}
-
-	go w.pollCancellation(ctx, job, state, stopPolling, markCancelled)
-
-	report := func(done int, stage string) {
-		state.set(done, stage)
-	}
-
-	result, err := w.executeJob(ctx, job, report)
-
-	select {
-	case <-cancelled:
-		stop()
-		w.logger.Printf("job %s: cancelled", job.EvaluationID)
-		return
-	default:
-	}
-
-	if err != nil {
-		stop()
-		if errors.Is(err, ErrCancelled) || errors.Is(ctx.Err(), context.Canceled) {
-			w.logger.Printf("job %s: cancelled", job.EvaluationID)
-			return
-		}
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			err = errors.New("job exceeded the configured timeout")
-		}
-		w.logger.Printf("job %s: failed: %v", job.EvaluationID, err)
-		if failErr := w.client.Fail(job.JobID, FailRequest{WorkerID: w.id, Error: truncate(err.Error(), 400)}); failErr != nil {
-			w.logger.Printf("job %s: fail post failed: %v", job.JobID, failErr)
-		}
-		return
-	}
-
-	// The cancellation poller keeps running through the upload. A finished replay
-	// payload takes a while to send, and a job that stops reporting looks dead to
-	// the server.
-	postErr := w.postResult(job, result)
-	stop()
-	if postErr != nil {
-		w.logger.Printf("job %s: result never reached the server: %v", job.EvaluationID, postErr)
-		// Without this the evaluation would sit in "running" forever, so the old
-		// results would stay on screen for good.
-		if failErr := w.client.Fail(job.JobID, FailRequest{
-			WorkerID: w.id,
-			Error:    truncate("result upload failed: "+postErr.Error(), 400),
-		}); failErr != nil {
-			w.logger.Printf("job %s: fail post failed: %v", job.JobID, failErr)
-		}
-		return
-	}
-	w.logger.Printf("job %s: done in %.1fs (%d runs, %d sweep points)",
-		job.EvaluationID, time.Since(started).Seconds(), len(result.Runs), len(result.SweepRuns))
-}
-
-func (w *Worker) postResult(job Job, result bench.JobResult) error {
-	request := ResultRequest{WorkerID: w.id, Result: result}
-	var err error
-	for attempt := 1; attempt <= resultPostAttempts; attempt++ {
-		var accepted bool
-		accepted, err = w.client.PostResult(job.JobID, request)
-		if err == nil {
-			if !accepted {
-				// The server no longer had this job assigned to us, so it threw the
-				// result away. Say so instead of reporting a clean finish.
-				w.logger.Printf("job %s: the server rejected the result (it was reassigned or cancelled)", job.EvaluationID)
-			}
-			return nil
-		}
-		w.logger.Printf("job %s: result post attempt %d/%d failed: %v", job.JobID, attempt, resultPostAttempts, err)
-		if attempt < resultPostAttempts {
-			time.Sleep(resultPostBackoff * time.Duration(attempt))
-		}
-	}
-	return err
-}
-
-func (w *Worker) pollCancellation(ctx context.Context, job Job, state *progressState, stop <-chan struct{}, markCancelled func()) {
-	ticker := time.NewTicker(w.settings.CancelPoll)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-stop:
-			return
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			done, stage := state.get()
-			cancel, err := w.client.Progress(job.JobID, ProgressRequest{
-				WorkerID: w.id,
-				Done:     done,
-				Stage:    stage,
-			})
-			if err != nil {
-				w.logger.Printf("job %s: progress post failed: %v", job.JobID, err)
-				continue
-			}
-			if cancel {
-				markCancelled()
-				return
-			}
-		}
-	}
-}
-
 func (w *Worker) heartbeat() {
-	w.mutex.Lock()
-	current := w.currentID
-	w.mutex.Unlock()
-
+	jobIDs := w.runningIDs()
 	status := "idle"
-	if current != "" {
+	currentJob := ""
+	if len(jobIDs) > 0 {
 		status = "busy"
+		currentJob = jobIDs[0]
 	}
+
+	stats := collectSystemStats()
+	stats["usable_cores"] = w.capacity.Cores
+	stats["job_slots"] = w.capacity.JobSlots
+	stats["running_jobs"] = len(jobIDs)
+	stats["busy_cores"] = w.cores.Busy()
 
 	if _, err := w.client.Heartbeat(HeartbeatRequest{
 		WorkerID:    w.id,
 		Status:      status,
-		CurrentJob:  current,
-		SystemStats: collectSystemStats(),
+		CurrentJob:  currentJob,
+		CurrentJobs: jobIDs,
+		JobSlots:    w.capacity.JobSlots,
+		SystemStats: stats,
 	}); err != nil {
 		w.logger.Printf("heartbeat failed: %v", err)
 	}
-}
-
-type progressState struct {
-	mutex sync.Mutex
-	done  int
-	stage string
-}
-
-func (p *progressState) set(done int, stage string) {
-	p.mutex.Lock()
-	p.done = done
-	if stage != "" {
-		p.stage = stage
-	}
-	p.mutex.Unlock()
-}
-
-func (p *progressState) get() (int, string) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return p.done, p.stage
 }

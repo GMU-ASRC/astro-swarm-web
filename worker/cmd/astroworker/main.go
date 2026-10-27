@@ -27,17 +27,22 @@ func main() {
 		JobTimeout:       envSeconds("EVAL_TIMEOUT_SECONDS", 3600),
 		ID:               env("WORKER_ID", ""),
 		IDFile:           env("WORKER_ID_FILE", "/data/worker_id"),
+		Cores:            envInt("WORKER_CORES", 0, 0, 4096),
+		JobSlots:         envInt("JOB_SLOTS", 0, 0, 256),
+		CoresPerJob:      envInt("CORES_PER_JOB", 0, 0, 4096),
+		SimWorkers:       envInt("SIM_WORKERS", 0, 0, 4096),
+		UploadChunkBytes: envInt("UPLOAD_CHUNK_KB", 512, 16, 8192) * 1024,
 		VariedSweepSpawn: env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried) == bench.SweepSpawnVaried,
 	}
-	settings.SimWorkers = envInt("SIM_WORKERS", runtime.NumCPU(), 1, 1024)
 
 	instance, err := worker.New(settings, logger)
 	if err != nil {
 		logger.Fatalf("could not start: %v", err)
 	}
 
-	logger.Printf("one job at a time, %d parallel matches, %d cores, sweep_spawn=%s",
-		settings.SimWorkers, runtime.NumCPU(), env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried))
+	capacity := instance.Capacity()
+	logger.Printf("%d job slots sharing %d cores (%d host cpus), up to %d parallel matches per job, sweep_spawn=%s",
+		capacity.JobSlots, capacity.Cores, runtime.NumCPU(), capacity.MatchesPerJob, env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -34,6 +34,7 @@ type MatchOutput struct {
 	CaptureTime   float64
 	GoalTime      float64
 	Frames        [][]int
+	FramesPacked  string
 	ViewDistance  float64
 	FovDegrees    float64
 	Speed         float64

@@ -108,6 +108,7 @@ type AssaultOutput struct {
 	EndTime       float64
 	Samples       []AttritionSample
 	Frames        [][]int
+	FramesPacked  string
 	ViewDistance  float64
 	FovDegrees    float64
 	Speed         float64
