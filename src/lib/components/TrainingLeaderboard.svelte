@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
+	import { dateTimeLabel } from '$lib/ts/dates';
 	import {
 		circlinessText,
 		fetchTrainingScore,
@@ -20,10 +21,6 @@
 
 	function rankClass(rank: number): string {
 		return rank <= 3 ? 'badge-gold' : '';
-	}
-
-	function dateText(value: string | null): string {
-		return value ? new Date(value).toLocaleDateString() : 'unknown date';
 	}
 
 	let openPlayerId = $state<string | null>(null);
@@ -62,7 +59,7 @@
 					<span class="numbers">
 						<span class="rate">{circlinessText(row.circliness)}</span>
 						<span class="detail">
-							best circliness · {row.defenders} defenders · {dateText(row.updated_at)}
+							best circliness · {row.defenders} defenders · {dateTimeLabel(row.updated_at)}
 						</span>
 					</span>
 					<Icon

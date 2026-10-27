@@ -1,7 +1,8 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import type { SimulatorEntryListItem } from '$lib/ts/simulator';
-	import { durationLabel, shortDate } from '$lib/ts/simulator';
+	import { durationLabel } from '$lib/ts/simulator';
+	import { dateTimeLabel } from '$lib/ts/dates';
 
 	interface PageData {
 		entriesPromise: Promise<{ entries: SimulatorEntryListItem[]; apiError: boolean }>;
@@ -159,7 +160,7 @@
 										· {entry.spawn_zone_count} spawn {entry.spawn_zone_count === 1 ? 'zone' : 'zones'}
 									{/if}
 								</span>
-								<span>{shortDate(entry.created_at)}</span>
+								<span>{dateTimeLabel(entry.created_at)}</span>
 							</div>
 						</a>
 					{/each}

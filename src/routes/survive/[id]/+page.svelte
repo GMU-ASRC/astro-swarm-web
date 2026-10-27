@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import ChartCard from '$lib/components/ChartCard.svelte';
+	import { dateTimeLabel } from '$lib/ts/dates';
 	import type { SurviveMatch, SurvivePlayer } from '$lib/ts/survive';
 	import { PLAYER_COLORS, apmChartConfig, clockLabel } from '$lib/ts/survive';
 
@@ -15,7 +16,7 @@
 	let players = $derived(match.players ?? []);
 	let hasSeries = $derived((match.apm_times?.length ?? 0) > 1);
 	let chartConfig = $derived(apmChartConfig(match));
-	let dateLabel = $derived(match.created_at.slice(0, 10));
+	let dateLabel = $derived(dateTimeLabel(match.created_at));
 
 	let headline = $derived(match.outcome === 'tie' ? 'Tie match' : `${match.winner ?? 'Winner'} wins`);
 

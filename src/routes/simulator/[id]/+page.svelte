@@ -4,7 +4,8 @@
 	import SimulatorReplay from '$lib/components/SimulatorReplay.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import type { SimulatorEntry, SimulatorReplay as SimulatorReplayData } from '$lib/ts/simulator';
-	import { PIXELS_PER_METER, durationLabel, shortDate } from '$lib/ts/simulator';
+	import { PIXELS_PER_METER, durationLabel } from '$lib/ts/simulator';
+	import { dateTimeLabel } from '$lib/ts/dates';
 
 	interface PageData {
 		entry: SimulatorEntry;
@@ -70,7 +71,7 @@
 		<h1 class="page-title entry-heading">{entry.title}</h1>
 		<p class="entry-id">{entry.id}</p>
 		<p class="page-lede">
-			by {entry.username} · {shortDate(entry.created_at)}
+			by {entry.username} · {dateTimeLabel(entry.created_at)}
 			{#if entry.game_version}
 				· {entry.game_version}
 			{/if}

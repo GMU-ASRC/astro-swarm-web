@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
+	import { dateTimeLabel } from '$lib/ts/dates';
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
 	import { toneOf, type ReplayGroup } from '$lib/ts/replay';
 	import ChartCard from '$lib/components/ChartCard.svelte';
@@ -53,7 +54,7 @@
 
 	let outcomes = $derived(ev?.results?.outcomes ?? []);
 	let successRate = $derived(ev?.results?.success_rate ?? 0);
-	let dateLabel = $derived(ev ? (ev.completed_at ?? ev.created_at).slice(0, 10) : '');
+	let dateLabel = $derived(ev ? dateTimeLabel(ev.created_at) : '');
 	let levelNumber = $derived(ev?.level_number ?? 1);
 	let isPilot = $derived(pilotLevel(levelNumber));
 	let isSwarm = $derived(swarmLevel(levelNumber));
@@ -345,7 +346,7 @@
 {:else}
 	<h1>{ev.username}</h1>
 	<p class="meta">
-		{(ev.level_id ?? 'farp').toUpperCase()} · {ev.placements?.length ?? 0} defenders · {ev.trials} trials · evaluated {dateLabel}
+		{(ev.level_id ?? 'farp').toUpperCase()} · {ev.placements?.length ?? 0} defenders · {ev.trials} trials · submitted {dateLabel}
 	</p>
 	<p class="meta">{ev.id}</p>
 

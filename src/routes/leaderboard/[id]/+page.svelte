@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import { levelName, rateWord } from '$lib/ts/levels';
+	import { dateTimeLabel } from '$lib/ts/dates';
 
 	interface LevelStat {
 		level_number: number;
@@ -49,12 +50,6 @@
 	let { data }: { data: PageData } = $props();
 	let profile = $derived(data.profile);
 
-	function when(iso: string): string {
-		const date = new Date(iso);
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${month}/${day}/${date.getFullYear()}`;
-	}
 
 
 
@@ -158,7 +153,7 @@
 						</span>
 						<span class="entry-version">{entry.game_version ?? 'v0.0.4'}</span>
 						<span class="badge {statusClass(entry.status)}">{entry.status}</span>
-						<span class="entry-date">{when(entry.created_at)}</span>
+						<span class="entry-date">{dateTimeLabel(entry.created_at)}</span>
 					</a>
 				{/each}
 			</div>

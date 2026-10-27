@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
+	import { dateTimeLabel } from '$lib/ts/dates';
 	import FarpReplay from '$lib/components/FarpReplay.svelte';
 	import { genomeStageColor } from '$lib/ts/replayRenderer';
 	import ReplayWorkspace from '$lib/components/ReplayWorkspace.svelte';
@@ -38,7 +39,7 @@
 	let genomeStages = $derived(ev.genome_schedule ?? []);
 
 	let level = $derived(levelById(ev.level_id) ?? FARP_LEVELS[0]);
-	let dateLabel = $derived((ev.completed_at ?? ev.created_at).slice(0, 10));
+	let dateLabel = $derived(dateTimeLabel(ev.created_at));
 	let pending = $derived(ev.status === 'queued' || ev.status === 'running');
 	let percent = $derived(Math.round((ev.progress ?? 0) * 100));
 
@@ -317,7 +318,7 @@
 			{(ev.level_id ?? 'farp').toUpperCase()} · {ev.defender_count ?? ev.placements?.length ?? 0}
 			{isSwarm ? 'agents' : 'defenders'}
 			{#if !isPilot}· {ev.trials} trials{/if}
-			· {ev.game_version ?? 'v0.0.4'} · recorded {dateLabel}
+			· {ev.game_version ?? 'v0.0.4'} · submitted {dateLabel}
 		</p>
 	</div>
 

@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import type { SurviveMatchListItem } from '$lib/ts/survive';
 	import { clockLabel } from '$lib/ts/survive';
+	import { dateTimeLabel } from '$lib/ts/dates';
 
 	interface PageData {
 		matchesPromise: Promise<{ matches: SurviveMatchListItem[]; apiError: boolean }>;
@@ -64,13 +65,6 @@
 	$effect(() => {
 		if (page > pageCount) page = pageCount;
 	});
-
-	function when(iso: string): string {
-		const date = new Date(iso);
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${month}/${day}/${date.getFullYear()}`;
-	}
 
 	function outcomeLabel(match: SurviveMatchListItem): string {
 		if (match.outcome === 'tie') return 'Tie';
@@ -153,7 +147,7 @@
 							</div>
 
 							<div class="match-foot">
-								<span>{when(match.created_at)} · {clockLabel(match.duration)}</span>
+								<span>{dateTimeLabel(match.created_at)} · {clockLabel(match.duration)}</span>
 								<span>{match.game_version}</span>
 							</div>
 						</a>

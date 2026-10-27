@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
+	import { dateTimeLabel } from '$lib/ts/dates';
 	import LevelLeaderboard from '$lib/components/LevelLeaderboard.svelte';
 	import LevelComparison from '$lib/components/LevelComparison.svelte';
 	import type {
@@ -143,12 +144,6 @@
 		return 'badge-loss';
 	}
 
-	function when(iso: string): string {
-		const date = new Date(iso);
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${month}/${day}/${date.getFullYear()}`;
-	}
 </script>
 
 <svelte:head>
@@ -281,7 +276,7 @@
 								</div>
 
 								<div class="entry-foot">
-									<span>{when(player.created_at)}</span>
+									<span>{dateTimeLabel(player.created_at)}</span>
 									<span>{player.game_version ?? 'v0.0.4'}</span>
 								</div>
 							</a>
