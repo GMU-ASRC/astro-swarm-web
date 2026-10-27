@@ -48,7 +48,8 @@ SERVER_URL=https://astroswarm.autonomousrobotics.club API_SECRET_KEY=... ./astro
 | `WORKER_POLL_SECONDS` | Idle poll interval | `3` |
 | `WORKER_CANCEL_POLL_SECONDS` | Progress and cancellation poll interval | `2` |
 | `EVAL_TIMEOUT_SECONDS` | Max wall-clock time per job | `3600` |
-| `WORKER_ID_FILE` | Where the worker id is stored | `/data/worker_id` |
+| `WORKER_ID` | Fixed worker id, skips the id file when set | unset |
+| `WORKER_ID_FILE` | Where the worker id is stored, falls back to the user config directory when it cannot be written | `/data/worker_id` |
 | `EVAL_SWEEP_SPAWN` | `fixed` or `varied` ring-sweep evader spawn | `fixed` |
 
 `GODOT_RELEASE_TAG`, `GODOT_SERVER_BIN`, `GODOT_PCK`, `GODOT_DIR`, `EVAL_FIXED_FPS`, and

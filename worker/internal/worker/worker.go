@@ -2,12 +2,8 @@ package worker
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
-	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -27,6 +23,7 @@ type Settings struct {
 	PollInterval     time.Duration
 	CancelPoll       time.Duration
 	JobTimeout       time.Duration
+	ID               string
 	IDFile           string
 	SimWorkers       int
 	VariedSweepSpawn bool
@@ -43,7 +40,7 @@ type Worker struct {
 }
 
 func New(settings Settings, logger *log.Logger) (*Worker, error) {
-	id, err := loadOrCreateID(settings.IDFile, logger)
+	id, err := loadOrCreateID(settings.ID, settings.IDFile, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -57,57 +54,6 @@ func New(settings Settings, logger *log.Logger) (*Worker, error) {
 
 func (w *Worker) ID() string {
 	return w.id
-}
-
-func loadOrCreateID(path string, logger *log.Logger) (string, error) {
-	if path != "" {
-		if raw, err := os.ReadFile(path); err == nil {
-			if value := trimSpace(string(raw)); value != "" {
-				return value, nil
-			}
-		}
-	}
-	value, err := newUUID()
-	if err != nil {
-		return "", err
-	}
-	if path == "" {
-		return value, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		logger.Printf("could not create %s (%v); using an ephemeral worker id", filepath.Dir(path), err)
-		return value, nil
-	}
-	if err := os.WriteFile(path, []byte(value), 0o644); err != nil {
-		logger.Printf("could not persist the worker id to %s (%v); using an ephemeral id", path, err)
-	}
-	return value, nil
-}
-
-func newUUID() (string, error) {
-	bytes := make([]byte, 16)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	bytes[6] = (bytes[6] & 0x0f) | 0x40
-	bytes[8] = (bytes[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16]), nil
-}
-
-func trimSpace(value string) string {
-	start := 0
-	end := len(value)
-	for start < end && isSpace(value[start]) {
-		start++
-	}
-	for end > start && isSpace(value[end-1]) {
-		end--
-	}
-	return value[start:end]
-}
-
-func isSpace(character byte) bool {
-	return character == ' ' || character == '\t' || character == '\n' || character == '\r'
 }
 
 func (w *Worker) Run(ctx context.Context) {

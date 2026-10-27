@@ -25,6 +25,7 @@ func main() {
 		PollInterval:     envSeconds("WORKER_POLL_SECONDS", 3),
 		CancelPoll:       envSeconds("WORKER_CANCEL_POLL_SECONDS", 2),
 		JobTimeout:       envSeconds("EVAL_TIMEOUT_SECONDS", 3600),
+		ID:               env("WORKER_ID", ""),
 		IDFile:           env("WORKER_ID_FILE", "/data/worker_id"),
 		VariedSweepSpawn: env("EVAL_SWEEP_SPAWN", bench.SweepSpawnVaried) == bench.SweepSpawnVaried,
 	}

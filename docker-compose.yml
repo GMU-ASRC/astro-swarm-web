@@ -51,6 +51,7 @@ services:
       SERVER_URL: ${WORKER_SERVER_URL:-http://server:5050}
       API_SECRET_KEY: ${API_SECRET_KEY}
       WORKER_NAME: ${WORKER_NAME:-worker}
+      WORKER_ID: ${WORKER_ID:-}
       # Matches run in parallel within the one job this worker holds.
       # Defaults to the container's core count.
       SIM_WORKERS: ${SIM_WORKERS:-}
