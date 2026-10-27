@@ -15,6 +15,7 @@ from entry_card import build_entry_card
 from models import PlayerEvaluation
 from simulator_models import SimulatorEntry
 from routers.admin import admin_bp
+from routers.backup import backup_bp
 from routers.evaluations import evaluations_bp
 from routers.leaderboard import leaderboard_bp
 from routers.runs import runs_bp
@@ -145,6 +146,7 @@ def create_app():
 
     db.init_app(app)
 
+    app.register_blueprint(backup_bp)
     app.register_blueprint(runs_bp)
     app.register_blueprint(leaderboard_bp)
     app.register_blueprint(version_bp)

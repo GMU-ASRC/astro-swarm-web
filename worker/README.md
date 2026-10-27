@@ -152,6 +152,43 @@ timed separately as the render fps, so turning the video on does not change the 
 | `-server` | the production site | Base url used when an entry is a bare id |
 | `-quiet` | `false` | Suppress the progress line |
 
+## Downloading data and backups
+
+Both commands need an admin key: the server's `API_SECRET_KEY` or an admin session token. Pass it
+with `-key` or set `ASTROSWARM_ADMIN_KEY`. The server streams the archive as it builds it, so a
+large export does not hit request size limits.
+
+```bash
+astrosim download -key "$API_SECRET_KEY"
+astrosim backup -key "$API_SECRET_KEY" -dir backups -keep 7
+```
+
+`download` saves every table as JSON lines (`tables/<name>.jsonl`) and every uploaded file,
+replays included (`uploads/`), then extracts them into `astroswarm-data-<time>/`.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-out` | `astroswarm-data-<time>` | Directory the data is extracted into |
+| `-database` | `false` | Also include a `pg_dump` database dump |
+| `-zip` | `false` | Keep the zip instead of extracting it |
+| `-server` | the production site | Base url of the web server |
+
+`backup` writes `astroswarm-backup-<time>.zip` holding `database/database.dump`, a `pg_dump`
+custom-format dump, and checks that the dump is present before reporting success. Restore it with:
+
+```bash
+unzip astroswarm-backup-<time>.zip database/database.dump
+pg_restore --clean --if-exists --no-owner --dbname "postgresql://user:password@host:5432/astroswarm" database/database.dump
+```
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `-dir` | `backups` | Directory the backup is written to |
+| `-files` | `false` | Also include every uploaded file |
+| `-tables` | `false` | Also include every table as JSON lines |
+| `-keep` | `0` | Delete older backups so only this many remain, `0` keeps all |
+| `-server` | the production site | Base url of the web server |
+
 ## Seeds
 
 The seed decides every enemy spawn angle and every ring orientation, so a run against the

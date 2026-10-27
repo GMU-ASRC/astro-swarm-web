@@ -44,12 +44,19 @@ type CommandOptions struct {
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "stress" {
-		if err := runStress(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		subcommands := map[string]func([]string) error{
+			"stress":   runStress,
+			"download": runDownload,
+			"backup":   runBackup,
 		}
-		return
+		if run, ok := subcommands[os.Args[1]]; ok {
+			if err := run(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
 	}
 
 	options := CommandOptions{}
