@@ -71,6 +71,7 @@ def submit_entry():
         frame_count=parsed.frame_count,
         record_interval=parsed.record_interval,
         replay_packed=pack_replay(parsed.replay),
+        created_at=parsed.created_at,
     )
     db.session.add(entry)
     db.session.commit()

@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest, NotFound
 
@@ -67,6 +65,6 @@ def submit_score():
     score.defenders = len(parsed.placements)
     score.algorithm = parsed.algorithm
     score.placements = parsed.placements
-    score.updated_at = datetime.now(timezone.utc)
+    score.updated_at = parsed.created_at
     db.session.commit()
     return jsonify(score.to_dict()), status

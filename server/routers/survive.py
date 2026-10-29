@@ -59,6 +59,7 @@ def submit_match():
         evaders_spawned=parsed.evaders_spawned,
         wild_remaining=parsed.wild_remaining,
         first_target=parsed.first_target,
+        created_at=parsed.created_at,
     )
     db.session.add(match)
     db.session.commit()

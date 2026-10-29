@@ -2,6 +2,8 @@ import math
 import re
 from dataclasses import dataclass, field
 
+from client_time import parse_created_at
+
 MAX_TITLE_LENGTH = 80
 MAX_DESCRIPTION_LENGTH = 400
 MAX_NAME_LENGTH = 40
@@ -34,8 +36,10 @@ class SimulatorEntrySubmit:
     game_version: str = ""
     setup: dict = field(default_factory=dict)
     replay: dict = field(default_factory=dict)
+    created_at: str = ""
 
     def __post_init__(self):
+        self.created_at = parse_created_at(self.created_at)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):

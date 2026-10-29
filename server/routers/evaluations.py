@@ -550,6 +550,7 @@ def submit_evaluation():
         game_version=parsed.game_version,
         defender_count=len(parsed.placements or []),
         collisions=parsed.collisions,
+        created_at=parsed.created_at,
     )
     db.session.add(evaluation)
 
@@ -605,6 +606,7 @@ def submit_run():
         game_version=parsed.game_version,
         defender_count=len(parsed.placements or []),
         replays={"pending_run": parsed.run},
+        created_at=parsed.created_at,
     )
     db.session.add(evaluation)
     db.session.flush()

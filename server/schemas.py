@@ -2,6 +2,8 @@ import re
 from datetime import datetime
 from dataclasses import dataclass, field
 
+from client_time import parse_created_at
+
 @dataclass
 class SpeciesInfo:
     id: str
@@ -82,8 +84,10 @@ class EvaluationSubmit:
     game_version: str = "v0.0.4"
     collisions: bool = False
     genome_schedule: list = field(default_factory=list)
+    created_at: str = ""
 
     def __post_init__(self):
+        self.created_at = parse_created_at(self.created_at)
         self.collisions = bool(self.collisions)
         validate_genome_schedule(self.genome_schedule, self.level_id)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
@@ -134,8 +138,10 @@ class TrainingScoreSubmit:
     algorithm: list = field(default_factory=list)
     placements: list = field(default_factory=list)
     game_version: str = "v0.0.9"
+    created_at: str = ""
 
     def __post_init__(self):
+        self.created_at = parse_created_at(self.created_at)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
@@ -198,8 +204,10 @@ class RunSubmit:
     placements: list = field(default_factory=list)
     game_version: str = "v0.0.4"
     genome_schedule: list = field(default_factory=list)
+    created_at: str = ""
 
     def __post_init__(self):
+        self.created_at = parse_created_at(self.created_at)
         validate_genome_schedule(self.genome_schedule, self.level_id)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
@@ -303,8 +311,10 @@ class SurviveMatchSubmit:
     evaders_spawned: int = 0
     wild_remaining: int = 0
     first_target: int = 1
+    created_at: str = ""
 
     def __post_init__(self):
+        self.created_at = parse_created_at(self.created_at)
         if not isinstance(self.player_id, str) or len(self.player_id) != 36:
             raise ValueError("player_id must be exactly 36 characters")
         if not isinstance(self.username, str) or not (1 <= len(self.username) <= 30):
