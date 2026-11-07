@@ -148,10 +148,19 @@ def list_evaluations():
 @evaluations_bp.get("/best")
 def best_evaluation():
     level_id = (request.args.get("level_id") or "farp2").strip()
-    candidates = PlayerEvaluation.query.filter(
-        PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
-        PlayerEvaluation.status == "done",
-    ).all()
+    candidates = (
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+            defer(PlayerEvaluation.genome_schedule),
+        )
+        .filter(
+            PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
+            PlayerEvaluation.status == "done",
+        )
+        .all()
+    )
     scored = []
     for item in candidates:
         results = item.results if isinstance(item.results, dict) else {}
@@ -488,13 +497,15 @@ def rename_player(player_id: str):
         raise BadRequest("username is required")
     if len(username) > 30:
         raise BadRequest("username must be 30 characters or fewer")
-    entries = PlayerEvaluation.query.filter_by(player_id=player_id).all()
-    if not entries:
+    updated_count = (
+        PlayerEvaluation.query.filter_by(player_id=player_id)
+        .update({"username": username}, synchronize_session=False)
+    )
+    if not updated_count:
+        db.session.rollback()
         raise NotFound("Player not found")
-    for entry in entries:
-        entry.username = username
     db.session.commit()
-    return jsonify({"player_id": player_id, "username": username, "updated": len(entries)})
+    return jsonify({"player_id": player_id, "username": username, "updated": updated_count})
 
 
 class OutdatedGameVersion(HTTPException):
@@ -786,7 +797,13 @@ def claim_xp(eval_id: str):
         })
 
     others = (
-        PlayerEvaluation.query.filter(
+        PlayerEvaluation.query.options(
+            defer(PlayerEvaluation.replays),
+            defer(PlayerEvaluation.algorithm),
+            defer(PlayerEvaluation.placements),
+            defer(PlayerEvaluation.genome_schedule),
+        )
+        .filter(
             PlayerEvaluation.player_id == evaluation.player_id,
             PlayerEvaluation.status != "cancelled",
             PlayerEvaluation.id != evaluation.id,

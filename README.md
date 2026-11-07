@@ -318,18 +318,9 @@ The server is available at `http://localhost:5050`. Compose also starts one `wor
 
 ### Database migrations
 
-`server/migrations.py` holds every schema change as an idempotent statement. The server runs
-them itself on startup, right after `db.create_all()`, so a normal deploy needs nothing extra.
-
-To apply them by hand against a running stack:
-
-```bash
-docker compose exec server python migrations.py
-```
-
-It is safe to run repeatedly — each statement is `IF NOT EXISTS` / `IF EXISTS`, and anything
-that cannot apply is logged and skipped rather than aborting the rest. Add new changes by
-appending to `STATEMENTS`; never edit or reorder the existing entries.
+Schema and data changes live in `server/migrator/versions/`, one numbered file per migration. The `migrate`
+service runs them once, in order, before the server starts. See [MIGRATIONS.md](MIGRATIONS.md) for the
+commands, the backup step and the restore guide.
 
 ## Running Locally
 

@@ -37,3 +37,5 @@ venv/
 /worker/astrosim
 /worker/astroworker
 /worker/out/
+# Backups
+/backups

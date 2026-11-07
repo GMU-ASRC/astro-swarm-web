@@ -1,15 +1,24 @@
-import logging
-
-from sqlalchemy import text
-
 from database import db
-
-logger = logging.getLogger(__name__)
+from migrator.migration import Migration
 
 LEVEL_SHIFT_KEY = "level_ids_shifted_v2"
 PILOT_SHIFT_KEY = "level_ids_shifted_v3"
 PILOT_HIDDEN_KEY = "level_ids_shifted_v4"
 PILOT_HIDDEN_RENAMES = (("farp6", "farp9"), ("farp7", "farp6"), ("farp8", "farp7"))
+
+LEGACY_TABLES = (
+    "sim_configs",
+    "sim_runs",
+    "player_evaluations",
+    "app_settings",
+    "workers",
+    "survive_matches",
+    "training_scores",
+    "leaderboard_entries",
+    "admin_users",
+    "admin_sessions",
+    "simulator_entries",
+)
 
 STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS progress double precision DEFAULT 0",
@@ -29,8 +38,6 @@ STATEMENTS = [
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS genome_schedule json DEFAULT '[]'::json",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS coins_awarded integer",
     "ALTER TABLE workers DROP COLUMN IF EXISTS max_jobs",
-    # One worker runs one whole evaluation, so the job state moved onto the
-    # evaluation itself and the shard table is gone.
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS done_units integer DEFAULT 0",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS total_units integer DEFAULT 1",
     "ALTER TABLE player_evaluations ADD COLUMN IF NOT EXISTS last_update timestamptz DEFAULT now()",
@@ -40,10 +47,6 @@ STATEMENTS = [
     "UPDATE player_evaluations SET level_id = 'farp5' WHERE level_id = 'farp3'"
     " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % LEVEL_SHIFT_KEY,
     "UPDATE player_evaluations SET level_id = 'farp1' WHERE level_id = 'farp' OR level_id IS NULL",
-    # Levels 3 and 4 became continuous-wave levels and a new siege level took
-    # slot 5, so the two piloted levels moved up one. This only runs once the
-    # earlier shift has been recorded, so a database that is behind on both
-    # never gets shifted twice in one pass.
     "UPDATE player_evaluations SET level_id = 'farp7' WHERE level_id = 'farp6'"
     " AND EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')"
     " AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = '%s')" % (LEVEL_SHIFT_KEY, PILOT_SHIFT_KEY),
@@ -77,39 +80,34 @@ STATEMENTS = [
 ]
 
 
-def apply(log=None):
-    log = log or logger
-    ok = 0
-    skipped = 0
-    for statement in STATEMENTS:
-        try:
-            db.session.execute(text(statement))
-            db.session.commit()
-            ok += 1
-        except Exception as exc:
-            db.session.rollback()
-            skipped += 1
-            log.warning("Migration skipped (%s): %s", statement, exc)
-    return ok, skipped
+class LegacySchema(Migration):
+    version = 1
+    name = "legacy_schema"
+    changes_data = False
 
+    def describe(self, context):
+        return ["create missing tables: %s" % ", ".join(LEGACY_TABLES), "apply %d legacy statements" % len(STATEMENTS)]
 
-def main():
-    from flask import Flask
+    def run(self, context):
+        import models
+        import simulator_models
 
-    from config import Config
+        legacy_tables = [db.metadata.tables[name] for name in LEGACY_TABLES]
+        db.metadata.create_all(bind=context.connection, tables=legacy_tables)
+        context.connection.commit()
+        skipped = 0
+        for statement in STATEMENTS:
+            try:
+                context.execute(statement)
+            except Exception as error:
+                context.connection.rollback()
+                skipped += 1
+                context.log("skipped statement (%s): %s", statement, error)
+        context.log("applied %d statement(s), skipped %d", len(STATEMENTS) - skipped, skipped)
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-
-    app = Flask(__name__)
-    app.config.from_object(Config)
-    db.init_app(app)
-
-    with app.app_context():
-        ok, skipped = apply()
-        db.engine.dispose()
-
-    print(f"{ok} statement(s) ran, {skipped} skipped, out of {len(STATEMENTS)}")
-
-
-if __name__ == "__main__":
-    main()
+    def verify(self, context):
+        problems = []
+        for name in LEGACY_TABLES:
+            if not context.scalar("SELECT to_regclass(:name) IS NOT NULL", {"name": "public." + name}):
+                problems.append("table %s is missing" % name)
+        return problems

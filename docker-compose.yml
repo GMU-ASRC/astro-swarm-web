@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -16,7 +17,26 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: astroswarm-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    command: ["python", "migrate.py"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      UPLOAD_DIR: /app/uploads
+      BACKUP_DIR: /app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+      - ${BACKUP_PATH:-./backups}:/app/backups
+
   server:
+    image: astroswarm-server
     build:
       context: .
       dockerfile: Dockerfile
@@ -24,6 +44,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       UPLOAD_DIR: /app/uploads
+      BACKUP_DIR: /app/backups
+      WEB_PROCESSES: ${WEB_PROCESSES:-4}
+      WEB_THREADS: ${WEB_THREADS:-4}
       CORS_ORIGINS: '["${FRONTEND_ORIGIN}"]'
       PORT: ${PORT:-5050}
       CLIENT_DIR: /app/client
@@ -33,8 +56,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - uploads:/app/uploads
+      - ${BACKUP_PATH:-./backups}:/app/backups
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-5050}/health').read()"]
       interval: 10s

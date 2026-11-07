@@ -37,4 +37,4 @@ ENV CLIENT_DIR=/app/client
 
 EXPOSE ${PORT}
 
-CMD exec gunicorn --bind "0.0.0.0:${PORT}" --workers 1 --threads 8 main:app
+CMD exec gunicorn --bind "0.0.0.0:${PORT}" --workers "${WEB_PROCESSES:-4}" --threads "${WEB_THREADS:-4}" --preload main:app

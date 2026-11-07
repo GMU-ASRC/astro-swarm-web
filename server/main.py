@@ -8,7 +8,6 @@ from flask_cors import CORS
 from sqlalchemy import text
 from werkzeug.exceptions import HTTPException
 
-import migrations
 from config import Config
 from database import db
 from entry_card import build_entry_card
@@ -164,8 +163,6 @@ def create_app():
         return jsonify({"error": exc.description, "status": exc.code}), exc.code
 
     with app.app_context():
-        db.create_all()
-        migrations.apply(logger)
         _ensure_admin_user()
         _recover_jobs_on_restart()
         db.engine.dispose()

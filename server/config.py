@@ -8,6 +8,13 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/app/uploads")
+    BACKUP_DIR = os.environ.get("BACKUP_DIR", "/app/backups")
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_size": int(os.environ.get("DB_POOL_SIZE", "5")),
+        "max_overflow": int(os.environ.get("DB_MAX_OVERFLOW", "5")),
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+    }
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024
     ALLOWED_EXTENSIONS = {".cfg", ".run"}
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
