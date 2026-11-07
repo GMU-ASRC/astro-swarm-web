@@ -280,8 +280,14 @@ class PlayerEvaluation(db.Model):
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+    def _list_rates(self):
+        light_rates = getattr(self, "light_rates", None)
+        if light_rates is not None:
+            return light_rates
+        return self._results_dict()
+
     def to_list_dict(self):
-        results = self._results_dict()
+        results = self._list_rates()
         return {
             "id": self.id,
             "player_id": self.player_id,

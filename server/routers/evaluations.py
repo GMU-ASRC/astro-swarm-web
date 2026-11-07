@@ -11,6 +11,7 @@ from werkzeug.exceptions import BadRequest, Conflict, HTTPException, NotFound, U
 
 from auth import require_admin
 import charts
+from evaluation_queries import light_evaluations, light_evaluations_query, results_number, success_rate_of
 import merge
 import rating
 import replay_cleanup
@@ -89,7 +90,7 @@ def _dedup_key(algorithm, placements, schedule=None):
 def _find_player_duplicate(player_id, level_id, algorithm, placements, schedule=None):
     key = _dedup_key(algorithm, placements, schedule)
     candidates = (
-        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
+        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays), defer(PlayerEvaluation.results))
         .filter(
             PlayerEvaluation.player_id == player_id,
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
@@ -107,7 +108,7 @@ def _find_matching_done(level_id, algorithm, placements, trials, schedule=None):
     key = _submission_key(algorithm, placements, trials, schedule)
     sweep_max = get_sweep_max()
     candidates = (
-        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays))
+        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays), defer(PlayerEvaluation.results))
         .filter_by(status="done", level_id=level_id)
         .all()
     )
@@ -124,11 +125,7 @@ def _find_matching_done(level_id, algorithm, placements, trials, schedule=None):
 
 @evaluations_bp.get("")
 def list_evaluations():
-    query = PlayerEvaluation.query.options(
-        defer(PlayerEvaluation.replays),
-        defer(PlayerEvaluation.algorithm),
-        defer(PlayerEvaluation.placements),
-    )
+    query = light_evaluations_query()
 
     level_id = (request.args.get("level_id") or "").strip()
     if level_id:
@@ -141,30 +138,22 @@ def list_evaluations():
     if player_id:
         query = query.filter(PlayerEvaluation.player_id == player_id)
 
-    evaluations = query.order_by(PlayerEvaluation.created_at.desc()).limit(500).all()
+    evaluations = light_evaluations(query.order_by(PlayerEvaluation.created_at.desc()).limit(500))
     return jsonify([item.to_list_dict() for item in evaluations])
 
 
 @evaluations_bp.get("/best")
 def best_evaluation():
     level_id = (request.args.get("level_id") or "farp2").strip()
-    candidates = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-            defer(PlayerEvaluation.genome_schedule),
-        )
-        .filter(
+    candidates = light_evaluations(
+        light_evaluations_query().filter(
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
             PlayerEvaluation.status == "done",
         )
-        .all()
     )
     scored = []
     for item in candidates:
-        results = item.results if isinstance(item.results, dict) else {}
-        rate = results.get("success_rate")
+        rate = success_rate_of(item)
         if rate is None:
             continue
         scored.append((item, float(rate)))
@@ -186,14 +175,8 @@ def best_evaluation():
 
 
 def _aggregate_players():
-    evaluations = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-        )
-        .filter(PlayerEvaluation.status != "cancelled")
-        .all()
+    evaluations = light_evaluations(
+        light_evaluations_query().filter(PlayerEvaluation.status != "cancelled")
     )
     players = {}
     for e in evaluations:
@@ -216,8 +199,7 @@ def _aggregate_players():
             p["last"] = e.created_at
         p["total_xp"] += e.xp_awarded or 0
         p["entries"] += 1
-        results = e.results if isinstance(e.results, dict) else {}
-        rate = results.get("success_rate")
+        rate = success_rate_of(e)
         level_num = e.level_number()
         lv = p["levels"].get(level_num)
         if lv is None:
@@ -281,23 +263,16 @@ def _weighted_level_rate(player, level_number):
 @evaluations_bp.get("/level-leaderboard")
 def level_leaderboard():
     level_id = (request.args.get("level_id") or "farp1").strip()
-    entries = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-        )
-        .filter(
+    entries = light_evaluations(
+        light_evaluations_query().filter(
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
             PlayerEvaluation.status == "done",
         )
-        .all()
     )
 
     players = {}
     for item in entries:
-        results = item.results if isinstance(item.results, dict) else {}
-        rate = results.get("success_rate")
+        rate = success_rate_of(item)
         if rate is None:
             continue
         rate = float(rate)
@@ -351,28 +326,25 @@ def level_sweep():
     except (TypeError, ValueError):
         limit = 6
 
-    entries = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-        )
+    ranked_entries = light_evaluations(
+        light_evaluations_query()
         .filter(
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
             PlayerEvaluation.status == "done",
+            results_number("success_rate").isnot(None),
         )
-        .all()
+        .order_by(results_number("success_rate").desc(), PlayerEvaluation.created_at.asc())
     )
 
     scored = []
-    for item in entries:
+    for item in ranked_entries:
+        if len(scored) >= limit:
+            break
         results = item.results if isinstance(item.results, dict) else {}
         sweep = results.get("sweep") or []
-        rate = results.get("success_rate")
-        if not sweep or rate is None:
+        if not sweep:
             continue
-        scored.append((float(rate), item, sweep, results.get("circliness")))
-    scored.sort(key=lambda row: row[0], reverse=True)
+        scored.append((float(success_rate_of(item)), item, sweep, results.get("circliness")))
 
     return jsonify([
         {
@@ -440,18 +412,13 @@ def player_profile(player_id: str):
             "players": len(contenders),
         })
 
-    entries = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-        )
+    entries = light_evaluations(
+        light_evaluations_query()
         .filter(
             PlayerEvaluation.player_id == player_id,
             PlayerEvaluation.status != "cancelled",
         )
         .order_by(PlayerEvaluation.created_at.desc())
-        .all()
     )
 
     return jsonify({
@@ -720,18 +687,10 @@ def update_settings():
 
 @evaluations_bp.get("/baseline")
 def baseline():
-    evaluations = (
-        PlayerEvaluation.query.options(
-            defer(PlayerEvaluation.replays),
-            defer(PlayerEvaluation.algorithm),
-            defer(PlayerEvaluation.placements),
-        )
-        .filter_by(status="done")
-        .all()
-    )
+    evaluations = light_evaluations(light_evaluations_query().filter(PlayerEvaluation.status == "done"))
     rates = []
     for evaluation in evaluations:
-        rate = (evaluation.results or {}).get("success_rate") if isinstance(evaluation.results, dict) else None
+        rate = success_rate_of(evaluation)
         if rate is not None:
             rates.append(rate)
     average = round(sum(rates) / len(rates), 1) if rates else None
