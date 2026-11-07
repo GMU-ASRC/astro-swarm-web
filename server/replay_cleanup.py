@@ -1,15 +1,23 @@
-from sqlalchemy import Text, cast
+from sqlalchemy import or_
 
 import replay_files
-from models import PlayerEvaluation
+from benchmark_models import BenchmarkRun
+from benchmark_store import EXTRA_PACKED_KEY, EXTRA_PLAIN_KEY, INLINE_UPLOAD_ID
 
 
-def _referenced_elsewhere(evaluation_id, upload_id):
-    marker = "%s/%s/" % (evaluation_id, upload_id)
+def _escape_like(value):
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _referenced(evaluation_id, upload_id):
+    pattern = _escape_like("%s/%s/" % (evaluation_id, upload_id)) + "%"
+    if BenchmarkRun.query.filter(BenchmarkRun.frames_key.like(pattern, escape="\\")).first() is not None:
+        return True
+    if upload_id != INLINE_UPLOAD_ID:
+        return False
+    extra_keys = [BenchmarkRun.details[key].astext for key in (EXTRA_PACKED_KEY, EXTRA_PLAIN_KEY)]
     return (
-        PlayerEvaluation.query.filter(PlayerEvaluation.id != evaluation_id)
-        .filter(cast(PlayerEvaluation.replays, Text).contains(marker))
-        .first()
+        BenchmarkRun.query.filter(or_(*[extra_key.like(pattern, escape="\\") for extra_key in extra_keys])).first()
         is not None
     )
 
@@ -22,7 +30,7 @@ def unused_uploads(evaluation_id, keep_upload_id=None):
     return [
         (evaluation_id, upload_id)
         for upload_id in upload_ids
-        if upload_id != keep_upload_id and not _referenced_elsewhere(evaluation_id, upload_id)
+        if upload_id != keep_upload_id and not _referenced(evaluation_id, upload_id)
     ]
 
 

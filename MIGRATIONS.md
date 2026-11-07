@@ -53,3 +53,22 @@ Stop the workers before a backup (`docker compose stop worker`, and any remote w
 
 To run a migration again from scratch after a restore, delete its row first:
 `docker compose exec db psql -U $DB_USER -d $DB_NAME -c "DELETE FROM schema_migrations WHERE version = <number>;"`
+
+## Deploying Migrations 3 and 4 (benchmark tables)
+
+Migration 4 copies every entry's results and replay data into the `benchmarks` and `benchmark_runs` tables and writes replay frames kept inside the database out to `replays/<entry id>/inline/`. The `results` and `replays` columns are not changed. It needs a verified backup from the last 24 hours.
+
+1. In the admin panel, disconnect every worker and wait until no job is running.
+2. Stop the server so no result is written while the data is copied:
+   `docker compose stop server worker`
+3. Check there is about 65 GB free where `BACKUP_PATH` points (`df -h`), then back up:
+   `docker compose run --rm migrate python make_backup.py`
+4. Deploy. The `migrate` service copies and verifies every row before the server starts:
+   `git pull`
+   `docker compose up -d --build`
+5. Check the result:
+   `docker compose logs migrate`
+   `docker compose run --rm migrate python migrate.py --status`
+6. Reconnect the workers in the admin panel.
+
+If migration 4 reports problems, it is marked `failed`, the server does not start, and no original data has been changed. Send the `docker compose logs migrate` output, or restore the previous image with `git checkout <previous commit>` and `docker compose up -d --build`.

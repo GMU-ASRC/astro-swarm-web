@@ -137,6 +137,26 @@ def _recover_jobs_on_restart():
         logger.warning("Could not recover evaluation jobs: %s", exc)
 
 
+def _copy_legacy_rows():
+    try:
+        import legacy_copy
+        import legacy_verify
+
+        copied_ids = []
+        for evaluation_id in legacy_copy.pending_row_ids(1000):
+            if legacy_copy.copy_row(evaluation_id):
+                copied_ids.append(evaluation_id)
+        for evaluation_id in copied_ids:
+            for problem in legacy_verify.verify_row(evaluation_id):
+                logger.error("Legacy copy problem: %s", problem)
+        db.session.rollback()
+        if copied_ids:
+            logger.info("Copied %d entry row(s) written by the previous server version", len(copied_ids))
+    except Exception as exc:
+        db.session.rollback()
+        logger.error("Could not copy legacy entry rows: %s", exc)
+
+
 def create_app():
     app = Flask(__name__, static_folder=None)
     app.config.from_object(Config)
@@ -164,6 +184,7 @@ def create_app():
 
     with app.app_context():
         _ensure_admin_user()
+        _copy_legacy_rows()
         _recover_jobs_on_restart()
         db.engine.dispose()
 

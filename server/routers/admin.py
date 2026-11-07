@@ -19,6 +19,8 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 TRACKED_TABLES = [
     "player_evaluations",
+    "benchmarks",
+    "benchmark_runs",
     "sim_runs",
     "sim_configs",
     "survive_matches",

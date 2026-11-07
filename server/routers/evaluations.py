@@ -11,7 +11,10 @@ from werkzeug.exceptions import BadRequest, Conflict, HTTPException, NotFound, U
 
 from auth import require_admin
 import charts
-from evaluation_queries import light_evaluations, light_evaluations_query, results_number, success_rate_of
+import benchmark_hash
+import benchmark_store
+from benchmark_models import Benchmark
+from evaluation_queries import light_evaluations, light_evaluations_query, success_rate_of
 import merge
 import rating
 import replay_cleanup
@@ -104,25 +107,6 @@ def _find_player_duplicate(player_id, level_id, algorithm, placements, schedule=
     return None
 
 
-def _find_matching_done(level_id, algorithm, placements, trials, schedule=None):
-    key = _submission_key(algorithm, placements, trials, schedule)
-    sweep_max = get_sweep_max()
-    candidates = (
-        PlayerEvaluation.query.options(defer(PlayerEvaluation.replays), defer(PlayerEvaluation.results))
-        .filter_by(status="done", level_id=level_id)
-        .all()
-    )
-    for candidate in candidates:
-        if _submission_key(candidate.algorithm, candidate.placements, candidate.trials, candidate.genome_schedule) != key:
-            continue
-        # Only reuse a result that was produced under the current ring-sweep size,
-        # so changing n/n2 in settings forces a fresh run instead of stale reuse.
-        results = candidate.results if isinstance(candidate.results, dict) else {}
-        if len(results.get("sweep", [])) == sweep_max:
-            return candidate
-    return None
-
-
 @evaluations_bp.get("")
 def list_evaluations():
     query = light_evaluations_query()
@@ -176,7 +160,9 @@ def best_evaluation():
 
 def _aggregate_players():
     evaluations = light_evaluations(
-        light_evaluations_query().filter(PlayerEvaluation.status != "cancelled")
+        light_evaluations_query()
+        .filter(PlayerEvaluation.status != "cancelled")
+        .order_by(PlayerEvaluation.created_at.asc())
     )
     players = {}
     for e in evaluations:
@@ -260,14 +246,22 @@ def _weighted_level_rate(player, level_number):
 
 # One level's own board, so a level page can rank the commanders who played it
 # without pulling every entry on the site through the client.
+def _leaderboard_order(player):
+    submitted_at = player["best_created_at"]
+    submitted_order = submitted_at.timestamp() if submitted_at is not None else float("inf")
+    return (-player["best_rate"], submitted_order)
+
+
 @evaluations_bp.get("/level-leaderboard")
 def level_leaderboard():
     level_id = (request.args.get("level_id") or "farp1").strip()
     entries = light_evaluations(
-        light_evaluations_query().filter(
+        light_evaluations_query()
+        .filter(
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
             PlayerEvaluation.status == "done",
         )
+        .order_by(PlayerEvaluation.created_at.asc())
     )
 
     players = {}
@@ -286,6 +280,7 @@ def level_leaderboard():
                 "best_rate": rate,
                 "best_entry_id": item.id,
                 "best_defenders": item.defender_count or 0,
+                "best_created_at": item.created_at,
                 "last_active": item.created_at,
             }
             players[item.player_id] = player
@@ -295,11 +290,12 @@ def level_leaderboard():
             player["best_rate"] = rate
             player["best_entry_id"] = item.id
             player["best_defenders"] = item.defender_count or 0
+            player["best_created_at"] = item.created_at
         if item.created_at is not None and (player["last_active"] is None or item.created_at >= player["last_active"]):
             player["username"] = item.username
             player["last_active"] = item.created_at
 
-    rows = sorted(players.values(), key=lambda player: player["best_rate"], reverse=True)
+    rows = sorted(players.values(), key=_leaderboard_order)
     return jsonify([
         {
             "rank": index + 1,
@@ -331,16 +327,16 @@ def level_sweep():
         .filter(
             PlayerEvaluation.level_id.in_(level_ids_for(level_id)),
             PlayerEvaluation.status == "done",
-            results_number("success_rate").isnot(None),
+            Benchmark.success_rate.isnot(None),
         )
-        .order_by(results_number("success_rate").desc(), PlayerEvaluation.created_at.asc())
+        .order_by(Benchmark.success_rate.desc(), PlayerEvaluation.created_at.asc())
     )
 
     scored = []
     for item in ranked_entries:
         if len(scored) >= limit:
             break
-        results = item.results if isinstance(item.results, dict) else {}
+        results = item.result_summary()
         sweep = results.get("sweep") or []
         if not sweep:
             continue
@@ -374,7 +370,7 @@ def _sweep_row(point):
 
 
 def results_attrition(evaluation):
-    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    results = evaluation.result_summary()
     return results.get("attrition") or []
 
 
@@ -447,8 +443,12 @@ def delete_player(player_id: str):
     if not entries:
         raise NotFound("Player not found")
     entry_ids = [entry.id for entry in entries]
+    benchmark_ids = {entry.benchmark_id for entry in entries if entry.benchmark_id}
     for entry in entries:
         db.session.delete(entry)
+    db.session.flush()
+    for benchmark_id in benchmark_ids:
+        benchmark_store.release(benchmark_id)
     db.session.commit()
     for entry_id in entry_ids:
         replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(entry_id))
@@ -532,12 +532,9 @@ def submit_evaluation():
     )
     db.session.add(evaluation)
 
-    existing = _find_matching_done(
-        parsed.level_id, parsed.algorithm, parsed.placements, parsed.trials, parsed.genome_schedule
-    )
+    existing = benchmark_store.find_by_hash(benchmark_hash.for_new_submission(evaluation))
     if existing is not None:
-        evaluation.results = existing.results
-        evaluation.replays = existing.replays
+        evaluation.benchmark_id = existing.id
         evaluation.progress = 1.0
         evaluation.status = "done"
         evaluation.completed_at = datetime.now(timezone.utc)
@@ -583,7 +580,7 @@ def submit_run():
         status="queued",
         game_version=parsed.game_version,
         defender_count=len(parsed.placements or []),
-        replays={"pending_run": parsed.run},
+        pending_run=parsed.run,
         created_at=parsed.created_at,
     )
     db.session.add(evaluation)
@@ -706,7 +703,7 @@ def get_evaluation(eval_id: str):
 
 
 def _success_fraction(evaluation):
-    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    results = evaluation.result_summary()
     rate = results.get("success_rate")
     if rate is None:
         return 0.0
@@ -807,7 +804,10 @@ def delete_evaluation(eval_id: str):
     evaluation = db.session.get(PlayerEvaluation, eval_id)
     if evaluation is None:
         raise BadRequest("Evaluation not found")
+    benchmark_id = evaluation.benchmark_id
     db.session.delete(evaluation)
+    db.session.flush()
+    benchmark_store.release(benchmark_id)
     db.session.commit()
     replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(eval_id))
     return "", 204
@@ -840,17 +840,16 @@ def resimulate_evaluation(eval_id: str):
     if evaluation.status in ("queued", "running"):
         raise BadRequest("Evaluation is already running")
 
-    replays = evaluation.replays if isinstance(evaluation.replays, dict) else {}
-    pending_run = replays.get("pending_run")
-    if is_pilot_level(evaluation.level_id) and pending_run is None:
+    if is_pilot_level(evaluation.level_id) and evaluation.pending_run is None:
         raise BadRequest("This piloted entry has no recorded run left to render")
 
-    # Clear the previous output first. A re-run that fails or is cancelled must
-    # not leave the old results on screen looking like fresh ones.
+    previous_benchmark_id = evaluation.benchmark_id
     evaluation.completed_at = None
-    evaluation.results = {}
-    evaluation.replays = {"pending_run": pending_run} if pending_run is not None else {}
+    evaluation.benchmark_id = None
+    evaluation.job_config = None
     queue_evaluation(evaluation)
+    db.session.flush()
+    benchmark_store.release(previous_benchmark_id)
     db.session.commit()
     replay_cleanup.remove_uploads(replay_cleanup.unused_uploads(eval_id))
 
@@ -862,7 +861,7 @@ def chart(eval_id: str, kind: str):
     evaluation = _get_eval_light(eval_id)
     if evaluation is None:
         raise NotFound("Evaluation not found")
-    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    results = evaluation.result_summary()
     outcomes = results.get("outcomes", [])
     date_label = (evaluation.completed_at or evaluation.created_at).date().isoformat()
     meta = (evaluation.username, evaluation.level_id or "farp", evaluation.id, date_label)

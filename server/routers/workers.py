@@ -6,19 +6,12 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import func
 from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
-import merge
+import job_results
+import job_settings
 import replay_cleanup
 import replay_files
 from auth import require_admin
-from app_settings import (
-    ASSAULT_SWEEP_TRIALS,
-    assault_sweep_max,
-    get_enemy_start,
-    get_seed,
-    get_sweep_max,
-    get_sweep_trials,
-    is_assault_level,
-)
+from app_settings import ASSAULT_SWEEP_TRIALS, assault_sweep_max, get_sweep_max, get_sweep_trials, is_assault_level
 from config import Config
 from database import db
 from models import JOB_SILENT_SECONDS, PlayerEvaluation, Worker
@@ -137,34 +130,10 @@ def _reap_stale():
 
 
 def _pending_run(evaluation):
-    replays = evaluation.replays or {}
-    if isinstance(replays, dict):
-        return replays.get("pending_run")
-    return None
+    return evaluation.pending_run
 
 
-def _keep_pending_run(evaluation, replays):
-    # The recorded run is the only copy of a piloted flight, so it has to survive
-    # every result write. Dropping it would leave the entry impossible to render
-    # again.
-    run = _pending_run(evaluation)
-    if run is not None:
-        replays = dict(replays)
-        replays["pending_run"] = run
-    return replays
-
-
-def _sweep_params(evaluation):
-    # An assault match runs a whole stream of evaders, so the level 1 and 2 sweep
-    # budget would put an assault job past the job timeout on a modest worker.
-    if is_assault_level(evaluation.level_id):
-        return assault_sweep_max(evaluation.level_id), ASSAULT_SWEEP_TRIALS
-    return get_sweep_max(), get_sweep_trials()
-
-
-def _job_payload(evaluation):
-    enemy_x, enemy_y = get_enemy_start()
-    sweep_max, sweep_trials = _sweep_params(evaluation)
+def _job_payload(evaluation, job_config):
     return {
         "job_id": evaluation.id,
         "evaluation_id": evaluation.id,
@@ -174,49 +143,8 @@ def _job_payload(evaluation):
         "run": _pending_run(evaluation),
         "trials": evaluation.trials,
         "total_units": evaluation.total_units or 1,
-        "config": {
-            "seed": get_seed(),
-            "sweep_max": sweep_max,
-            "sweep_trials": sweep_trials,
-            "match_seconds": Config.EVAL_MATCH_CAP_SECONDS,
-            "goal_tail_seconds": Config.EVAL_GOAL_TAIL_SECONDS,
-            "enemy_x": enemy_x,
-            "enemy_y": enemy_y,
-            "sweep_spawn": Config.EVAL_SWEEP_SPAWN,
-            "level_id": evaluation.level_id or "farp",
-            "collisions": bool(evaluation.collisions),
-        },
+        "config": job_config,
     }
-
-
-def _annotate_rates(results, evaluation):
-    if not isinstance(results, dict):
-        return
-    rate = results.get("success_rate")
-    if rate is None:
-        return
-    rate = float(rate)
-    if evaluation.is_attack_level():
-        results["attacker_rate"] = round(rate, 1)
-        results["defender_rate"] = round(100.0 - rate, 1)
-    else:
-        results["defender_rate"] = round(rate, 1)
-        results["attacker_rate"] = round(100.0 - rate, 1)
-
-
-def _store_result(evaluation, payload):
-    results, replays = merge.summarize(payload)
-    _annotate_rates(results, evaluation)
-    evaluation.results = results
-    evaluation.replays = _keep_pending_run(evaluation, replays)
-    evaluation.status = "done"
-    evaluation.progress = 1.0
-    evaluation.done_units = evaluation.total_units or 1
-    evaluation.error = None
-    evaluation.completed_at = _now()
-    evaluation.worker_id = None
-    evaluation.stage = None
-    evaluation.last_update = _now()
 
 
 @workers_bp.post("/worker/register")
@@ -303,7 +231,9 @@ def claim_jobs():
         evaluation.last_update = _now()
         if not evaluation.total_units:
             evaluation.total_units = _total_units(evaluation)
-        jobs.append(_job_payload(evaluation))
+        job_config = job_settings.config_for(evaluation)
+        evaluation.job_config = job_config
+        jobs.append(_job_payload(evaluation, job_config))
 
     db.session.flush()
     if _running_count(worker_id) > 0:
@@ -410,7 +340,7 @@ def job_result(job_id):
         if missing:
             db.session.rollback()
             raise BadRequest("Replay file %s was never uploaded" % missing)
-        _store_result(evaluation, result)
+        job_results.store(evaluation, result)
     db.session.commit()
     if accepted:
         upload_id = str(data.get("upload_id") or "")

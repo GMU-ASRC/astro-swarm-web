@@ -1,74 +1,17 @@
-import base64
-import json
-import threading
 import uuid
-import zlib
-from collections import OrderedDict
 from datetime import datetime, timezone
 
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import deferred
 from werkzeug.security import check_password_hash, generate_password_hash
 
-import replay_files
+import benchmark_models
+import benchmark_replays
 from database import db
 
 ADMIN_SESSION_TTL_SECONDS = 7 * 24 * 3600
-
-
-_REPLAYS_CACHE = OrderedDict()
-_REPLAYS_CACHE_MAX = 6
-_CACHE_LOCK = threading.Lock()
-_KEY_LOCKS = {}
-
-
-def _get_key_lock(key):
-    with _CACHE_LOCK:
-        lock = _KEY_LOCKS.get(key)
-        if lock is None:
-            lock = threading.Lock()
-            _KEY_LOCKS[key] = lock
-        return lock
-
-
-def _inflate(data):
-    try:
-        return zlib.decompress(data)
-    except zlib.error:
-        return zlib.decompress(data, -zlib.MAX_WBITS)
-
-
-def _unpack_frames(packed):
-    if not packed:
-        return []
-    return _decode_frames(base64.b64decode(packed))
-
-
-def _run_frames(run):
-    frames_file = run.get("frames_file")
-    if frames_file:
-        compressed = replay_files.read(frames_file)
-        return _decode_frames(compressed) if compressed else []
-    packed = run.get("frames_packed")
-    return _unpack_frames(packed) if packed else run.get("frames", [])
-
-
-def _decode_frames(compressed):
-    raw = _inflate(compressed)
-    delta_encoded = json.loads(raw)
-    if not delta_encoded:
-        return []
-    frames = [delta_encoded[0]]
-    for i in range(1, len(delta_encoded)):
-        prev = frames[i - 1]
-        delta = delta_encoded[i]
-        frame = [prev[j] + delta[j] for j in range(len(delta))]
-        frames.append(frame)
-    return frames
-
-
-# A run only keeps a recording when the worker was asked for one, so the site can
-# grey out the trials it cannot replay instead of opening an empty player.
-def _has_frames(run):
-    return bool(run.get("frames_file") or run.get("frames_packed") or run.get("frames"))
+LEGACY_STORAGE_VERSION = 1
+CURRENT_STORAGE_VERSION = 2
 
 
 class SimConfig(db.Model):
@@ -210,9 +153,14 @@ class PlayerEvaluation(db.Model):
     worker_id = db.Column(db.String(64), nullable=True)
     n_max = db.Column(db.Integer, default=40)
     trials = db.Column(db.Integer, default=100)
-    results = db.Column(db.JSON, default=dict)
-    replays = db.Column(db.JSON, default=dict)
+    results = deferred(db.Column(db.JSON, default=dict))
+    replays = deferred(db.Column(db.JSON, default=dict))
     error = db.Column(db.String(400), nullable=True)
+
+    benchmark_id = db.Column(db.String(36), nullable=True)
+    pending_run = deferred(db.Column(JSONB, nullable=True))
+    job_config = db.Column(JSONB, nullable=True)
+    storage_version = db.Column(db.SmallInteger, default=CURRENT_STORAGE_VERSION)
 
     done_units = db.Column(db.Integer, default=0)
     total_units = db.Column(db.Integer, default=1)
@@ -233,11 +181,17 @@ class PlayerEvaluation(db.Model):
     )
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
-    def _results_dict(self):
-        results = self.results or {}
-        if isinstance(results, list):
+    benchmark = db.relationship(
+        "Benchmark",
+        primaryjoin="foreign(PlayerEvaluation.benchmark_id) == Benchmark.id",
+        lazy="select",
+        viewonly=True,
+    )
+
+    def result_summary(self):
+        if self.benchmark is None:
             return {}
-        return results
+        return self.benchmark.summary_dict()
 
     def level_number(self):
         lid = (self.level_id or "farp").lower()
@@ -246,14 +200,11 @@ class PlayerEvaluation(db.Model):
             return int(digits)
         return 1
 
-    # Level 6 and the hidden pilot level put the player on the attacking side.
-    # Level 7 is back on defense, so its rate reads as detection like the
-    # earlier levels.
     def is_attack_level(self):
         return self.level_number() in (6, 9)
 
     def to_dict(self):
-        results = self._results_dict()
+        results = self.result_summary()
         return {
             "id": self.id,
             "player_id": self.player_id,
@@ -284,7 +235,7 @@ class PlayerEvaluation(db.Model):
         light_rates = getattr(self, "light_rates", None)
         if light_rates is not None:
             return light_rates
-        return self._results_dict()
+        return self.result_summary()
 
     def to_list_dict(self):
         results = self._list_rates()
@@ -310,179 +261,30 @@ class PlayerEvaluation(db.Model):
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
-    def _replays_dict(self):
-        replays = self.replays or {}
-        if isinstance(replays, list):
-            return {}
-        return replays
-
-    def _cache_version(self):
-        stamp = self.completed_at or self.created_at
-        return "%s:%s:%s" % (stamp.isoformat() if stamp else "", self.status, self.progress or 0.0)
-
-    def _cached_replays(self):
-        key = (self.id, self._cache_version())
-        with _CACHE_LOCK:
-            cached = _REPLAYS_CACHE.get(key)
-            if cached is not None:
-                _REPLAYS_CACHE.move_to_end(key)
-                return cached
-        with _get_key_lock(key):
-            with _CACHE_LOCK:
-                cached = _REPLAYS_CACHE.get(key)
-                if cached is not None:
-                    return cached
-            replays = self._replays_dict()
-            with _CACHE_LOCK:
-                _REPLAYS_CACHE[key] = replays
-                _REPLAYS_CACHE.move_to_end(key)
-                while len(_REPLAYS_CACHE) > _REPLAYS_CACHE_MAX:
-                    old_key, _ = _REPLAYS_CACHE.popitem(last=False)
-                    _KEY_LOCKS.pop(old_key, None)
-            return replays
-
-    def replay_index(self):
-        replays = self._cached_replays()
-        return {
-            "fps": replays.get("fps", 12),
-            "defenders": replays.get("defenders", 0),
-            "view": replays.get("view", 300),
-            "fov": replays.get("fov", 70),
-            "planet": replays.get("planet"),
-            "arena": replays.get("arena"),
-            "runs": [
-                {
-                    "trial": run.get("trial"),
-                    "outcome": run.get("outcome"),
-                    "recorded": _has_frames(run),
-                }
-                for run in replays.get("runs", [])
-            ],
-        }
-
-    def _genome_colors(self):
+    def genome_colors(self):
         colors = []
         for stage in self.genome_schedule or []:
             color = stage.get("color") if isinstance(stage, dict) else None
             colors.append("#" + color if isinstance(color, str) else None)
         return colors
 
+    def replay_index(self):
+        return benchmark_replays.replay_index(self)
+
     def replay_for(self, trial: int):
-        replays = self._cached_replays()
-        for run in replays.get("runs", []):
-            if run.get("trial") == trial:
-                frames = _run_frames(run)
-                return {
-                    "trial": run.get("trial"),
-                    "outcome": run.get("outcome"),
-                    "detection_time": run.get("detection_time", -1),
-                    "capture_time": run.get("capture_time", -1),
-                    "goal_time": run.get("goal_time", -1),
-                    "fps": replays.get("fps", 12),
-                    "defenders": replays.get("defenders", 0),
-                    "view": replays.get("view", 300),
-                    "fov": replays.get("fov", 70),
-                    "speed": replays.get("speed"),
-                    "hull": replays.get("hull"),
-                    "planet": replays.get("planet"),
-                    "arena": replays.get("arena"),
-                    "stats": run.get("stats", {}),
-                    "genome_switches": run.get("genome_switches", []),
-                    "genome_colors": self._genome_colors(),
-                    "frames": frames,
-                }
-        return None
+        return benchmark_replays.replay_for(self, trial)
 
     def sweep_index(self):
-        replays = self._cached_replays()
-        return [
-            {
-                "n": run.get("n"),
-                "outcome": run.get("outcome"),
-                "detection_time": run.get("detection_time", -1),
-                "capture_time": run.get("capture_time", -1),
-                "goal_time": run.get("goal_time", -1),
-                "detection_rate": run.get("detection_rate"),
-                "capture_rate": run.get("capture_rate"),
-                "trial_count": len(run.get("trial_runs", [])),
-                "recorded": _has_frames(run),
-            }
-            for run in replays.get("sweep_runs", [])
-        ]
-
-    def _sweep_run_for(self, n: int):
-        for run in self._cached_replays().get("sweep_runs", []):
-            if run.get("n") == n:
-                return run
-        return None
+        return benchmark_replays.sweep_index(self)
 
     def sweep_trial_index(self, n: int):
-        run = self._sweep_run_for(n)
-        if run is None:
-            return []
-        return [
-            {
-                "trial": trial.get("trial"),
-                "outcome": trial.get("outcome"),
-                "detection_time": trial.get("detection_time", -1),
-                "capture_time": trial.get("capture_time", -1),
-                "goal_time": trial.get("goal_time", -1),
-                "recorded": _has_frames(trial),
-            }
-            for trial in run.get("trial_runs", [])
-        ]
+        return benchmark_replays.sweep_trial_index(self, n)
 
     def sweep_trial_replay_for(self, n: int, trial: int):
-        run = self._sweep_run_for(n)
-        if run is None:
-            return None
-        replays = self._cached_replays()
-        for entry in run.get("trial_runs", []):
-            if entry.get("trial") != trial:
-                continue
-            frames = _run_frames(entry)
-            return {
-                "n": run.get("n"),
-                "trial": entry.get("trial"),
-                "outcome": entry.get("outcome"),
-                "detection_time": entry.get("detection_time", -1),
-                "capture_time": entry.get("capture_time", -1),
-                "goal_time": entry.get("goal_time", -1),
-                "fps": replays.get("fps", 12),
-                "defenders": run.get("defenders", 0),
-                "view": replays.get("view", 300),
-                "fov": replays.get("fov", 70),
-                "hull": replays.get("hull"),
-                "planet": replays.get("planet"),
-                "arena": replays.get("arena"),
-                "genome_switches": entry.get("genome_switches", []),
-                "genome_colors": self._genome_colors(),
-                "frames": frames,
-            }
-        return None
+        return benchmark_replays.sweep_trial_replay_for(self, n, trial)
 
     def sweep_replay_for(self, n: int):
-        replays = self._cached_replays()
-        for run in replays.get("sweep_runs", []):
-            if run.get("n") == n:
-                frames = _run_frames(run)
-                return {
-                    "n": run.get("n"),
-                    "outcome": run.get("outcome"),
-                    "detection_time": run.get("detection_time", -1),
-                    "capture_time": run.get("capture_time", -1),
-                    "goal_time": run.get("goal_time", -1),
-                    "fps": replays.get("fps", 12),
-                    "defenders": run.get("defenders", 0),
-                    "view": replays.get("view", 300),
-                    "fov": replays.get("fov", 70),
-                    "planet": replays.get("planet"),
-                    "arena": replays.get("arena"),
-                    "genome_switches": run.get("genome_switches", []),
-                    "genome_colors": self._genome_colors(),
-                    "frames": frames,
-                }
-        return None
+        return benchmark_replays.sweep_replay_for(self, n)
 
 
 class AppSetting(db.Model):

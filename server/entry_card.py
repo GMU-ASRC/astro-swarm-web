@@ -38,7 +38,7 @@ def canonical_level_id(level_id):
 def build_entry_card(evaluation):
     level_id = canonical_level_id(evaluation.level_id)
     level_name = LEVEL_NAMES.get(level_id, level_id.upper())
-    results = evaluation.results if isinstance(evaluation.results, dict) else {}
+    results = evaluation.result_summary()
     outcomes = results.get("outcomes") or []
 
     if not outcomes:

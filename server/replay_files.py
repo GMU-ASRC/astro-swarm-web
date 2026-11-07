@@ -52,6 +52,26 @@ def write_chunk(evaluation_id, upload_id, key, offset, data):
     return relative, offset + len(data)
 
 
+def write_file(evaluation_id, upload_id, key, data):
+    relative = relative_path(evaluation_id, upload_id, key)
+    path = _absolute(relative)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    temporary_path = path + ".tmp"
+    with open(temporary_path, "wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary_path, path)
+    return relative
+
+
+def file_size(relative):
+    try:
+        return os.path.getsize(_absolute(relative))
+    except (OSError, ReplayFileError):
+        return None
+
+
 def read(relative):
     try:
         with open(_absolute(relative), "rb") as handle:
