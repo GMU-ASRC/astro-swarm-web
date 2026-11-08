@@ -159,8 +159,14 @@ func Truthy(value any) bool {
 }
 
 func RoundTo(value float64, digits int) float64 {
-	scale := math.Pow(10, float64(digits))
-	return math.RoundToEven(value*scale) / scale
+	if math.IsInf(value, 0) || math.IsNaN(value) {
+		return value
+	}
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(value, 'f', digits, 64), 64)
+	if err != nil {
+		return value
+	}
+	return rounded
 }
 
 func FloatRepr(value float64) string {

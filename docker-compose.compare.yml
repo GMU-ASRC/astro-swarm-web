@@ -16,6 +16,21 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      UPLOAD_DIR: /app/uploads
+      BACKUP_DIR: /app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads:ro
+
   flask:
     build:
       context: .
@@ -30,8 +45,8 @@ services:
     ports:
       - "127.0.0.1:5051:5050"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - uploads:/app/uploads:ro
 
@@ -50,8 +65,8 @@ services:
     ports:
       - "127.0.0.1:5052:5050"
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - uploads:/app/uploads:ro
 
