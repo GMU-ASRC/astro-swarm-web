@@ -12,10 +12,13 @@ from auth import (
     require_admin,
     revoke_token,
 )
+import storage_usage
 from database import db
 from models import AdminSession, AdminUser
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+MAX_RECLAIM_BYTES = 1024 * 1024 * 1024
 
 TRACKED_TABLES = [
     "player_evaluations",
@@ -150,29 +153,20 @@ def _database_size():
             size = db.session.execute(
                 text("SELECT pg_total_relation_size(:name)"), {"name": name}
             ).scalar()
-            rows = db.session.execute(text(f"SELECT count(*) FROM {name}")).scalar()
             bloat = _table_bloat(name)
         except Exception:
             db.session.rollback()
             continue
-        table = {"name": name, "bytes": int(size or 0), "rows": int(rows or 0)}
+        table = {
+            "name": name,
+            "bytes": int(size or 0),
+            "rows": bloat.get("live_rows", 0),
+            "reclaimable": int(size or 0) <= MAX_RECLAIM_BYTES,
+        }
         table.update(bloat)
         tables.append(table)
     tables.sort(key=lambda table: table["bytes"], reverse=True)
     return int(total or 0), tables
-
-
-def _uploads_size(upload_dir):
-    total = 0
-    files = 0
-    for root, _dirs, names in os.walk(upload_dir):
-        for name in names:
-            try:
-                total += os.path.getsize(os.path.join(root, name))
-                files += 1
-            except OSError:
-                continue
-    return total, files
 
 
 @admin_bp.get("/storage")
@@ -188,20 +182,20 @@ def storage():
         database_error = str(exc)
 
     upload_dir = current_app.config["UPLOAD_DIR"]
-    if os.path.isdir(upload_dir):
-        uploads_bytes, upload_files = _uploads_size(upload_dir)
-        uploads_error = None
-    else:
-        uploads_bytes, upload_files = 0, 0
-        uploads_error = "Upload directory not found"
+    uploads_error = None if os.path.isdir(upload_dir) else "Upload directory not found"
+    force_measure = request.args.get("measure") in ("1", "true", "yes")
+    measuring = storage_usage.refresh_if_stale(current_app._get_current_object(), force=force_measure)
+    uploads = storage_usage.cached_uploads_usage()
 
     return jsonify({
-        "total_bytes": database_bytes + uploads_bytes,
+        "total_bytes": database_bytes + uploads["uploads_bytes"],
         "database_bytes": database_bytes,
         "database_error": database_error,
         "tables": tables,
-        "uploads_bytes": uploads_bytes,
-        "upload_files": upload_files,
+        "uploads_bytes": uploads["uploads_bytes"],
+        "upload_files": uploads["upload_files"],
+        "uploads_measured_at": uploads["uploads_measured_at"],
+        "uploads_measuring": measuring,
         "upload_dir": upload_dir,
         "uploads_error": uploads_error,
     })
@@ -220,6 +214,11 @@ def reclaim_storage():
         text("SELECT pg_total_relation_size(:name)"), {"name": name}
     ).scalar()
     db.session.commit()
+    if int(before or 0) > MAX_RECLAIM_BYTES:
+        raise BadRequest(
+            "%s is larger than 1 GB. A full rewrite would lock it and take the site down while it runs, "
+            "so let autovacuum reclaim the space instead." % name
+        )
 
     try:
         with db.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:

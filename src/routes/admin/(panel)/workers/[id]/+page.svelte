@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { whenVisible } from '$lib/ts/visibility';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { apiUrl } from '$lib/ts/api';
@@ -37,7 +38,7 @@
 
 	$effect(() => {
 		refresh();
-		const timer = setInterval(refresh, 3000);
+		const timer = setInterval(whenVisible(refresh), 3000);
 		return () => clearInterval(timer);
 	});
 

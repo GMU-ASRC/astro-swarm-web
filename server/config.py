@@ -16,6 +16,10 @@ class Config:
         "pool_recycle": 1800,
     }
     MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+    COMPRESS_ALGORITHM = "gzip"
+    COMPRESS_LEVEL = 5
+    COMPRESS_MIN_SIZE = 1024
+    COMPRESS_MIMETYPES = ["application/json", "text/html", "text/css", "text/javascript", "application/javascript", "image/svg+xml"]
     ALLOWED_EXTENSIONS = {".cfg", ".run"}
     CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
     API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "dev_secret_key")

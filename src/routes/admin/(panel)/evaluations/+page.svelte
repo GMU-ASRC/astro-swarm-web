@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { whenVisible } from '$lib/ts/visibility';
 	import Icon from '@iconify/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { apiUrl } from '$lib/ts/api';
@@ -44,7 +45,7 @@
 	// Poll for live progress while any evaluation is queued/running.
 	$effect(() => {
 		if (!hasActive) return;
-		const timer = setInterval(refresh, 3000);
+		const timer = setInterval(whenVisible(refresh), 3000);
 		return () => clearInterval(timer);
 	});
 

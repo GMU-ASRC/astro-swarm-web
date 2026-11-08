@@ -4,6 +4,7 @@ import os
 import time
 
 from flask import Flask, Response, abort, g, jsonify, request, send_from_directory
+from flask_compress import Compress
 from flask_cors import CORS
 from sqlalchemy import text
 from werkzeug.exceptions import HTTPException
@@ -162,6 +163,7 @@ def create_app():
     app.config.from_object(Config)
 
     CORS(app, origins=app.config["CORS_ORIGINS"])
+    Compress(app)
 
     db.init_app(app)
 

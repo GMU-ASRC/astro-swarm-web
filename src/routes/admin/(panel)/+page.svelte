@@ -42,9 +42,9 @@
 		return iso ? new Date(iso).toLocaleString() : 'never';
 	}
 
-	async function refreshStorage() {
+	async function refreshStorage(measure = false) {
 		try {
-			const res = await fetch(apiUrl('/api/admin/storage'), {
+			const res = await fetch(apiUrl(measure ? '/api/admin/storage?measure=1' : '/api/admin/storage'), {
 				headers: { 'X-API-Key': data.adminKey }
 			});
 			if (res.ok) storage = await res.json();
@@ -67,7 +67,8 @@
 				message = `Reclaimed ${formatBytes(body.freed_bytes)} from ${table} (${formatBytes(body.before_bytes)} to ${formatBytes(body.after_bytes)}).`;
 				await refreshStorage();
 			} else {
-				message = `Reclaim failed: ${res.status}`;
+				const body = await res.json().catch(() => ({}));
+				message = `Reclaim failed: ${body.error ?? res.status}`;
 			}
 		} catch (err) {
 			message = `Reclaim failed: ${err}`;
@@ -124,6 +125,11 @@
 		</div>
 	</div>
 
+	<p>
+		Uploads measured {when(storage.uploads_measured_at)}{storage.uploads_measuring ? ', measuring again now' : ''}.
+		<button onclick={() => refreshStorage(true)}>Measure now</button>
+	</p>
+
 	{#if storage.database_error}
 		<div class="message message-error">Database size unavailable: {storage.database_error}</div>
 	{/if}
@@ -158,9 +164,9 @@
 								<div class="actions">
 									<button
 										class="icon-btn"
-										title="Reclaim disk space"
+										title={table.reclaimable === false ? 'Too large to rewrite while the site is running' : 'Reclaim disk space'}
 										aria-label="Reclaim disk space"
-										disabled={reclaiming !== ''}
+										disabled={reclaiming !== '' || table.reclaimable === false}
 										onclick={() => askReclaim(table.name, table.dead_rows ?? 0)}
 									>
 										<Icon icon="ph:broom-bold" width="16" />

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { whenVisible } from '$lib/ts/visibility';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
@@ -285,7 +286,7 @@
 
 	onMount(() => {
 		if (!pending) return;
-		const interval = setInterval(async () => {
+		const interval = setInterval(whenVisible(async () => {
 			try {
 				const res = await fetch(apiUrl(`/api/evaluations/${ev.id}`));
 				if (!res.ok) return;
@@ -297,7 +298,7 @@
 			} catch (err) {
 				console.error('Error polling evaluation:', err);
 			}
-		}, 2000);
+		}), 2000);
 		return () => clearInterval(interval);
 	});
 </script>

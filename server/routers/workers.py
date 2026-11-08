@@ -1,5 +1,7 @@
 import gzip
 import json
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
@@ -99,6 +101,21 @@ def _total_units(evaluation):
     if is_assault_level(evaluation.level_id):
         return max(1, trials + assault_sweep_max(evaluation.level_id) * ASSAULT_SWEEP_TRIALS)
     return max(1, trials + get_sweep_max() * get_sweep_trials())
+
+
+REAP_EVERY_SECONDS = 30
+_reap_lock = threading.Lock()
+_last_reap = {"monotonic": None}
+
+
+def _reap_stale_if_due():
+    now = time.monotonic()
+    with _reap_lock:
+        last = _last_reap["monotonic"]
+        if last is not None and now - last < REAP_EVERY_SECONDS:
+            return
+        _last_reap["monotonic"] = now
+    _reap_stale()
 
 
 def _reap_stale():
@@ -212,7 +229,7 @@ def claim_jobs():
         db.session.commit()
         return jsonify({"jobs": [], "enabled": False})
 
-    _reap_stale()
+    _reap_stale_if_due()
 
     claimed = (
         PlayerEvaluation.query.filter_by(status="queued")
@@ -382,7 +399,7 @@ def job_fail(job_id):
 @workers_bp.get("/workers")
 def list_workers():
     require_admin()
-    _reap_stale()
+    _reap_stale_if_due()
     workers = Worker.query.order_by(Worker.created_at.asc()).all()
     counts = _running_counts()
     return jsonify([_worker_summary(worker, counts.get(worker.id, 0)) for worker in workers])
@@ -423,7 +440,7 @@ def _worker_jobs(worker_id):
 @workers_bp.get("/workers/<worker_id>")
 def get_worker(worker_id):
     require_admin()
-    _reap_stale()
+    _reap_stale_if_due()
     worker = db.session.get(Worker, worker_id)
     if worker is None:
         raise NotFound("Worker not found")
