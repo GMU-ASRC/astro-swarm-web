@@ -112,11 +112,11 @@ func migrate(ctx context.Context, serverConfig config.Config, logger *log.Logger
 		return nil
 	}
 	return runner.Run(ctx, migrations.Options{
-		DryRun:         *dryRun,
-		VerifyOnly:     *verifyOnly,
-		IncludeManual:  *manual,
-		OnlyVersion:    *onlyVersion,
-		BackupDir:      serverConfig.BackupDir,
-		UploadDir:      serverConfig.UploadDir,
+		DryRun:        *dryRun,
+		VerifyOnly:    *verifyOnly,
+		IncludeManual: *manual,
+		OnlyVersion:   *onlyVersion,
+		BackupDir:     serverConfig.BackupDir,
+		UploadDir:     serverConfig.UploadDir,
 	})
 }

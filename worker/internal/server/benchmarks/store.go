@@ -238,4 +238,3 @@ func Release(ctx context.Context, db store.Querier, benchmarkID *string) error {
 	_, err := db.Exec(ctx, "DELETE FROM benchmarks WHERE id = $1", *benchmarkID)
 	return err
 }
-

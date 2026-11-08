@@ -13,12 +13,12 @@ import (
 const advisoryLockKey = 734021117
 
 type Options struct {
-	DryRun         bool
-	VerifyOnly     bool
-	IncludeManual  bool
-	OnlyVersion    int
-	BackupDir      string
-	UploadDir      string
+	DryRun        bool
+	VerifyOnly    bool
+	IncludeManual bool
+	OnlyVersion   int
+	BackupDir     string
+	UploadDir     string
 }
 
 type Runner struct {

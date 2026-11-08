@@ -41,7 +41,7 @@ func (run *simRun) baseMap() map[string]any {
 		"thumbnail_filename": run.ThumbnailFilename, "video_filename": run.VideoFilename, "file_size": run.FileSize,
 		"species": jsonOr(run.Species, []any{}), "robot_count": run.RobotCount,
 		"duration_seconds": values.RoundTo(float64(countOr(run.FrameCount))*0.1, 1),
-		"download_count": run.DownloadCount, "created_at": pytime.IsoformatOrNil(run.CreatedAt),
+		"download_count":   run.DownloadCount, "created_at": pytime.IsoformatOrNil(run.CreatedAt),
 	}
 }
 

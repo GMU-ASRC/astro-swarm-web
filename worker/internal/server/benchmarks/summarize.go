@@ -20,8 +20,12 @@ func Summarize(result map[string]any) (map[string]any, map[string]any) {
 
 	runs := objectList(result["runs"])
 	sweepRuns := objectList(result["sweep_runs"])
-	sort.SliceStable(runs, func(left, right int) bool { return numberOr(runs[left]["trial"], 0) < numberOr(runs[right]["trial"], 0) })
-	sort.SliceStable(sweepRuns, func(left, right int) bool { return numberOr(sweepRuns[left]["n"], 0) < numberOr(sweepRuns[right]["n"], 0) })
+	sort.SliceStable(runs, func(left, right int) bool {
+		return numberOr(runs[left]["trial"], 0) < numberOr(runs[right]["trial"], 0)
+	})
+	sort.SliceStable(sweepRuns, func(left, right int) bool {
+		return numberOr(sweepRuns[left]["n"], 0) < numberOr(sweepRuns[right]["n"], 0)
+	})
 
 	outcomes := make([]any, len(runs))
 	detectionTimes := make([]any, len(runs))

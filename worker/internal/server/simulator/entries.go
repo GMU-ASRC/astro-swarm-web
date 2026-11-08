@@ -86,7 +86,7 @@ func (entry *simulatorEntry) toListMap() map[string]any {
 		"placement_count": countOr(entry.PlacementCount), "peak_robot_count": countOr(entry.PeakRobotCount),
 		"spawn_zone_count": len(spawnZones),
 		"duration_seconds": values.RoundTo(float64(countOr(entry.FrameCount))*entry.recordInterval(), 1),
-		"created_at": pytime.IsoformatOrNil(entry.CreatedAt),
+		"created_at":       pytime.IsoformatOrNil(entry.CreatedAt),
 	}
 }
 
