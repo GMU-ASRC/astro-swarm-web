@@ -206,7 +206,6 @@
 			onclick={onCanvasClick}
 			onkeydown={onKeyDown}
 			tabindex="0"
-			role="application"
 			aria-label="Replay stage"
 			class="replay-canvas"
 		></canvas>

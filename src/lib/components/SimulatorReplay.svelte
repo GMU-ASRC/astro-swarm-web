@@ -133,7 +133,6 @@
 		height={stageHeight}
 		class="stage"
 		tabindex="0"
-		role="application"
 		aria-label="Simulator replay"
 		onkeydown={onKeyDown}
 	></canvas>

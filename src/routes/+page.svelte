@@ -179,15 +179,6 @@
 		margin-top: 2.5rem;
 	}
 
-	.hero-fleet {
-		position: relative;
-		z-index: 2;
-		display: flex;
-		gap: 1.75rem;
-		margin-top: 4.5rem;
-		opacity: 0.75;
-	}
-
 	.section {
 		padding-top: 5rem;
 		padding-bottom: 1rem;
@@ -302,11 +293,6 @@
 		.mode-card {
 			flex-direction: column;
 			gap: 1rem;
-		}
-
-		.hero-fleet {
-			gap: 1rem;
-			margin-top: 3rem;
 		}
 	}
 </style>
