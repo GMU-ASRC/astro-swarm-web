@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,12 +41,31 @@ func ConvertPendingRuns(ctx context.Context, pool *pgxpool.Pool, files *Files, b
 	}
 }
 
+func ConvertBenchmarkRuns(ctx context.Context, pool *pgxpool.Pool, files *Files, benchmarkID string) (ConvertSummary, error) {
+	summary := ConvertSummary{}
+	rows, err := pool.Query(ctx, `SELECT id, frames_key, coalesce(frames_format, 'delta') FROM benchmark_runs
+		WHERE benchmark_id = $1 AND binary_key IS NULL AND frames_key IS NOT NULL ORDER BY id`, benchmarkID)
+	if err != nil {
+		return summary, err
+	}
+	jobs, err := scanConvertJobs(rows)
+	if err != nil || len(jobs) == 0 {
+		return summary, err
+	}
+	err = convertJobs(ctx, pool, files, jobs, &summary)
+	return summary, err
+}
+
 func pendingConversions(ctx context.Context, pool *pgxpool.Pool, afterID int64, limit int) ([]convertJob, error) {
 	rows, err := pool.Query(ctx, `SELECT id, frames_key, coalesce(frames_format, 'delta') FROM benchmark_runs
 		WHERE binary_key IS NULL AND frames_key IS NOT NULL AND id > $1 ORDER BY id LIMIT $2`, afterID, limit)
 	if err != nil {
 		return nil, err
 	}
+	return scanConvertJobs(rows)
+}
+
+func scanConvertJobs(rows pgx.Rows) ([]convertJob, error) {
 	defer rows.Close()
 	jobs := []convertJob{}
 	for rows.Next() {

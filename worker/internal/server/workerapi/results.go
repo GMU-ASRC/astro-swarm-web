@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -16,6 +17,8 @@ import (
 	"astroswarm/worker/internal/server/pytime"
 	"astroswarm/worker/internal/server/values"
 )
+
+const replayConvertTimeout = 30 * time.Minute
 
 func (api *API) progress(w http.ResponseWriter, r *http.Request) error {
 	if err := api.deps.Auth.RequireAPIKey(r); err != nil {
@@ -182,6 +185,7 @@ func (api *API) result(w http.ResponseWriter, r *http.Request) error {
 	}
 	jobID := r.PathValue("job_id")
 	accepted := false
+	benchmarkID := ""
 	err = api.deps.Store.InTransaction(ctx, func(transaction pgx.Tx) error {
 		entry, err := entries.GetForUpdate(ctx, transaction, jobID)
 		if err != nil {
@@ -197,7 +201,8 @@ func (api *API) result(w http.ResponseWriter, r *http.Request) error {
 		if missing := api.missingReplayFile(result); missing != "" {
 			return httpx.BadRequest("Replay file " + missing + " was never uploaded")
 		}
-		return api.storeResult(ctx, transaction, entry, result)
+		benchmarkID, err = api.storeResult(ctx, transaction, entry, result)
+		return err
 	})
 	if err != nil {
 		return err
@@ -210,28 +215,41 @@ func (api *API) result(w http.ResponseWriter, r *http.Request) error {
 		if err := benchmarks.RemoveUnusedUploads(ctx, api.deps.Store.Pool, api.deps.Files, jobID, uploadID); err != nil {
 			api.deps.Logger.Printf("[WARNING] Could not clean up uploads for %s: %v", jobID, err)
 		}
+		go api.convertReplays(benchmarkID)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true, "accepted": accepted})
 	return nil
 }
 
-func (api *API) storeResult(ctx context.Context, transaction pgx.Tx, entry *entries.Entry, payload map[string]any) error {
+func (api *API) convertReplays(benchmarkID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), replayConvertTimeout)
+	defer cancel()
+	summary, err := benchmarks.ConvertBenchmarkRuns(ctx, api.deps.Store.Pool, api.deps.Files, benchmarkID)
+	for _, problem := range summary.Problems {
+		api.deps.Logger.Printf("[WARNING] Replay convert: %s", problem)
+	}
+	if err != nil {
+		api.deps.Logger.Printf("[WARNING] Replay convert for benchmark %s stopped: %v", benchmarkID, err)
+	}
+}
+
+func (api *API) storeResult(ctx context.Context, transaction pgx.Tx, entry *entries.Entry, payload map[string]any) (string, error) {
 	results, replays := benchmarks.Summarize(payload)
 	benchmarks.AnnotateRates(results, entry.IsAttackLevel())
 	contentHash, err := entry.FinishedJobHash(ctx, api.deps.Settings, api.deps.Config)
 	if err != nil {
-		return err
+		return "", err
 	}
 	benchmarkID := ""
 	found := false
 	if contentHash != nil {
 		if benchmarkID, found, err = benchmarks.FindByHash(ctx, transaction, *contentHash); err != nil {
-			return err
+			return "", err
 		}
 	}
 	if !found {
 		if benchmarkID, err = api.deps.Builder.Build(ctx, transaction, entry.ID, entry.Level(), results, replays, contentHash); err != nil {
-			return err
+			return "", err
 		}
 	}
 	now := pytime.Now()
@@ -243,12 +261,12 @@ func (api *API) storeResult(ctx context.Context, transaction pgx.Tx, entry *entr
 		done_units = $3, error = NULL, completed_at = $4, worker_id = NULL, stage = NULL, last_update = $4 WHERE id = $1`,
 		entry.ID, benchmarkID, totalUnits, now)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if entry.BenchmarkID != nil && *entry.BenchmarkID != benchmarkID {
-		return benchmarks.Release(ctx, transaction, entry.BenchmarkID)
+		return benchmarkID, benchmarks.Release(ctx, transaction, entry.BenchmarkID)
 	}
-	return nil
+	return benchmarkID, nil
 }
 
 func (api *API) fail(w http.ResponseWriter, r *http.Request) error {

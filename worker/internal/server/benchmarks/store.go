@@ -191,18 +191,11 @@ func (builder *Builder) insertRun(ctx context.Context, db store.Querier, evaluat
 	if err != nil {
 		return err
 	}
-	var binaryKey *string
-	var binaryBytes *int64
-	if framesKey != nil && framesFormat != nil {
-		if converted, err := builder.files.ConvertToBinary(*framesKey, *framesFormat); err == nil {
-			binaryKey, binaryBytes = &converted.Key, &converted.Bytes
-		}
-	}
 	_, err = db.Exec(ctx, `INSERT INTO benchmark_runs (benchmark_id, kind, position, parent_position, sweep_n, trial, outcome,
-		details, frames_key, frames_format, frames_bytes, binary_key, binary_bytes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13)`,
+		details, frames_key, frames_format, frames_bytes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11)`,
 		benchmarkID, row.kind, row.position, row.parentPosition, sweepN, wholeNumber(row.run["trial"]),
-		outcomeColumn(row.run["outcome"]), detailsJSON, framesKey, framesFormat, framesBytes, binaryKey, binaryBytes)
+		outcomeColumn(row.run["outcome"]), detailsJSON, framesKey, framesFormat, framesBytes)
 	return err
 }
 
