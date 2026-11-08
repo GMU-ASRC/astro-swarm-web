@@ -2,7 +2,23 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-16MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-256MB}
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+    shm_size: ${PG_SHM_SIZE:-256mb}
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -23,9 +39,9 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: "no"
-    command: ["python", "migrate.py"]
+    command: ["migrate"]
     environment:
-      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       UPLOAD_DIR: /app/uploads
       BACKUP_DIR: /app/backups
     depends_on:
@@ -41,16 +57,17 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    command: ["serve"]
     environment:
-      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       UPLOAD_DIR: /app/uploads
       BACKUP_DIR: /app/backups
-      WEB_PROCESSES: ${WEB_PROCESSES:-4}
-      WEB_THREADS: ${WEB_THREADS:-4}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-16}
       CORS_ORIGINS: '["${FRONTEND_ORIGIN}"]'
       PORT: ${PORT:-5050}
       CLIENT_DIR: /app/client
       API_SECRET_KEY: ${API_SECRET_KEY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     ports:
       - "${SERVER_BIND_ADDRESS:-0.0.0.0}:${PORT:-5050}:${PORT:-5050}"
     depends_on:
@@ -62,11 +79,11 @@ services:
       - uploads:/app/uploads
       - ${BACKUP_PATH:-./backups}:/app/backups
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-5050}/health').read()"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:${PORT:-5050}/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 10s
 
   worker:
     build:

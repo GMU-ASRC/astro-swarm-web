@@ -1,0 +1,80 @@
+name: astroswarm-compare
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - compare_pgdata:/var/lib/postgresql/data
+      - ${BACKUP_PATH:-./backups}:/backups:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  flask:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      UPLOAD_DIR: /app/uploads
+      CLIENT_DIR: /app/client
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      PUBLIC_BASE_URL: http://compare.local
+      PORT: 5050
+    ports:
+      - "127.0.0.1:5051:5050"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads:ro
+
+  go:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["serve"]
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      UPLOAD_DIR: /app/uploads
+      CLIENT_DIR: /app/client
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      PUBLIC_BASE_URL: http://compare.local
+      PORT: 5050
+    ports:
+      - "127.0.0.1:5052:5050"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads:ro
+
+  apicompare:
+    build:
+      context: ./worker
+      dockerfile_inline: |
+        FROM golang:1.26-alpine
+        WORKDIR /src
+        COPY go.mod go.sum ./
+        RUN go mod download
+        COPY . .
+        RUN go build -o /usr/local/bin/apicompare ./cmd/apicompare
+        ENTRYPOINT ["apicompare", "-flask", "http://flask:5050", "-go", "http://go:5050"]
+    environment:
+      API_SECRET_KEY: ${API_SECRET_KEY}
+    profiles: ["tools"]
+    depends_on:
+      - flask
+      - go
+
+volumes:
+  compare_pgdata:
+  uploads:
+    external: true
+    name: ${UPLOADS_VOLUME:-web_uploads}
