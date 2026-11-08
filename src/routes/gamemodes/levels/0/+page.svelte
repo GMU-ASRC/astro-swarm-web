@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonList from '$lib/components/skeleton/SkeletonList.svelte';
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
 	import TrainingLeaderboard from '$lib/components/TrainingLeaderboard.svelte';
@@ -60,7 +61,7 @@
 
 	<div class="shell shell-wide panel">
 		{#if loading}
-			<div class="notice">Loading leaderboard...</div>
+			<SkeletonList count={8} />
 		{:else if apiError}
 			<div class="notice notice-error">Communication error. Unable to load the leaderboard.</div>
 		{:else}

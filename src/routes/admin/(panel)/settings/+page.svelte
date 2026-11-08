@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import SettingsSection from '$lib/components/admin/settings/SettingsSection.svelte';
 	import GameVersionForm from '$lib/components/admin/settings/GameVersionForm.svelte';
 	import LevelSettingsTable from '$lib/components/admin/settings/LevelSettingsTable.svelte';
@@ -66,7 +67,7 @@
 <h1>Settings</h1>
 
 {#if loading}
-	<p>Loading settings...</p>
+	<SkeletonPanel lines={6} />
 {:else if !settings}
 	<div class="message message-error">Could not load settings from the server.</div>
 {:else}

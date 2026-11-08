@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import { goto } from '$app/navigation';
 	import { apiUrl } from '$lib/ts/api';
 
@@ -50,7 +51,7 @@
 {#if message}<div class="message">{message}</div>{/if}
 
 {#if loading}
-	<p>Loading entry...</p>
+	<SkeletonPanel lines={6} />
 {:else if !entry}
 	<p>Entry not found.</p>
 {:else}

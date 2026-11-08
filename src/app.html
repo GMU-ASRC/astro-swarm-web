@@ -21,9 +21,35 @@
 		<meta name="twitter:description" content="__META_DESC__" />
 		<meta name="twitter:image" content="__META_IMAGE__" />
 		<script defer src="https://umami.sirblob.co/script.js" data-website-id="a250cfb0-68cc-4a70-9994-c13c9cbef188"></script>
+		<style>
+			body:has(.app-root) #boot-skeleton { display: none; }
+			#boot-skeleton { min-height: 100vh; padding: 7.5rem 2rem 2rem; background: #090b10; }
+			#boot-skeleton .boot-shell { max-width: 90rem; margin: 0 auto; }
+			#boot-skeleton .boot-bar { height: 0.9rem; margin-bottom: 1rem; border-radius: 4px; background: linear-gradient(90deg, #161b24 25%, #262d3a 37%, #161b24 63%); background-size: 400% 100%; animation: boot-shimmer 1.4s ease-in-out infinite; }
+			#boot-skeleton .boot-title { height: 2.4rem; width: min(28rem, 80%); margin-bottom: 1.25rem; }
+			#boot-skeleton .boot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.75rem; margin: 2.5rem 0 1rem; }
+			#boot-skeleton .boot-card { height: 5rem; }
+			#boot-skeleton .boot-panel { height: 18rem; }
+			@keyframes boot-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+			@media (prefers-reduced-motion: reduce) { #boot-skeleton .boot-bar { animation: none; } }
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div id="boot-skeleton" aria-hidden="true">
+			<div class="boot-shell">
+				<div class="boot-bar" style="width: 7rem"></div>
+				<div class="boot-bar boot-title"></div>
+				<div class="boot-bar" style="width: min(40rem, 95%)"></div>
+				<div class="boot-grid">
+					<div class="boot-bar boot-card"></div>
+					<div class="boot-bar boot-card"></div>
+					<div class="boot-bar boot-card"></div>
+					<div class="boot-bar boot-card"></div>
+				</div>
+				<div class="boot-bar boot-panel"></div>
+			</div>
+		</div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

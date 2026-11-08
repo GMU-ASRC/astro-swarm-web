@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonCards from '$lib/components/skeleton/SkeletonCards.svelte';
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
 	import { dateTimeLabel } from '$lib/ts/dates';
@@ -237,7 +238,7 @@
 
 			<div class="results">
 				{#if loading}
-					<div class="notice">Loading level data...</div>
+					<SkeletonCards count={6} />
 				{:else if apiError}
 					<div class="notice notice-error">Communication error. Unable to load level data.</div>
 				{:else if shown.length === 0}

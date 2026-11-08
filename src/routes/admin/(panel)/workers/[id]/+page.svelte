@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import { whenVisible } from '$lib/ts/visibility';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -109,7 +110,7 @@
 {#if message}<div class="message">{message}</div>{/if}
 
 {#if loading && !worker}
-	<p>Loading worker...</p>
+	<SkeletonPanel lines={6} />
 {:else if notFound || !worker}
 	<p>Worker not found.</p>
 {:else}

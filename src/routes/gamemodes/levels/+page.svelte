@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Skeleton from '$lib/components/skeleton/Skeleton.svelte';
 	import Icon from '@iconify/svelte';
 	import Spaceship from '$lib/components/Spaceship.svelte';
 	import type { PlayerListItem } from '$lib/ts/evaluation';
@@ -99,12 +100,12 @@
 
 			<div class="level-numbers">
 				<div>
-					<div class="level-value">{trainingLoading ? '—' : trainingRows.length}</div>
+					<div class="level-value">{#if trainingLoading}<Skeleton width="2.5rem" height="1.3rem" />{:else}{trainingRows.length}{/if}</div>
 					<div class="level-caption">commanders</div>
 				</div>
 				<div>
 					<div class="level-value">
-						{trainingLoading || bestTraining === null ? '—' : circlinessText(bestTraining)}
+						{#if trainingLoading}<Skeleton width="3.5rem" height="1.3rem" />{:else}{bestTraining === null ? '—' : circlinessText(bestTraining)}{/if}
 					</div>
 					<div class="level-caption">best {TRAINING_LEVEL.rateLabel}</div>
 				</div>
@@ -130,11 +131,11 @@
 
 				<div class="level-numbers">
 					<div>
-						<div class="level-value">{loading ? '—' : entries.length}</div>
+						<div class="level-value">{#if loading}<Skeleton width="2.5rem" height="1.3rem" />{:else}{entries.length}{/if}</div>
 						<div class="level-caption">entries</div>
 					</div>
 					<div>
-						<div class="level-value">{loading || best === null ? '—' : `${best}%`}</div>
+						<div class="level-value">{#if loading}<Skeleton width="3.5rem" height="1.3rem" />{:else}{best === null ? '—' : `${best}%`}{/if}</div>
 						<div class="level-caption">best {level.rateLabel}</div>
 					</div>
 					<Icon icon="ph:arrow-right-bold" width="16" color="var(--color-brand)" />

@@ -25,7 +25,9 @@ export interface BlockNames {
 	zones?: Record<string, string>;
 }
 
-export type BlockPart = { kind: 'text'; text: string } | { kind: 'value'; text: string };
+export type BlockPart = { kind: 'text'; text: string } | { kind: 'value'; text: string } | { kind: 'choice'; text: string };
+
+const CHOICE_FORMATS = new Set(['species', 'zone', 'turn_unit', 'operator', 'target']);
 
 export const CATEGORY_COLORS: Record<BlockCategory, { background: string; edge: string }> = {
 	config: { background: '#46a952', edge: '#35843f' },
@@ -135,6 +137,10 @@ export function blockDef(type: string): BlockDef {
 	return BLOCK_DEFS[type] ?? { label: type.replace(/_/g, ' '), category: 'action' };
 }
 
+export function isHatBlock(type: string): boolean {
+	return type.startsWith('when_');
+}
+
 export function isContainerBlock(type: string): boolean {
 	return type.startsWith('when_') || type.startsWith('if_') || type.startsWith('elif_') || type === 'else';
 }
@@ -152,7 +158,8 @@ export function blockParts(block: Block, names: BlockNames = {}): BlockPart[] {
 		const [key, format = 'plain'] = piece.slice(1).split(':');
 		const value = params[key] ?? PART_DEFAULTS[format];
 		if (value === undefined || value === null || value === '') continue;
-		parts.push({ kind: 'value', text: formatValue(value, format, def, names) });
+		const isChoice = CHOICE_FORMATS.has(format) || key === 'var' || key === 'state' || (format === 'single' && typeof value !== 'number');
+		parts.push({ kind: isChoice ? 'choice' : 'value', text: formatValue(value, format, def, names) });
 	}
 	return parts;
 }

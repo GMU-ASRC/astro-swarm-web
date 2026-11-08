@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonCards from '$lib/components/skeleton/SkeletonCards.svelte';
 	import Icon from '@iconify/svelte';
 	import type { SurviveMatchListItem } from '$lib/ts/survive';
 	import { clockLabel } from '$lib/ts/survive';
@@ -119,7 +120,7 @@
 
 		<div class="results">
 			{#if loading}
-				<div class="notice">Loading match data...</div>
+				<SkeletonCards count={6} />
 			{:else if apiError}
 				<div class="notice notice-error">Communication error. Unable to load match data.</div>
 			{:else if shown.length === 0}

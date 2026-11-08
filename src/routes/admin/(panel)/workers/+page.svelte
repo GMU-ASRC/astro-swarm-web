@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonTableRows from '$lib/components/skeleton/SkeletonTableRows.svelte';
 	import { whenVisible } from '$lib/ts/visibility';
 	import { goto } from '$app/navigation';
 	import { apiUrl } from '$lib/ts/api';
@@ -61,7 +62,7 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="5">Loading workers...</td></tr>
+				<SkeletonTableRows columns={5} rows={4} />
 			{:else}
 				{#each workers as worker}
 					<tr

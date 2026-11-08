@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonTableRows from '$lib/components/skeleton/SkeletonTableRows.svelte';
 	import { whenVisible } from '$lib/ts/visibility';
 	import Icon from '@iconify/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -351,7 +352,7 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="13">Loading evaluations...</td></tr>
+				<SkeletonTableRows columns={13} rows={10} />
 			{:else}
 				{#each pagedEvaluations as row}
 					<tr class:selected={selected.has(row.id)}>

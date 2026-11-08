@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import Icon from '@iconify/svelte';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import { dateTimeLabel } from '$lib/ts/dates';
@@ -78,7 +79,7 @@
 							</a>
 						</div>
 						{#if loadingPlayerId === row.player_id}
-							<div class="notice">Loading algorithm...</div>
+							<SkeletonPanel lines={3} />
 						{:else if details[row.player_id]}
 							<AlgorithmView scripts={details[row.player_id]?.algorithm ?? []} />
 						{:else}

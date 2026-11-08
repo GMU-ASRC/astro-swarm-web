@@ -1,194 +1,251 @@
 <script lang="ts">
-	import Icon from '@iconify/svelte';
 	import { apiUrl } from '$lib/ts/api';
-	import { createPrompt } from '$lib/ts/prompt.svelte';
-	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import { whenVisible } from '$lib/ts/visibility';
+	import { formatCount, formatWhen } from '$lib/ts/adminFormat';
+	import type { AdminStats } from '$lib/ts/adminStats';
+	import KpiGrid from '$lib/components/admin/dashboard/KpiGrid.svelte';
+	import StatusBar from '$lib/components/admin/dashboard/StatusBar.svelte';
+	import DailyChart from '$lib/components/admin/dashboard/DailyChart.svelte';
+	import LevelTable from '$lib/components/admin/dashboard/LevelTable.svelte';
+	import TimingTable from '$lib/components/admin/dashboard/TimingTable.svelte';
+	import StorageSection from '$lib/components/admin/dashboard/StorageSection.svelte';
+	import Skeleton from '$lib/components/skeleton/Skeleton.svelte';
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
+
+	const REFRESH_MS = 30000;
 
 	let { data } = $props();
+	let stats = $state<AdminStats | null>(null);
 	let storage = $state<Record<string, any> | null>(null);
-	let loading = $state(true);
-	let reclaiming = $state('');
-	let message = $state('');
-	const prompt = createPrompt();
+	let statsLoading = $state(true);
+	let storageLoading = $state(true);
+	let refreshing = $state(false);
+
+	const sections = [
+		{ href: '/admin/evaluations', label: 'Evaluations', text: 'Manage player level entries' },
+		{ href: '/admin/players', label: 'Players', text: 'Profiles and their entries' },
+		{ href: '/admin/leaderboard', label: 'Leaderboard', text: 'Success rate standings' },
+		{ href: '/admin/runs', label: 'Simulator runs', text: 'Shared sandbox simulations' },
+		{ href: '/admin/workers', label: 'Workers', text: 'Benchmark machines' },
+		{ href: '/admin/settings', label: 'Settings', text: 'Seeds, levels and versions' }
+	];
 
 	$effect(() => {
 		let active = true;
-		loading = true;
-		data.storagePromise.then((row: any) => {
+		data.statsPromise.then((row) => {
+			if (!active) return;
+			stats = row;
+			statsLoading = false;
+		});
+		data.storagePromise.then((row) => {
 			if (!active) return;
 			storage = row;
-			loading = false;
+			storageLoading = false;
 		});
+		const timer = setInterval(whenVisible(refreshStats), REFRESH_MS);
 		return () => {
 			active = false;
+			clearInterval(timer);
 		};
 	});
 
-	function formatBytes(bytes: number): string {
-		if (bytes == null) return '—';
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-	}
-
-	function share(bytes: number): string {
-		const total = storage?.total_bytes ?? 0;
-		if (!total) return '0%';
-		return `${((100 * bytes) / total).toFixed(1)}%`;
-	}
-
-	function when(iso: string | null): string {
-		return iso ? new Date(iso).toLocaleString() : 'never';
-	}
-
-	async function refreshStorage(measure = false) {
+	async function refreshStats() {
 		try {
-			const res = await fetch(apiUrl(measure ? '/api/admin/storage?measure=1' : '/api/admin/storage'), {
-				headers: { 'X-API-Key': data.adminKey }
-			});
-			if (res.ok) storage = await res.json();
+			const res = await fetch(apiUrl('/api/admin/stats'), { headers: { 'X-API-Key': data.adminKey } });
+			if (res.ok) stats = await res.json();
 		} catch {
-			message = 'Could not refresh storage usage.';
+			return;
 		}
 	}
 
-	async function reclaim(table: string) {
-		reclaiming = table;
-		message = `Reclaiming space in ${table}...`;
-		try {
-			const res = await fetch(apiUrl('/api/admin/storage/reclaim'), {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'X-API-Key': data.adminKey },
-				body: JSON.stringify({ table })
-			});
-			if (res.ok) {
-				const body = await res.json();
-				message = `Reclaimed ${formatBytes(body.freed_bytes)} from ${table} (${formatBytes(body.before_bytes)} to ${formatBytes(body.after_bytes)}).`;
-				await refreshStorage();
-			} else {
-				const body = await res.json().catch(() => ({}));
-				message = `Reclaim failed: ${body.error ?? res.status}`;
-			}
-		} catch (err) {
-			message = `Reclaim failed: ${err}`;
-		}
-		reclaiming = '';
-	}
-
-	function askReclaim(table: string, deadRows: number) {
-		prompt.ask({
-			title: 'Reclaim disk space',
-			message: `Rewrite ${table} to give its dead rows back to the disk? Re-simulating an entry leaves the old replay behind, and that is what this clears.`,
-			warning: `The table is locked for the whole rewrite, so the site cannot read or write ${table} until it finishes.${deadRows ? ` ${deadRows} dead rows are waiting.` : ''}`,
-			confirmLabel: 'Reclaim',
-			run: () => reclaim(table)
-		});
+	async function refreshAll() {
+		refreshing = true;
+		const storageRequest = fetch(apiUrl('/api/admin/storage'), { headers: { 'X-API-Key': data.adminKey } })
+			.then((res) => (res.ok ? res.json() : storage))
+			.catch(() => storage);
+		await refreshStats();
+		storage = await storageRequest;
+		refreshing = false;
 	}
 </script>
 
-<h1>Welcome, Admin</h1>
-<p>Select a category to manage data, moderate content, and delete old evaluations or simulator runs.</p>
+<div class="dashboard-head">
+	<div>
+		<h1>Dashboard</h1>
+		<p class="meta">
+			{#if stats}Updated {formatWhen(stats.generated_at)} · refreshes every 30 seconds{:else}Overview of entries, workers, performance and storage{/if}
+		</p>
+	</div>
+	<button class="admin-btn" onclick={refreshAll} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
+</div>
 
-<ul>
-	<li><a href="/admin/evaluations">Evaluations</a> — manage player level evaluations.</li>
-	<li><a href="/admin/players">Players</a> — view player profiles and manage their entries.</li>
-	<li><a href="/admin/leaderboard">Leaderboard</a> — success rate standings.</li>
-	<li><a href="/admin/runs">Simulator Runs</a> — manage shared sandbox simulations.</li>
-</ul>
+<nav class="section-links">
+	{#each sections as section}
+		<a href={section.href} class="section-link">
+			<span class="section-label">{section.label}</span>
+			<span class="section-text">{section.text}</span>
+		</a>
+	{/each}
+</nav>
 
-<h2>Data Storage</h2>
-
-{#if message}<div class="message">{message}</div>{/if}
-
-{#if loading}
-	<p>Loading storage usage...</p>
-{:else if !storage}
-	<p>Storage usage is unavailable.</p>
+{#if statsLoading}
+	<div class="kpi-skeleton">
+		{#each Array(8) as _}
+			<div class="stat"><Skeleton width="45%" height="0.65rem" /><div class="gap"><Skeleton width="60%" height="1.5rem" /></div></div>
+		{/each}
+	</div>
+	<div class="panel"><SkeletonPanel lines={5} /></div>
+{:else if !stats}
+	<div class="message">Detailed stats are not available from this server version. They need the Go server.</div>
 {:else}
-	<div class="stat-grid">
-		<div class="stat">
-			<div class="label">Total Stored</div>
-			<div>{formatBytes(storage.total_bytes)}</div>
-		</div>
-		<div class="stat">
-			<div class="label">Database</div>
-			<div>{formatBytes(storage.database_bytes)}</div>
-		</div>
-		<div class="stat">
-			<div class="label">Uploads</div>
-			<div>{formatBytes(storage.uploads_bytes)}</div>
-		</div>
-		<div class="stat">
-			<div class="label">Upload Files</div>
-			<div>{storage.upload_files}</div>
-		</div>
+	<KpiGrid {stats} totalBytes={storage?.total_bytes ?? null} />
+
+	<div class="two-column">
+		<section class="panel">
+			<h2>Submissions</h2>
+			<DailyChart days={stats.daily} />
+		</section>
+		<section class="panel">
+			<h2>Entries by status</h2>
+			<StatusBar counts={stats.entries.by_status} />
+			<h2 class="sub-heading">Other content</h2>
+			<dl class="content-counts">
+				<div><dt>Simulator entries</dt><dd>{formatCount(stats.content.simulator_entries)}</dd></div>
+				<div><dt>Survive matches</dt><dd>{formatCount(stats.content.survive_matches)}</dd></div>
+				<div><dt>Training scores</dt><dd>{formatCount(stats.content.training_scores)}</dd></div>
+				<div><dt>Sandbox runs</dt><dd>{formatCount(stats.content.sim_runs)}</dd></div>
+				<div><dt>Legacy leaderboard</dt><dd>{formatCount(stats.content.leaderboard_entries)}</dd></div>
+				<div><dt>Admin users</dt><dd>{formatCount(stats.content.admin_users)}</dd></div>
+			</dl>
+		</section>
 	</div>
 
-	<p>
-		Uploads measured {when(storage.uploads_measured_at)}{storage.uploads_measuring ? ', measuring again now' : ''}.
-		<button onclick={() => refreshStorage(true)}>Measure now</button>
-	</p>
+	<h2>Levels</h2>
+	<LevelTable levels={stats.levels} />
 
-	{#if storage.database_error}
-		<div class="message message-error">Database size unavailable: {storage.database_error}</div>
-	{/if}
-	{#if storage.uploads_error}
-		<div class="message message-error">{storage.uploads_error}: {storage.upload_dir}</div>
-	{/if}
+	<h2>Page load times</h2>
+	<p class="meta">Measured in visitors' browsers since the server started {formatWhen(stats.timings.since)}. Full load is a fresh visit; in-app is moving between pages.</p>
+	<TimingTable rows={stats.timings.page_loads} label="Page" empty="No page loads reported yet." slowMs={3000} warnMs={1200} />
 
-	{#if storage.tables.length > 0}
-		<div class="admin-table-wrap">
-			<table>
-				<thead>
-					<tr>
-						<th>Table</th>
-						<th>Rows</th>
-						<th>Size</th>
-						<th>Share</th>
-						<th>Dead Rows</th>
-						<th>Last Vacuum</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each storage.tables as table}
-						<tr>
-							<td><code>{table.name}</code></td>
-							<td>{table.rows}</td>
-							<td>{formatBytes(table.bytes)}</td>
-							<td>{share(table.bytes)}</td>
-							<td>{table.dead_rows ?? 0}</td>
-							<td>{when(table.last_vacuum)}</td>
-							<td>
-								<div class="actions">
-									<button
-										class="icon-btn"
-										title={table.reclaimable === false ? 'Too large to rewrite while the site is running' : 'Reclaim disk space'}
-										aria-label="Reclaim disk space"
-										disabled={reclaiming !== '' || table.reclaimable === false}
-										onclick={() => askReclaim(table.name, table.dead_rows ?? 0)}
-									>
-										<Icon icon="ph:broom-bold" width="16" />
-									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+	<h2>Server response times</h2>
+	<p class="meta">Time the server spends on each route, kept in memory for the last 500 requests per route.</p>
+	<TimingTable rows={stats.timings.requests} label="Route" empty="No requests recorded yet." />
 {/if}
 
-{#if prompt.current}
-	<ConfirmDialog
-		title={prompt.current.title}
-		message={prompt.current.message}
-		warning={prompt.current.warning}
-		confirmLabel={prompt.current.confirmLabel}
-		danger={prompt.current.danger}
-		onconfirm={prompt.accept}
-		oncancel={prompt.dismiss}
-	/>
+<h2>Data storage</h2>
+{#if storageLoading}
+	<div class="panel"><SkeletonPanel lines={6} /></div>
+{:else if !storage}
+	<div class="message">Storage usage is unavailable.</div>
+{:else}
+	<StorageSection bind:storage adminKey={data.adminKey} />
 {/if}
+
+<style>
+	.dashboard-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.section-links {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+		gap: 0.6rem;
+		margin: 1.25rem 0 1.5rem;
+	}
+
+	.section-link {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		padding: 0.75rem 0.9rem;
+		border: 1px solid var(--color-line);
+		background: var(--color-surface);
+		text-decoration: none;
+		transition:
+			border-color 0.15s,
+			background 0.15s;
+	}
+
+	.section-link:hover {
+		border-color: var(--color-brand);
+		background: var(--color-surface-raised);
+	}
+
+	.section-label {
+		color: var(--color-heading);
+		font-weight: 600;
+		font-size: 0.9rem;
+	}
+
+	.section-text {
+		color: var(--color-faint);
+		font-size: 0.75rem;
+	}
+
+	.kpi-skeleton {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.gap {
+		margin-top: 0.6rem;
+	}
+
+	.two-column {
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+		gap: 1rem;
+		margin-top: 1rem;
+	}
+
+	.panel {
+		padding: 1.1rem 1.2rem;
+		border: 1px solid var(--color-line);
+		background: var(--color-surface);
+	}
+
+	.panel h2 {
+		margin-top: 0;
+	}
+
+	.sub-heading {
+		margin-top: 1.4rem !important;
+	}
+
+	.content-counts {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem 1rem;
+		margin: 0;
+	}
+
+	.content-counts div {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding-bottom: 0.4rem;
+		border-bottom: 1px solid var(--color-line);
+		font-size: 0.82rem;
+	}
+
+	.content-counts dt {
+		color: var(--color-dim);
+	}
+
+	.content-counts dd {
+		margin: 0;
+		color: var(--color-heading);
+		font-variant-numeric: tabular-nums;
+	}
+
+	@media (max-width: 960px) {
+		.two-column {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

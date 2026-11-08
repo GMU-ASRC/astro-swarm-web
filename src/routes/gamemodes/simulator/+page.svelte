@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonCards from '$lib/components/skeleton/SkeletonCards.svelte';
 	import Icon from '@iconify/svelte';
 	import type { SimulatorEntryListItem } from '$lib/ts/simulator';
 	import { durationLabel } from '$lib/ts/simulator';
@@ -121,7 +122,7 @@
 
 		<div class="results">
 			{#if loading}
-				<div class="notice">Loading simulator entries...</div>
+				<SkeletonCards count={6} />
 			{:else if apiError}
 				<div class="notice notice-error">Communication error. Unable to load simulator entries.</div>
 			{:else if shown.length === 0}

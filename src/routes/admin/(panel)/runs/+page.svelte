@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonTableRows from '$lib/components/skeleton/SkeletonTableRows.svelte';
 	import { apiUrl } from '$lib/ts/api';
 	import Pagination from '$lib/components/Pagination.svelte';
 
@@ -59,7 +60,7 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="5">Loading simulator runs...</td></tr>
+				<SkeletonTableRows columns={5} rows={6} />
 			{:else}
 				{#each pagedRuns as row}
 					<tr>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonTableRows from '$lib/components/skeleton/SkeletonTableRows.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 
 	let { data } = $props();
@@ -80,7 +81,7 @@
 		</thead>
 		<tbody>
 			{#if loading}
-				<tr><td colspan="10">Loading leaderboard...</td></tr>
+				<SkeletonTableRows columns={10} rows={8} />
 			{:else}
 				{#each pagedPlayers as row}
 					<tr>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import Icon from '@iconify/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
@@ -246,7 +247,7 @@
 {#if message}<div class="message">{message}</div>{/if}
 
 {#if loading}
-	<p>Loading player...</p>
+	<SkeletonPanel lines={6} />
 {:else if !profile}
 	<p>Player not found.</p>
 {:else}

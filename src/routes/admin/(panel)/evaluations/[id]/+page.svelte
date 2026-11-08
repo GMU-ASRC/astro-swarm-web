@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fetchReplay } from '$lib/ts/replayFrames';
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import { goto } from '$app/navigation';
 	import AlgorithmView from '$lib/components/AlgorithmView.svelte';
 	import { dateTimeLabel } from '$lib/ts/dates';
@@ -183,9 +185,9 @@
 		if (!ev) return;
 		selectedTrial = trial;
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/replay/${trial}`));
-			if (!res.ok) return;
-			selectedReplay = await res.json();
+			const replay = await fetchReplay<any>(`/api/evaluations/${ev.id}/replay/${trial}`);
+			if (!replay) return;
+			selectedReplay = replay;
 		} catch (err) {
 			console.error('Error loading replay:', err);
 		}
@@ -226,9 +228,9 @@
 		if (!ev) return;
 		selectedSweepTrial = trial;
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
-			if (!res.ok) return;
-			selectedSweepReplay = await res.json();
+			const replay = await fetchReplay<any>(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`);
+			if (!replay) return;
+			selectedSweepReplay = replay;
 		} catch (err) {
 			console.error('Error loading sweep trial replay:', err);
 		}
@@ -240,9 +242,9 @@
 		selectedSweepTrial = null;
 		sweepTrials = [];
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
-			if (!res.ok) return;
-			selectedSweepReplay = await res.json();
+			const replay = await fetchReplay<any>(`/api/evaluations/${ev.id}/sweep-replay/${n}`);
+			if (!replay) return;
+			selectedSweepReplay = replay;
 		} catch (err) {
 			console.error('Error loading sweep replay:', err);
 		}
@@ -340,7 +342,7 @@
 {#if message}<div class="message">{message}</div>{/if}
 
 {#if loading}
-	<p>Loading entry...</p>
+	<SkeletonPanel lines={6} />
 {:else if !ev}
 	<p>Entry not found.</p>
 {:else}
@@ -504,9 +506,7 @@
 		{/if}
 
 		<h2>{isSwarm ? 'Swarm Agent Algorithm' : isSupply ? 'Defender Algorithm' : isPilot ? 'Opponent Algorithm' : 'Defender Algorithm'}</h2>
-		<div class="admin-table-wrap">
-			<AlgorithmView scripts={ev.algorithm} />
-		</div>
+		<AlgorithmView scripts={ev.algorithm} />
 	{/if}
 {/if}
 

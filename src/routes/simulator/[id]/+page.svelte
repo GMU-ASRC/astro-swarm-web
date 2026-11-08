@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SkeletonPanel from '$lib/components/skeleton/SkeletonPanel.svelte';
 	import Icon from '@iconify/svelte';
 	import SimulatorLogic from '$lib/components/SimulatorLogic.svelte';
 	import SimulatorReplay from '$lib/components/SimulatorReplay.svelte';
@@ -98,7 +99,7 @@
 			{:else if replayError}
 				<div class="notice notice-error">Unable to load the recording for this entry.</div>
 			{:else}
-				<div class="notice">Loading recording...</div>
+				<SkeletonPanel media lines={1} />
 			{/if}
 		</section>
 

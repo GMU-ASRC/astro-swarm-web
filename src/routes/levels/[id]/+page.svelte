@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fetchReplay } from '$lib/ts/replayFrames';
 	import { whenVisible } from '$lib/ts/visibility';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
@@ -212,8 +213,7 @@
 	async function loadReplay(trial: number) {
 		selectedTrial = trial;
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/replay/${trial}`));
-			const replay = res.ok ? await res.json() : null;
+			const replay = await fetchReplay<Replay>(`/api/evaluations/${ev.id}/replay/${trial}`);
 			selectedReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading replay:', err);
@@ -244,8 +244,7 @@
 		selectedSweepTrial = null;
 		sweepTrials = [];
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}`));
-			const replay = res.ok ? await res.json() : null;
+			const replay = await fetchReplay<Replay>(`/api/evaluations/${ev.id}/sweep-replay/${n}`);
 			selectedSweepReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading sweep replay:', err);
@@ -268,8 +267,7 @@
 	async function loadSweepTrialReplay(n: number, trial: number) {
 		selectedSweepTrial = trial;
 		try {
-			const res = await fetch(apiUrl(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`));
-			const replay = res.ok ? await res.json() : null;
+			const replay = await fetchReplay<Replay>(`/api/evaluations/${ev.id}/sweep-replay/${n}/trial/${trial}`);
 			selectedSweepReplay = playable(replay) ? replay : null;
 		} catch (err) {
 			console.error('Error loading sweep trial replay:', err);
@@ -699,7 +697,7 @@
 									? 'Opponent algorithm'
 									: 'Defender algorithm'}
 						</h2>
-						<div class="card algorithm">
+						<div class="algorithm-board">
 							<AlgorithmView scripts={ev.algorithm} />
 						</div>
 					</section>
@@ -881,6 +879,10 @@
 		margin-bottom: 0.85rem;
 		font-size: 0.78rem;
 		color: var(--color-faint);
+	}
+
+	.algorithm-board {
+		margin-top: 1.25rem;
 	}
 
 	.algorithm {
