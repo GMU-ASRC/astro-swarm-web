@@ -38,7 +38,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'blue',
 		summary:
-			'Place up to twenty defenders around the planet and program how they sweep. Ten evaders come in one after another, and any evader a defender spots vanishes. Scored on the share spotted, with the average circliness of the defenders mill by mill.',
+			'Place up to twenty defenders around the planet and program how they sweep. Ten evaders come in one after another from beyond the outermost defender, flying at the same speed as the defenders, and any evader a defender spots vanishes. Scored on the share spotted, with the average circliness of the defenders mill by mill.',
 		rateLabel: 'spot rate'
 	},
 	{
@@ -51,7 +51,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'gold',
 		summary:
-			'Field 5, 25, 50, 100, 250 or 500 defenders scattered at random in a larger arena. After a ten second head start, two evaders per defender come in one after another and each has to be captured by touch. Scored on the share captured, with the average circliness of the defenders mill by mill.',
+			'Field 5, 25, 50, 100, 250 or 500 defenders scattered at random in a larger arena. After a ten second head start, two evaders per defender come in one after another from beyond the outermost defender, flying at the same speed as the defenders, and each has to be captured by touch. Scored on the share captured, with the average circliness of the defenders mill by mill.',
 		rateLabel: 'capture rate'
 	},
 	{
@@ -64,7 +64,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'green',
 		summary:
-			'Field 5, 25, 50, 100, 250 or 500 defenders. Two waves come in, each sending one evader per defender all at once around the ring. A defender that catches one survives and takes the next, so nothing is spent. The score is the share of evaders destroyed.',
+			'Field 5, 25, 50, 100, 250 or 500 defenders. Two waves come in, each sending one evader per defender all at once from a ring beyond the outermost defender, flying at the same speed as the defenders. A defender that catches one survives and takes the next, so nothing is spent. The score is the share of evaders destroyed.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -77,7 +77,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'red',
 		summary:
-			'Five to twenty scattered defenders face evaders one at a time, each from a fresh bearing, and a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
+			'Five to twenty scattered defenders face evaders one at a time, each from a fresh bearing and at the same speed as the defenders, and a capture destroys the defender as well as the evader. Every kill costs a body, and the run ends when the line is spent. The level plays five waves; the benchmark keeps sending them until nothing is left to stop them.',
 		rateLabel: 'capture success rate'
 	},
 	{
@@ -90,7 +90,7 @@ export const FARP_LEVELS: LevelInfo[] = [
 		piloted: false,
 		variant: 'purple',
 		summary:
-			'No waves. Five evaders spawn at once around the edges of the arena and all drive at the planet, arriving in a stagger. Attrition is on, so every capture costs a defender, and a line of five to twenty has to make five clean trades.',
+			'No waves. Five evaders spawn at once around the edges of the arena and all drive at the planet at the same speed as the defenders, arriving in a stagger. Attrition is on, so every capture costs a defender, and a line of five to twenty has to make five clean trades.',
 		rateLabel: 'capture success rate'
 	},
 	{
