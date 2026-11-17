@@ -75,7 +75,7 @@ func RunMatch(input MatchInput) MatchOutput {
 
 	evader := sim.NewShip(sim.TeamEvader, enemyProgram)
 	evader.ArenaSize = ArenaSize
-	evader.SpeedMult = EnemySpeed / sim.DefaultSpeed
+	evader.SpeedMult = config.Speed / sim.DefaultSpeed
 	evader.CollisionsEnabled = false
 	evader.IsEvader = true
 	evader.Position = input.EnemyStart

@@ -29,7 +29,8 @@ const (
 	StreamEvadersPerDefender = 2
 	StreamBaseDefenders      = 5
 	StreamLevel2DelayFrames  = 600
-	StreamSpawnRadius        = 750.0
+	StreamSpawnRadius        = 1000.0
+	SpawnClearance           = 150.0
 
 	SiegeEvaders     = 5    // count, evaders that arrive together in a siege
 	SiegeEdgeInset   = 60.0 // pixels the siege spawn band sits inside the arena border
@@ -189,7 +190,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		}
 		ship := sim.NewShip(sim.TeamEvader, enemyProgram)
 		ship.ArenaSize = arena.Size
-		ship.SpeedMult = EnemySpeed / sim.DefaultSpeed
+		ship.SpeedMult = evaderSpeedMult(live, config.Speed)
 		ship.CollisionsEnabled = false
 		ship.IsEvader = true
 		ship.Position = spawn
@@ -213,7 +214,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 		for index := 0; index < groupWaveSize; index++ {
 			slice := godot.Tau * float64(index) / float64(groupWaveSize)
 			angle := base + slice + spawnRNG.RandfRange(-SiegeAngleJitter, SiegeAngleJitter)
-			launch(arena.Center.Add(godot.Vec{X: EnemySpawnRadius}.Rotated(angle)))
+			launch(spawnBeyondLine(arena, angle, EnemySpawnRadius, live))
 		}
 		groupWavesLaunched++
 	}
@@ -221,12 +222,12 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 	if groupWaves {
 		launchGroupWave()
 	} else if !siege && !stream {
-		launch(waveSpawn(spawnRNG, arena))
+		launch(waveSpawn(spawnRNG, arena, live))
 	}
 
 	streamTimer := input.Rules.StartDelayFrames
 	if stream && streamTimer <= 0 {
-		launch(streamSpawn(spawnRNG, arena))
+		launch(streamSpawn(spawnRNG, arena, live))
 		streamTimer = streamInterval
 	}
 	circliness := CirclinessTracker{}
@@ -294,6 +295,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 				killDefender(defenders, catcher)
 				output.DefendersLost++
 				genomes.update(live, len(output.Frames))
+				matchEvaderSpeeds(inFlight, live, config.Speed)
 			}
 			output.Samples = append(output.Samples, AttritionSample{Defenders: entry.atLaunch, Remaining: len(live), Destroyed: true})
 		}
@@ -310,7 +312,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			if output.Launched < streamTotal {
 				streamTimer--
 				if streamTimer <= 0 {
-					launch(streamSpawn(spawnRNG, arena))
+					launch(streamSpawn(spawnRNG, arena, live))
 					streamTimer = streamInterval
 				}
 			} else if allSlotsFree(inFlight) {
@@ -353,7 +355,7 @@ func RunAssaultMatch(input AssaultInput) AssaultOutput {
 			gap--
 			if gap <= 0 {
 				gap = WaveGapFrames
-				launch(waveSpawn(spawnRNG, arena))
+				launch(waveSpawn(spawnRNG, arena, live))
 			}
 		}
 
@@ -396,12 +398,26 @@ func streamPlan(rules AssaultRules, defenders int) (int, int) {
 	return total, interval
 }
 
-func streamSpawn(rng *godot.RNG, arena Arena) godot.Vec {
-	return arena.Center.Add(godot.Vec{X: StreamSpawnRadius}.Rotated(rng.Randf() * godot.Tau))
+func streamSpawn(rng *godot.RNG, arena Arena, defenders []*sim.Ship) godot.Vec {
+	return spawnBeyondLine(arena, rng.Randf()*godot.Tau, StreamSpawnRadius, defenders)
 }
 
-func waveSpawn(rng *godot.RNG, arena Arena) godot.Vec {
-	return arena.Center.Add(godot.Vec{X: EnemySpawnRadius}.Rotated(rng.Randf() * godot.Tau))
+func waveSpawn(rng *godot.RNG, arena Arena, defenders []*sim.Ship) godot.Vec {
+	return spawnBeyondLine(arena, rng.Randf()*godot.Tau, EnemySpawnRadius, defenders)
+}
+
+func spawnBeyondLine(arena Arena, angle float64, baseRadius float64, defenders []*sim.Ship) godot.Vec {
+	distance := math.Max(baseRadius, farthestDefenderDistance(arena, defenders)+SpawnClearance)
+	edgeDistance := SiegeEdgePoint(arena, angle).DistanceTo(arena.Center)
+	return arena.Center.Add(godot.Vec{X: math.Min(distance, edgeDistance)}.Rotated(angle))
+}
+
+func farthestDefenderDistance(arena Arena, defenders []*sim.Ship) float64 {
+	farthest := 0.0
+	for _, defender := range defenders {
+		farthest = math.Max(farthest, defender.Position.DistanceTo(arena.Center))
+	}
+	return farthest
 }
 
 // Walks out from the planet on a bearing until it meets the arena border, so a
